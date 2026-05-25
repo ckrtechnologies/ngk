@@ -11,6 +11,8 @@ export const loginAdmin = createAsyncThunk('admin/login', async (credentials, { 
       body: JSON.stringify({ ...credentials, role: 'admin' }),
     });
     const data = await response.json();
+
+    console.log(response)
     if (!response.ok || !data.success) {
       return rejectWithValue(data.message || 'Login failed');
     }

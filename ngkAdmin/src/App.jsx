@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider, useSelector } from 'react-redux';
 import store from './redux/store';
@@ -20,7 +19,11 @@ const ProtectedLayout = ({ children }) => {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F5F6FA] w-full font-sans">
+    <div className="flex min-h-screen bg-slate-50/50 w-full font-sans antialiased relative overflow-x-hidden">
+      {/* Decorative ambient glows for design depth */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-rose-500/5 rounded-full blur-[120px] pointer-events-none -z-10 animate-glow-pulse"></div>
+      <div className="absolute bottom-0 left-1/3 w-[600px] h-[600px] bg-slate-200/40 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+
       <Sidebar />
       <div className="flex-1 pl-64 flex flex-col min-w-0">
         <Navbar />

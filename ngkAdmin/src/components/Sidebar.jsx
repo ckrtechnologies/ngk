@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { Users, FileText, Search, Store, LogOut } from 'lucide-react';
@@ -19,23 +18,23 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="w-64 bg-[#111111] text-white flex flex-col h-screen fixed left-0 top-0 z-30 shadow-2xl border-r border-[#222222]">
+    <aside className="w-64 bg-brand-dark text-white flex flex-col h-screen fixed left-0 top-0 z-30 shadow-2xl border-r border-white/5">
       {/* Brand Header */}
-      <div className="h-20 bg-[#C6122E] flex items-center px-6 shadow-lg">
+      <div className="h-20 flex items-center px-6 border-b border-white/5">
         <div className="flex items-center gap-3">
-          <div className="bg-white p-2 rounded-lg shadow-md">
-            <span className="text-[#C6122E] font-black text-xl tracking-wider">NGK</span>
+          <div className="bg-gradient-to-tr from-brand-red to-rose-500 p-2 rounded-xl shadow-lg shadow-brand-red/20">
+            <span className="text-white font-extrabold text-lg tracking-wider px-1">NGK</span>
           </div>
           <div>
-            <h1 className="font-extrabold text-lg tracking-wide leading-none">ADMIN PORTAL</h1>
-            <span className="text-xs text-red-200 font-semibold tracking-wider">ENTERPRISE SYSTEM</span>
+            <h1 className="font-black text-sm tracking-widest leading-none text-white">ADMIN PORTAL</h1>
+            <span className="text-[10px] text-gray-500 font-bold tracking-wider uppercase block mt-1">ENTERPRISE SYSTEM</span>
           </div>
         </div>
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-        <p className="px-3 text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Main Navigation</p>
+      <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto dark-scroll">
+        <p className="px-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Main Navigation</p>
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -43,10 +42,10 @@ const Sidebar = () => {
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-4 px-4 py-3.5 rounded-xl font-bold text-sm tracking-wide transition-all duration-200 ${
+                `flex items-center gap-4 px-4 py-3 rounded-xl font-semibold text-sm tracking-wide transition-all duration-200 border-l-2 relative ${
                   isActive
-                    ? 'bg-[#C6122E] text-white shadow-lg shadow-red-900/40 translate-x-1'
-                    : 'text-gray-400 hover:bg-[#222222] hover:text-white'
+                    ? 'bg-brand-red/10 text-white border-brand-red shadow-[inset_0_0_12px_rgba(225,29,72,0.08)] pl-5'
+                    : 'text-gray-400 hover:bg-white/[0.03] hover:text-white border-transparent pl-4 hover:translate-x-0.5'
                 }`
               }
             >
@@ -58,13 +57,13 @@ const Sidebar = () => {
       </nav>
 
       {/* Footer / Logout */}
-      <div className="p-4 border-t border-[#222222] bg-[#0A0A0A]">
+      <div className="p-4 border-t border-white/5 bg-black/20">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-[#222222] text-gray-300 hover:bg-[#C6122E] hover:text-white font-bold text-sm tracking-wide transition-all duration-200 shadow-md group"
+          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/5 text-gray-400 hover:bg-brand-red/20 hover:text-white hover:border-brand-red/30 font-bold text-xs tracking-widest uppercase transition-all duration-200 group"
         >
-          <LogOut className="w-4 h-4 group-hover:rotate-12 transition-transform duration-200" />
-          LOGOUT SESSION
+          <LogOut className="w-4 h-4 group-hover:translate-x-0.5 transition-transform duration-200" />
+          Logout Session
         </button>
       </div>
     </aside>
