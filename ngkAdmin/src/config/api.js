@@ -1,7 +1,8 @@
 const apiURL = "http://localhost:3001";
+const liveUrl = "https://ngkapi.argosmob.online/"
 const SERVICE_URL = "https://webservice.tecalliance.services/pegasus-3-0";
 
-const BASE_URL = `${apiURL}/api`;
+const BASE_URL = `${liveUrl}/api`;
 
 export const registerApi = `${BASE_URL}/user/register`;
 export const loginApi = `${BASE_URL}/user/login`;
@@ -14,3 +15,4 @@ export const updateEnquiryStatusApi = `${BASE_URL}/enquiry/updateStatus`;
 export const addEnquiryMessageApi = `${BASE_URL}/enquiry/addMessage`;
 
 export const serviceJsonApi = `${SERVICE_URL}/services/TecdocToCatDLB.jsonEndpoint`;
+export const readNotificationsApi = `${BASE_URL}/user/readNotifications`;

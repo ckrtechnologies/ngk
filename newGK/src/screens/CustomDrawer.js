@@ -1,11 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, PermissionsAndroid } from "react-native";
 import { Home, Heart, Search, Settings, LogOut, MessageSquare, Truck, Camera } from "lucide-react-native";
 import * as ImagePicker from "react-native-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useDispatch, useSelector } from "react-redux";
+import { getMyselfRedux } from "../redux/getData";
 
 export default function CustomDrawer({ navigation }) {
   const [Avatar, setAvatar] = React.useState(null);
+  const {myself} = useSelector((state) => state.getData);
+  const dispatch = useDispatch()
+
+  useEffect(() => {
+    if (!myself) {
+      dispatch(getMyselfRedux())
+    }
+  }, [dispatch]);
 
   const requestGalleryPermission = async () => {
     if (Platform.OS === "android") {
@@ -95,8 +105,8 @@ export default function CustomDrawer({ navigation }) {
           </View>
 
         </TouchableOpacity>
-        <Text style={styles.name}>Johnathan Doe</Text>
-        <Text style={styles.role}>End User</Text>
+        <Text style={styles.name}>{myself?.name}</Text>
+        <Text style={styles.role}>{myself?.role}</Text>
       </View>
 
       {/* Navigation */}

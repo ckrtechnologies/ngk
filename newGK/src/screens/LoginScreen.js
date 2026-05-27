@@ -231,7 +231,7 @@ const LoginScreen = ({ route, navigation }) => {
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
               <Text style={styles.inputLabel}>{config.passwordLabel}</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { role })}>
                 <Text style={[styles.passwordAction, { color: config.buttonColor }]}>
                   {config.passwordAction}
                 </Text>

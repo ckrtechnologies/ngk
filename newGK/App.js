@@ -15,9 +15,9 @@ const App = () => {
         
         
         <NavigationContainer ref={navigationRef}>
-          <Toast />
           <AppNavigator />
         </NavigationContainer>
+        <Toast />
       </SafeAreaProvider>
     </Provider>
   );

@@ -27,6 +27,28 @@ export const addEnquiry = async (req, res) => {
             }
         }).select();
 
+        const {data: user, error: userError} = await supabase.from('users').select('*').eq('id', userId);
+
+        const {data: admin, error: adminError} = await supabase.from('users').select('*').eq('role', 'admin');
+
+        if(!admin) {
+            return res.status(404).json({ success: false, message: "Admin not found" });
+        }
+        const adminNotification = admin[0].notifications;
+
+        const {data: notify, error: notifyError} = await supabase.from('users').update({
+            notifications: [...(user[0]?.notifications || []), {message: `A new enquiry has been added to you by ${user[0]?.name}`, isRead: false, timestamp: new Date().toISOString()}]
+        }).eq('id', userId).select();
+
+        const {data: notify1, error: notifyError1} = await supabase.from('users').update({
+            notifications: [...(adminNotification || []), {message: `A new enquiry has been added to you by ${user[0]?.name}`, isRead: false, timestamp: new Date().toISOString()}]
+        }).eq('id', admin[0].id).select();
+
+        if (notifyError) {
+            console.log("Error updating notifications:", notifyError);
+            return res.status(400).json({ success: false, message: "Failed to update notifications", error: notifyError.message });
+        }
+
         if (error) {
             console.log("Error inserting enquiry:", error);
             return res.status(400).json({ success: false, message: "Failed to add enquiry", error: error.message });
@@ -132,6 +154,15 @@ export const updateStatus = async (req, res) => {
             vehicle: updatedVehicle
         }).eq('id', id).select();
 
+        const {data: notify, error: notifyError} = await supabase.from('users').update({
+            notifications: [...notifications, {message: `Your enquiry status is changed to ${status.toUpperCase()}`, isRead: false, timestamp: new Date().toISOString()}]
+        }).eq('id', enquiry.userId).select();
+
+        if (notifyError) {
+            console.log("Error updating notifications:", notifyError);
+            return res.status(400).json({ success: false, message: "Failed to update notifications", error: notifyError.message });
+        }
+
         if (error) {
             console.log("Error updating status:", error);
             return res.status(400).json({ success: false, message: "Failed to update status", error: error.message });
@@ -174,6 +205,15 @@ export const addMessage = async (req, res) => {
         const { data, error } = await supabase.from('enquiry').update({
             vehicle: updatedVehicle
         }).eq('id', id).select();
+
+        const {data: notify, error: notifyError} = await supabase.from('users').update({
+            notifications: [...enquiry.users.notifications, {message: `A new message has been added to your enquiry by ${senderName}`, isRead: false, timestamp: new Date().toISOString()}]
+        }).eq('id', enquiry.userId).select();
+
+        if (notifyError) {
+            console.log("Error updating notifications:", notifyError);
+            return res.status(400).json({ success: false, message: "Failed to update notifications", error: notifyError.message });
+        }
 
         if (error) {
             console.log("Error adding message:", error);

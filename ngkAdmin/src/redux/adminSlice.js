@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { loginApi, getUsersApi, getEnquiriesApi, serviceJsonApi, updateUserApi, deleteUserApi, registerApi, updateEnquiryStatusApi, addEnquiryMessageApi } from '../config/api';
+import { loginApi, getUsersApi, getEnquiriesApi, serviceJsonApi, updateUserApi, deleteUserApi, registerApi, updateEnquiryStatusApi, addEnquiryMessageApi, readNotificationsApi } from '../config/api';
 import axios from 'axios';
 
 // Async Thunks
@@ -249,11 +249,41 @@ export const searchArticlesCatalog = createAsyncThunk('admin/searchArticlesCatal
   }
 });
 
+export const markNotificationsAsRead = createAsyncThunk('admin/markNotificationsAsRead', async (id, { rejectWithValue }) => {
+  try {
+    const response = await fetch(`${readNotificationsApi}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      return rejectWithValue(data.message || 'Failed to update notifications');
+    }
+    return data.user[0];
+  } catch (error) {
+    return rejectWithValue(error.message || 'Network error');
+  }
+});
+
+export const getMyself = createAsyncThunk('admin/getMyself', async (_, { rejectWithValue }) => {
+  try {
+    const user = JSON.parse(localStorage.getItem('adminUser'))
+    const response = await fetch(`${getUsersApi}/${user.id}`);
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      return rejectWithValue(data.message || 'Failed to fetch users');
+    }
+    return data.user[0];
+  } catch (error) {
+    return rejectWithValue(error.message || 'Network error');
+  }
+});
+
 // Initial State
-const savedUser = localStorage.getItem('adminUser');
+
 const initialState = {
-  adminUser: savedUser ? JSON.parse(savedUser) : null,
-  isAuthenticated: !!savedUser,
+  adminUser: null,
+  isAuthenticated: false,
   users: [],
   enquiries: [],
   catalogDealers: [],
@@ -288,6 +318,7 @@ const adminSlice = createSlice({
         state.loading = false;
         state.isAuthenticated = true;
         state.adminUser = action.payload;
+        localStorage.setItem('adminUser', JSON.stringify(action.payload));
       })
       .addCase(loginAdmin.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
 
@@ -379,7 +410,34 @@ const adminSlice = createSlice({
           state.catalogArticles = action.payload.data.array;
         }
       })
-      .addCase(searchArticlesCatalog.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+      .addCase(searchArticlesCatalog.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
+
+      // Mark Notifications as Read
+      .addCase(markNotificationsAsRead.pending, (state) => {
+        state.actionLoading = true;
+      })
+      .addCase(markNotificationsAsRead.fulfilled, (state, action) => {
+        state.actionLoading = false;
+        state.adminUser = action.payload;
+        localStorage.setItem('adminUser', JSON.stringify(action.payload));
+        localStorage.setItem('user', JSON.stringify(action.payload));
+      })
+      .addCase(markNotificationsAsRead.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(getMyself.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(getMyself.fulfilled, (state, action) => {
+        state.loading = false;
+        state.adminUser = action.payload;
+      })
+      .addCase(getMyself.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
   },
 });
 

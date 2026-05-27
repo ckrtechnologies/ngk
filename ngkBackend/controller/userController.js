@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const otpStore = new Map();
+
 export const registerUser = async (req, res) => {
     const { role, name, email, password, address } = req.body;
 
@@ -62,9 +64,87 @@ export const loginUser = async (req, res) => {
 
             return res.status(200).json({ success: true, message: "User logged in successfully", user: data })
         }
-        return res.status(400).json({ success: false, message: "User not found" })
+        return res.status(400).json({ success: false, message: "User not found! Please Register" })
     } catch (error) {
         return res.status(500).json({ success: false, message: "Something went wrong" })
+    }
+}
+
+export const updatePassword = async (req, res) => {
+    const { email, password } = req.body;
+
+    console.log(email, password)
+
+    try {
+        const user = await supabase.from('users').select('*').eq('email', email)
+        if (user.error || user.data.length === 0) {
+            return res.status(400).json({ success: false, message: "User Not Found! Please Register" })
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const { data: updateData, error: updateError } = await supabase.from('users').update({
+            password: hashedPassword
+        }).eq('id', user.data[0].id).select()
+
+        if (updateError) {
+            return res.status(400).json({ success: false, message: "Failed to update password" })
+        }
+        return res.status(200).json({ success: true, message: "Password updated successfully", user: updateData })
+    } catch (error) {
+        return res.status(500).json({ success: false, message: "Something went wrong" })
+    }
+}
+
+export const sendOtp = async (req, res) => {
+    const { email } = req.body;
+    try {
+        const { data, error } = await supabase.from('users').select('*').eq('email', email);
+        if (error || !data || data.length === 0) {
+            return res.status(400).json({ success: false, message: "User Not Found! Please Register" });
+        }
+
+        // Generate a 6-digit random OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expires = Date.now() + 5 * 60 * 1000; // 5 minutes expiration
+
+        otpStore.set(email, { otp, expires });
+
+        console.log(`[OTP Verification] Generated OTP for ${email}: ${otp}`);
+
+        return res.status(200).json({ 
+            success: true, 
+            message: "OTP sent successfully to email", 
+            otp: otp
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Something went wrong" });
+    }
+}
+
+export const verifyOtp = async (req, res) => {
+    const { email, otp } = req.body;
+    try {
+        const entry = otpStore.get(email);
+        if (!entry) {
+            return res.status(400).json({ success: false, message: "No OTP request found for this email" });
+        }
+
+        if (Date.now() > entry.expires) {
+            otpStore.delete(email);
+            return res.status(400).json({ success: false, message: "OTP has expired. Please request a new one" });
+        }
+
+        if (entry.otp !== otp) {
+            return res.status(400).json({ success: false, message: "Invalid OTP. Please try again" });
+        }
+
+        otpStore.delete(email);
+        return res.status(200).json({ success: true, message: "OTP verified successfully" });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ success: false, message: "Something went wrong" });
     }
 }
 
@@ -251,8 +331,18 @@ export const updateUser = async (req, res) => {
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
 
+    console.log(id)
+
     try {
-        const { error } = await supabase.from('users').delete().eq('id', id);
+
+        const { data: enquire, error: enquiryError } = await supabase.from('enquiry').delete().eq('user_id', id);
+
+        if (enquiryError) {
+            return res.status(400).json({ success: false, message: "Failed to delete user", error: enquiryError.message });
+        }
+
+        const { data, error } = await supabase.from('users').delete().eq('id', id);
+
 
         if (error) {
             return res.status(400).json({ success: false, message: "Failed to delete user", error: error.message });
@@ -263,3 +353,35 @@ export const deleteUser = async (req, res) => {
         return res.status(500).json({ success: false, message: "Something went wrong", error: error.message });
     }
 };
+
+export const readNotifications = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { data, error } = await supabase.from('users').select('*').eq('id', id);
+
+        if (error || !data || data.length === 0) {
+            return res.status(400).json({ success: false, message: "User Not Found" });
+        }
+
+        const updatedNotifications = data[0].notifications.map(notification => {
+            return {
+                ...notification,
+                isRead: true
+            };
+        });
+
+        const { error: updateError } = await supabase.from('users').update({
+            notifications: updatedNotifications
+        }).eq('id', id).select();
+
+        if (updateError) {
+            return res.status(400).json({ success: false, message: "Failed to update notifications" });
+        }
+
+        return res.status(200).json({ success: true, message: "Notifications updated successfully", user: [{ ...data[0], notifications: updatedNotifications }] });
+    } catch (err) {
+        console.log(err.message);
+        return res.status(500).json({ success: false, message: `Error: ${err.message}` });
+    }
+}

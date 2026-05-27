@@ -314,10 +314,10 @@ const DealerLocatorScreen = () => {
         {/* Results Header */}
         <View style={styles.resultsHeader}>
           <Text style={styles.resultsCount}>{filteredDealers.length} nearest results</Text>
-          <TouchableOpacity style={styles.settingsBtn}>
+          {/* <TouchableOpacity style={styles.settingsBtn}>
             <Settings color="#C6122E" size={wp('4%')} />
             <Text style={styles.settingsText}>Map Settings</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Dealer Cards */}
