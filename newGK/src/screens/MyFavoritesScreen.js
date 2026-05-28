@@ -84,15 +84,15 @@ const MyFavoritesScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#C6122E" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
           <ChevronLeft color="#FFFFFF" size={wp('7%')} />
         </TouchableOpacity>
-        
+
         <Text style={styles.headerTitle}>MY FAVORITES</Text>
-        
+
         <TouchableOpacity onPress={() => navigation.navigate('OwnerHome')} style={styles.homeIconButton}>
           <Home color="#C6122E" size={wp('5%')} />
         </TouchableOpacity>
@@ -104,9 +104,9 @@ const MyFavoritesScreen = () => {
           <Text style={styles.itemsSavedText}>
             {favorites.filter(item => item.isFavorite).length} ITEMS SAVED
           </Text>
-          <TouchableOpacity>
+          {/* <TouchableOpacity>
             <Text style={styles.editListText}>EDIT LIST</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -118,10 +118,10 @@ const MyFavoritesScreen = () => {
                     <Text style={styles.categoryText}>{item.category}</Text>
                   </View>
                   <TouchableOpacity onPress={() => toggleFavorite(item.id)}>
-                    <Heart 
-                      size={wp('6%')} 
-                      color="#EF4444" 
-                      fill={item.isFavorite ? "#EF4444" : "transparent"} 
+                    <Heart
+                      size={wp('6%')}
+                      color="#EF4444"
+                      fill={item.isFavorite ? "#EF4444" : "transparent"}
                     />
                   </TouchableOpacity>
                 </View>
@@ -131,7 +131,7 @@ const MyFavoritesScreen = () => {
                   <Text style={styles.partNumber}>{item.partNumber}</Text>
                 </View>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.viewDetailsButton}
                   onPress={() => handleOpenDetails(item)}
                 >

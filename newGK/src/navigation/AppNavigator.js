@@ -21,11 +21,12 @@ import ResellerHomeScreen from '../screens/Reseller/ResellerHome';
 import DistributorHomeScreen from '../screens/Distributor/DistributorHomeScreen'
 import CustomDrawer from '../screens/CustomDrawer';
 import MyFavoritesScreen from '../screens/MyFavoritesScreen';
-import NotificationsScreen from '../screens/Notification';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import RegisterScreen from '../screens/register';
 import VehiclesListScreen from '../screens/vehiclesListScreen';
 import ModalsScreen from '../screens/modalsScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import Notification from "../screens/Notification";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -114,7 +115,7 @@ const AppNavigator = () => {
       <Stack.Screen name='DistributorHomeScreen' component={DistributorHomeScreen} />
       <Stack.Screen name="CustomDrawer" component={CustomDrawer} />
       <Stack.Screen name="Watchlist" component={MyFavoritesScreen} />
-      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Notifications" component={Notification} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="VehiclesList" component={VehiclesListScreen} />
       <Stack.Screen name="ModalsScreen" component={ModalsScreen} />

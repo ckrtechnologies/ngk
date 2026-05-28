@@ -272,7 +272,7 @@ const PartsFinderScreen = () => {
                 currentStep >= step && styles.completedStepText,
                 currentStep === step && styles.activeStepText
               ]}>
-                {step === 1 ? 's1' : step === 2 ? 's2' : step === 3 ? 's3' : step}
+                {step === 1 ? 'S1' : step === 2 ? 'S2' : step === 3 ? 'S3' : 'S4'}
               </Text>
             </TouchableOpacity>
           ))}

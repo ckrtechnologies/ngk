@@ -28,6 +28,7 @@ const RegisterScreen = ({ route, navigation }) => {
     const [password, setPassword] = useState('');
     const [address, setAdress] = useState('');
     const [locationLoading, setLocationLoading] = useState(false);
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     const [loading, setLoading] = useState(false);
 
@@ -65,9 +66,12 @@ const RegisterScreen = ({ route, navigation }) => {
     };
 
     const validatePassword = (password) => {
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        const passwordRegex =
+            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+
         return passwordRegex.test(password);
     };
+
 
     const requestLocationPermission = async () => {
         if (Platform.OS === 'android') {
@@ -156,6 +160,11 @@ const RegisterScreen = ({ route, navigation }) => {
 
         if (!validatePassword(password)) {
             alert("Please enter a valid password");
+            return;
+        }
+
+        if (confirmPassword !== password) {
+            alert("Passwords do not match");
             return;
         }
 
@@ -254,6 +263,20 @@ const RegisterScreen = ({ route, navigation }) => {
                             secureTextEntry
                             value={password}
                             onChangeText={setPassword}
+                        />
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <View style={styles.labelRow}>
+                            <Text style={styles.inputLabel}>CONFIRM PASSWORD</Text>
+                        </View>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="••••••••"
+                            placeholderTextColor="#C0C0C0"
+                            secureTextEntry
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
                         />
                     </View>
 

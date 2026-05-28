@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { ArrowLeft } from 'lucide-react-native';
-import Config from "react-native-config";
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
 import { apiFunction } from '../apis/apiFunction';
 import { loginApi, serviceJsonApi } from '../apis/api';
 import Toast from 'react-native-toast-message';
@@ -27,6 +26,8 @@ const LoginScreen = ({ route, navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
 
 
 
@@ -68,13 +69,24 @@ const LoginScreen = ({ route, navigation }) => {
       footerText: 'NEED ACCESS? CONTACT YOUR REGIONAL ',
       footerAction: 'NGK CORPORATE ADMINISTRATOR',
     },
-  }[role];
+  };
+
+  const roleConfig = useMemo(() => {
+    if (role) {
+      return config[role];
+    } else {
+      return config.owner;
+    }
+  }, [role])
+
   const validateEmail = (email) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
   const validatePassword = (password) => {
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+
     return passwordRegex.test(password);
   };
 
@@ -100,79 +112,79 @@ const LoginScreen = ({ route, navigation }) => {
 
     try {
 
-    const response = await apiFunction(loginApi, [], { email, password, role }, "POST", false)
+      const response = await apiFunction(loginApi, [], { email, password, role }, "POST", false)
 
-    if (response?.success) {
+      if (response?.success) {
 
 
-      const res = await axios.get("https://api.ipify.org?format=json")
-      const ip = res.data.ip;
+        const res = await axios.get("https://api.ipify.org?format=json")
+        const ip = res.data.ip;
 
-      console.log("ip", ip)
+        console.log("ip", ip)
 
-      const addDynamicAddress = {
-        "provider": 25690,
-        "address": ip,
-        "validityHours": 2
-
-      }
-
-      const whiteListingIp = await apiFunction(serviceJsonApi, [], { addDynamicAddress }, "POST", false)
-
-      console.log("whiteListingIp", whiteListingIp)
-
-      if (whiteListingIp?.status !== 200) {
-        Toast.show({
-          type: 'error',
-          text1: 'Your IP Address is not whitelisted. Please contact your distributor to whitelist your IP address.',
-        });
-        setLoading(false);
-        return
-      } else {
-        const addDynamicAPIKey = {
+        const addDynamicAddress = {
           "provider": 25690,
+          "address": ip,
           "validityHours": 2
+
         }
-        const validApi = await apiFunction(serviceJsonApi, [], { addDynamicAPIKey }, "POST", false)
-        console.log(validApi)
-        if (validApi?.status !== 200) {
+
+        const whiteListingIp = await apiFunction(serviceJsonApi, [], { addDynamicAddress }, "POST", false)
+
+        console.log("whiteListingIp", whiteListingIp)
+
+        if (whiteListingIp?.status !== 200) {
           Toast.show({
             type: 'error',
-            text1: 'Could not get the token. Please try again.',
+            text1: 'Your IP Address is not whitelisted. Please contact your distributor to whitelist your IP address.',
           });
           setLoading(false);
           return
         } else {
-          await AsyncStorage.setItem("apiKey", validApi?.apiKey)
-          await AsyncStorage.setItem("role", role)
-          await AsyncStorage.setItem("userId", response?.user[0]?.id)
-          
-          setLoading(false);
-          Toast.show({
-            type: 'success',
-            text1: 'Login successful',
-          });
-          if (role === "owner") {
-            navigation.replace("OwnerHome");
+          const addDynamicAPIKey = {
+            "provider": 25690,
+            "validityHours": 2
           }
-          else if (role === "reseller") {
-            navigation.replace("ResellerHome");
-          }
-          else if (role === "distributor") {
-            navigation.replace("DistributorHomeScreen");
+          const validApi = await apiFunction(serviceJsonApi, [], { addDynamicAPIKey }, "POST", false)
+          console.log(validApi)
+          if (validApi?.status !== 200) {
+            Toast.show({
+              type: 'error',
+              text1: 'Could not get the token. Please try again.',
+            });
+            setLoading(false);
+            return
+          } else {
+            await AsyncStorage.setItem("apiKey", validApi?.apiKey)
+            await AsyncStorage.setItem("role", role)
+            await AsyncStorage.setItem("userId", response?.user[0]?.id)
+
+            setLoading(false);
+            Toast.show({
+              type: 'success',
+              text1: 'Login successful',
+            });
+            if (role === "owner") {
+              navigation.replace("OwnerHome");
+            }
+            else if (role === "reseller") {
+              navigation.replace("ResellerHome");
+            }
+            else if (role === "distributor") {
+              navigation.replace("DistributorHomeScreen");
+            }
           }
         }
+
+
       }
-
-
-    }
-    else {
-      Toast.show({
-        type: 'error',
-        text1: 'Login failed',
-      });
-      setLoading(false);
-    }
+      else {
+        Toast.show({
+          type: 'error',
+          text1: 'Login failed',
+        });
+        setLoading(false);
+      }
     } catch (error) {
       console.log(error);
       Toast.show({
@@ -201,7 +213,7 @@ const LoginScreen = ({ route, navigation }) => {
         {/* Logo */}
         <View style={styles.logoContainer}>
           <Image
-            source={config.logo}
+            source={roleConfig?.logo}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -209,8 +221,8 @@ const LoginScreen = ({ route, navigation }) => {
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>{config.title}</Text>
-          <Text style={styles.subtitle}>{config.subtitle}</Text>
+          <Text style={styles.title}>{roleConfig?.title}</Text>
+          <Text style={styles.subtitle}>{roleConfig?.subtitle}</Text>
         </View>
 
         {/* Form */}
@@ -219,7 +231,7 @@ const LoginScreen = ({ route, navigation }) => {
             <Text style={styles.inputLabel}>WORK EMAIL</Text>
             <TextInput
               style={styles.input}
-              placeholder={config.emailPlaceholder}
+              placeholder={roleConfig?.emailPlaceholder}
               placeholderTextColor="#C0C0C0"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -230,26 +242,34 @@ const LoginScreen = ({ route, navigation }) => {
 
           <View style={styles.inputGroup}>
             <View style={styles.labelRow}>
-              <Text style={styles.inputLabel}>{config.passwordLabel}</Text>
+              <Text style={styles.inputLabel}>{roleConfig?.passwordLabel}</Text>
               <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword', { role })}>
-                <Text style={[styles.passwordAction, { color: config.buttonColor }]}>
-                  {config.passwordAction}
+                <Text style={[styles.passwordAction, { color: roleConfig?.buttonColor }]}>
+                  {roleConfig?.passwordAction}
                 </Text>
               </TouchableOpacity>
             </View>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor="#C0C0C0"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              showPassword={true}
-            />
+            <View style={{ ...styles.input, flexDirection: 'row', alignItems: 'center' }}>
+              <TextInput
+                style={{ width: wp("65%") }}
+                placeholder="••••••••"
+                placeholderTextColor="#C0C0C0"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <Eye size={wp('5%')} color="#B0B0B0" /> : <EyeOff size={wp('5%')} color="#B0B0B0" />}
+              </TouchableOpacity>
+
+            </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.mainButton, { backgroundColor: config.buttonColor }]}
+            style={[styles.mainButton, { backgroundColor: roleConfig?.buttonColor }]}
             activeOpacity={0.8}
             onPress={handleLogin}
           >
@@ -261,12 +281,12 @@ const LoginScreen = ({ route, navigation }) => {
             activeOpacity={0.8}
             onPress={() => navigation.navigate('Register', { role })}
           >
-            <Text style={[styles.mainButtonText, { color: config.buttonColor }]}>REGISTER ACCOUNT</Text>
+            <Text style={[styles.mainButtonText, { color: roleConfig?.buttonColor }]}>REGISTER ACCOUNT</Text>
           </TouchableOpacity>
         </View>
 
         {/* Social Login / Divider */}
-        {config.showGoogle && (
+        {roleConfig?.showGoogle && (
           <View style={styles.socialSection}>
             <View style={styles.dividerContainer}>
               <View style={styles.divider} />
@@ -287,9 +307,9 @@ const LoginScreen = ({ route, navigation }) => {
         {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            {config.footerText}
-            <Text style={[styles.footerAction, { color: config.buttonColor }]}>
-              {config.footerAction}
+            {roleConfig?.footerText}
+            <Text style={[styles.footerAction, { color: roleConfig?.buttonColor }]}>
+              {roleConfig?.footerAction}
             </Text>
           </Text>
         </View>
@@ -367,6 +387,7 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: '#F3F4F9',
     height: hp('9%'),
+    width: wp("80%"),
     borderRadius: wp('4%'),
     paddingHorizontal: wp('5%'),
     fontSize: wp('4%'),

@@ -151,10 +151,10 @@ export default function CustomDrawer({ navigation }) {
       {/* More */}
       <Text style={styles.section}>More</Text>
 
-      <MenuItem
+      {/* <MenuItem
         icon={<Settings color="#fff" size={20} />}
         title="Settings"
-      />
+      /> */}
 
       <MenuItem
         icon={<LogOut color="#fff" size={20} />}

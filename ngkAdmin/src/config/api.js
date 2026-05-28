@@ -1,5 +1,5 @@
 const apiURL = "http://localhost:3001";
-const liveUrl = "https://ngkapi.argosmob.online/"
+const liveUrl = "https://ngkapi.argosmob.online"
 const SERVICE_URL = "https://webservice.tecalliance.services/pegasus-3-0";
 
 const BASE_URL = `${liveUrl}/api`;

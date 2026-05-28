@@ -181,52 +181,56 @@ export const addMessage = async (req, res) => {
     const { id } = req.params;
     const { sender, senderName, text } = req.body;
 
-    try {
-        const { data: currentData, error: fetchError } = await supabase.from('enquiry').select('*').eq('id', id);
-        if (fetchError || !currentData || currentData.length === 0) {
-            return res.status(404).json({ success: false, message: "Enquiry not found" });
-        }
+    console.log(sender, senderName, text, "dhjvgfsuy")
 
-        const enquiry = currentData[0];
-        const v = enquiry.vehicle || {};
-        const messages = v.messages || [];
-
-        const newMsg = {
-            sender: sender || 'user',
-            senderName: senderName || 'User',
-            text: text,
-            timestamp: new Date().toISOString(),
-            isSystem: false
-        };
-
-        const updatedVehicle = {
-            ...v,
-            messages: [...messages, newMsg]
-        };
-
-        const { data, error } = await supabase.from('enquiry').update({
-            vehicle: updatedVehicle
-        }).eq('id', id).select();
-
-        const { data: user, error: userError } = await supabase.from('users').select('*').eq('id', enquiry.userId);
-
-        const { data: notify, error: notifyError } = await supabase.from('users').update({
-            notifications: [...(user[0]?.notifications || []), { message: `A new message has been added to your enquiry by ${senderName}`, isRead: false, timestamp: new Date().toISOString() }]
-        }).eq('id', enquiry.userId).select();
-
-        if (notifyError) {
-            console.log("Error updating notifications:", notifyError);
-            return res.status(400).json({ success: false, message: "Failed to update notifications", error: notifyError.message });
-        }
-
-        if (error) {
-            console.log("Error adding message:", error);
-            return res.status(400).json({ success: false, message: "Failed to add message", error: error.message });
-        }
-
-        return res.status(200).json({ success: true, message: "Message added successfully", enquiry: data });
-    } catch (error) {
-        console.log("Server error addMessage:", error);
-        return res.status(500).json({ success: false, message: "Something went wrong", error: error.message });
+    // try {
+    const { data: currentData, error: fetchError } = await supabase.from('enquiry').select('*').eq('id', id);
+    if (fetchError || !currentData || currentData.length === 0) {
+        return res.status(404).json({ success: false, message: "Enquiry not found" });
     }
+
+    const enquiry = currentData[0];
+    const v = enquiry.vehicle || {};
+    const messages = v.messages || [];
+
+    const newMsg = {
+        sender: sender || 'user',
+        senderName: senderName || 'User',
+        text: text,
+        timestamp: new Date().toISOString(),
+        isSystem: false
+    };
+
+    const updatedVehicle = {
+        ...v,
+        messages: [...messages, newMsg]
+    };
+
+    const { data, error } = await supabase.from('enquiry').update({
+        vehicle: updatedVehicle
+    }).eq('id', id).select();
+
+
+    const { data: user, error: userError } = await supabase.from('users').select('*').eq('id', enquiry.user_id);
+
+
+    const { data: notify, error: notifyError } = await supabase.from('users').update({
+        notifications: [...(user[0]?.notifications || []), { message: `A new message has been added to your enquiry by ${senderName}`, isRead: false, timestamp: new Date().toISOString() }]
+    }).eq('id', enquiry.user_id).select();
+
+    if (notifyError) {
+        console.log("Error updating notifications:", notifyError);
+        return res.status(400).json({ success: false, message: "Failed to update notifications", error: notifyError.message });
+    }
+
+    if (error) {
+        console.log("Error adding message:", error);
+        return res.status(400).json({ success: false, message: "Failed to add message", error: error.message });
+    }
+
+    return res.status(200).json({ success: true, message: "Message added successfully", enquiry: data });
+    // } catch (error) {
+    //     console.log("Server error addMessage:", error);
+    //     return res.status(500).json({ success: false, message: "Something went wrong", error: error.message });
+    // }
 };
