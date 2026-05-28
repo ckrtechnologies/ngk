@@ -1,6 +1,7 @@
 import supabase from "../utils/supabase.js"
 import bcrypt from 'bcrypt';
 import dotenv from "dotenv";
+import axios from "axios"
 
 dotenv.config();
 
@@ -61,11 +62,37 @@ export const loginUser = async (req, res) => {
             }
 
 
+            const response = await axios.get("https://api.ipify.org?format=json")
+            const ip = response.data.ip;
 
-            return res.status(200).json({ success: true, message: "User logged in successfully", user: data })
+
+            const addDynamicAddress = {
+                "provider": process.env.PROVIDER_ID,
+                "address": ip,
+                "validityHours": 2
+
+            }
+
+            const whiteListingIp = await axios.post(`${process.env.SERVICE_URL}/services/TecdocToCatDLB.jsonEndpoint`, { addDynamicAddress })
+
+            if (whiteListingIp?.status !== 200) {
+                return res.status(400).json({ success: false, message: "Your IP Address is not whitelisted. Please contact your distributor to whitelist your IP address." })
+            } else {
+                const addDynamicAPIKey = {
+                    "provider": process.env.PROVIDER_ID,
+                    "validityHours": 2
+                }
+                const validApi = await axios.post(`${process.env.SERVICE_URL}/services/TecdocToCatDLB.jsonEndpoint`, { addDynamicAPIKey })
+                console.log(validApi.data.apiKey, "apiKey")
+                if (validApi?.status !== 200) {
+                    return res.status(400).json({ success: false, message: "Could not get the token. Please try again." })
+                }
+                return res.status(200).json({ success: true, message: "User logged in successfully", user: data, apiKey: validApi?.data?.apiKey })
+            }
+            return res.status(400).json({ success: false, message: "User not found! Please Register" })
         }
-        return res.status(400).json({ success: false, message: "User not found! Please Register" })
-    } catch (error) {
+    }
+    catch (error) {
         return res.status(500).json({ success: false, message: "Something went wrong" })
     }
 }
@@ -112,9 +139,9 @@ export const sendOtp = async (req, res) => {
 
         console.log(`[OTP Verification] Generated OTP for ${email}: ${otp}`);
 
-        return res.status(200).json({ 
-            success: true, 
-            message: "OTP sent successfully to email", 
+        return res.status(200).json({
+            success: true,
+            message: "OTP sent successfully to email",
             otp: otp
         });
     } catch (err) {
