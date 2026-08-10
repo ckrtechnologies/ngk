@@ -1,9 +1,10 @@
 import Config from "react-native-config"
 
-const apiURL = "http://192.168.1.44:3001"
-const liveUrl = "https://ngkapi.argosmob.online"
+const apiURL = "http://192.168.1.46:3001"
+// const liveUrl = "https://ngkapi.argosmob.online"
 const SERVICE_URL = "https://webservice.tecalliance.services/pegasus-3-0"
-const BASE_URL = `${liveUrl}/api`
+// const BASE_URL = `${liveUrl}/api`
+const BASE_URL = `${apiURL}/api`
 
 export const registerApi = `${BASE_URL}/user/register`
 export const loginApi = `${BASE_URL}/user/login`
