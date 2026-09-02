@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  TextInput,
-  ActivityIndicator,
+  Image,
+  ScrollView,
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { ChevronLeft, Home, Minus, Plus, UploadCloud, Info, Settings, ShoppingCart } from 'lucide-react-native';
+import {
+  UploadCloud,
+  Car,
+  Tag,
+  Store,
+  Trash2,
+  Plus,
+  Minus,
+  CheckCircle2,
+} from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
@@ -20,13 +25,17 @@ import { addEnquiryApi, uploadApi } from '../apis/api';
 import { useDispatch, useSelector } from 'react-redux';
 import { getUsersRedux } from '../redux/getData';
 import { launchImageLibrary } from 'react-native-image-picker';
+import ScreenContainer from '../components/common/ScreenContainer';
+import AppHeader from '../components/common/AppHeader';
+import AppInput from '../components/common/AppInput';
+import AppButton from '../components/common/AppButton';
 
 const TechnicalEnquiryScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
 
-  const { users, loading: usersLoading } = useSelector((state) => state.getData);
+  const { users } = useSelector((state) => state.getData);
 
   const part = route.params?.part;
   const vehicle = route.params?.vehicle;
@@ -39,20 +48,33 @@ const TechnicalEnquiryScreen = () => {
   const [imageUri, setImageUri] = useState(null);
   const [imageObj, setImageObj] = useState(null);
 
-  React.useEffect(() => {
-    if (!users) {
+  useEffect(() => {
+    if (!users || users.length === 0) {
       dispatch(getUsersRedux());
     }
   }, [dispatch, users]);
 
-  const resellers = (users || []).filter(u => u.role?.toLowerCase() === 'reseller' || u.role?.toLowerCase() === 'distributor');
+  const resellers = (users || []).filter(
+    (u) =>
+      u.role?.toLowerCase() === 'reseller' ||
+      u.role?.toLowerCase() === 'distributor'
+  );
 
-  const increment = () => setQuantity(prev => prev + 1);
-  const decrement = () => setQuantity(prev => (prev > 1 ? prev - 1 : 1));
+  // Auto-select first reseller if none selected
+  useEffect(() => {
+    if (!selectedDealerId && resellers.length > 0) {
+      setSelectedDealerId(resellers[0].id);
+    }
+  }, [resellers, selectedDealerId]);
 
   const handleImagePick = async () => {
     const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
-    if (result.didCancel || result.errorCode || !result.assets || result.assets.length === 0) {
+    if (
+      result.didCancel ||
+      result.errorCode ||
+      !result.assets ||
+      result.assets.length === 0
+    ) {
       return;
     }
     const asset = result.assets[0];
@@ -60,19 +82,17 @@ const TechnicalEnquiryScreen = () => {
     setImageObj(asset);
   };
 
+  const handleRemoveImage = () => {
+    setImageUri(null);
+    setImageObj(null);
+  };
+
   const handleSubmit = async () => {
     if (!selectedDealerId) {
       Toast.show({
         type: 'error',
-        text1: 'Please select a reseller dealer',
-      });
-      return;
-    }
-
-    if (!vehicle && !part && !imageUri) {
-      Toast.show({
-        type: 'error',
-        text1: 'Please upload a photo reference before submitting',
+        text1: 'Dealer Required',
+        text2: 'Please select a reseller or distributor dealer.',
       });
       return;
     }
@@ -80,7 +100,8 @@ const TechnicalEnquiryScreen = () => {
     if (!enquiryDetails.trim()) {
       Toast.show({
         type: 'error',
-        text1: 'Please enter enquiry details',
+        text1: 'Details Required',
+        text2: 'Please enter details or describe your technical inquiry.',
       });
       return;
     }
@@ -98,385 +119,331 @@ const TechnicalEnquiryScreen = () => {
           type: imageObj.type || 'image/jpeg',
         });
 
-        try {
-          const uploadRes = await fetch(uploadApi, {
-            method: 'POST',
-            body: formData,
-            headers: {
-              'Accept': 'application/json',
-            },
-          });
-          const uploadJson = await uploadRes.json();
-          if (uploadJson?.url || uploadJson?.publicUrl) {
-            uploadedImageUrl = uploadJson.url || uploadJson.publicUrl;
-          }
-        } catch (uploadErr) {
-          console.warn('Image upload error:', uploadErr);
+        const uploadRes = await apiFunction(uploadApi, [], formData, 'POST', true);
+        if (uploadRes?.success && uploadRes?.file?.url) {
+          uploadedImageUrl = uploadRes.file.url;
         }
       }
 
-      const userId = await AsyncStorage.getItem("userId");
-      const title = part?.title || vehicle?.typeName || vehicle?.modelName || vehicle?.vehicleDescription || (uploadedImageUrl ? "Enquiry with Photo Reference" : "General Technical Enquiry");
-      const description = part?.subtitle || vehicle?.manuName || (uploadedImageUrl ? "Uploaded part image for verification" : "Direct contact with NGK engineers");
-
-      const body = {
-        userId: userId,
-        dealer: selectedDealerId,
-        enquiryDate: new Date().toISOString(),
-        vehicle: (vehicle || part) ? {
-          status: "Pending",
-          quantity: quantity,
-          enquiryDetails: enquiryDetails,
-          part: part || null,
-          vehicle: vehicle || null,
-          title: title,
-          description: description,
-          imageurl: uploadedImageUrl || null,
-          messages: [
-            {
-              sender: "owner",
-              senderName: "Owner",
-              text: enquiryDetails,
-              timestamp: new Date().toISOString(),
-              isSystem: false
-            }
-          ]
-        } : null
+      const userId = await AsyncStorage.getItem('userId');
+      const payload = {
+        userId: userId ? Number(userId) : null,
+        dealerId: selectedDealerId ? Number(selectedDealerId) : null,
+        partName: part?.articleName || part?.name || null,
+        partNumber: part?.articleNo || part?.partNumber || null,
+        carName: vehicle?.model || vehicle?.name || null,
+        quantity: Number(quantity) || 1,
+        enquiryDetails: enquiryDetails.trim(),
+        imageUrl: uploadedImageUrl,
       };
 
-      console.log(body, "body");
-
-      const response = await apiFunction(addEnquiryApi, [], body, "POST", false);
+      const response = await apiFunction(addEnquiryApi, [], payload, 'POST', false);
 
       if (response?.success) {
+        setLoading(false);
         Toast.show({
           type: 'success',
-          text1: 'Enquiry submitted successfully',
+          text1: 'Enquiry Submitted',
+          text2: 'Your technical ticket has been assigned to the dealer.',
         });
-        setLoading(false);
-        navigation.navigate('Success');
+        navigation.navigate('MyEnquiries');
       } else {
+        setLoading(false);
         Toast.show({
           type: 'error',
-          text1: response?.message || 'Failed to submit enquiry',
+          text1: 'Submission Failed',
+          text2: response?.message || 'Error submitting technical enquiry.',
         });
-        setLoading(false);
       }
-    } catch (error) {
-      console.log("Error submitting enquiry:", error);
+    } catch (err) {
+      setLoading(false);
       Toast.show({
         type: 'error',
-        text1: 'Something went wrong',
+        text1: 'Error',
+        text2: err?.response?.data?.message || 'Network connection failed.',
       });
-      setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <ScreenContainer
+      scrollable={true}
+      footer={
+        <AppButton
+          title="Submit Technical Ticket"
+          onPress={handleSubmit}
+          loading={loading}
+          backgroundColor="#059669"
+        />
+      }
+    >
+      <AppHeader
+        title="Technical Enquiry"
+        subtitle="Support & Verification Request"
+        onBack={() => navigation.goBack()}
+      />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ChevronLeft color="#FFFFFF" size={wp('6%')} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Technical Enquiry</Text>
-        <TouchableOpacity style={styles.homeIconContainer} onPress={() => navigation.navigate('OwnerHome')}>
-          <Home color="#C6122E" size={wp('5%')} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
-        {/* Info Box */}
-        <View style={styles.infoBox}>
-          <Info color="#000000" size={wp('5%')} />
-          <Text style={styles.infoBoxText}>
-            This enquiry will be sent directly to NGK's technical department for application verification.
-          </Text>
+      {/* Linked Part / Vehicle Context Chip */}
+      {(part || vehicle) && (
+        <View style={styles.contextCard}>
+          {part && (
+            <View style={styles.contextRow}>
+              <Tag size={15} color="#C6122E" />
+              <Text style={styles.contextText}>
+                {part.articleName || 'Part'}:{' '}
+                <Text style={{ fontWeight: '700' }}>
+                  {part.articleNo || part.partNumber}
+                </Text>
+              </Text>
+            </View>
+          )}
+          {vehicle && (
+            <View style={styles.contextRow}>
+              <Car size={15} color="#2563EB" />
+              <Text style={styles.contextText}>
+                Vehicle:{' '}
+                <Text style={{ fontWeight: '700' }}>
+                  {vehicle.make} {vehicle.model}
+                </Text>
+              </Text>
+            </View>
+          )}
         </View>
+      )}
 
-        {/* Selected Part/Vehicle Card */}
-        {(part || vehicle) && (
-          <View style={styles.targetCard}>
-            <Text style={styles.targetLabel}>ENQUIRY TARGET</Text>
-            {part && (
-              <View style={styles.targetInfo}>
-                <Text style={styles.targetTitle}>{part.title}</Text>
-                <Text style={styles.targetSubtitle}>Part No: {part.partNumber || part.subtitle}</Text>
-              </View>
-            )}
-            {vehicle && !part && (
-              <View style={styles.targetInfo}>
-                <Text style={styles.targetTitle}>{vehicle.typeName || vehicle.modelName || vehicle.vehicleDescription}</Text>
-                <Text style={styles.targetSubtitle}>{vehicle.manuName || vehicle.make} • {vehicle.yearOfConstrFrom || ''} - {vehicle.yearOfConstrTo || ''}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Dealer Selection if !dealerId */}
-        {!dealerId && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>SELECT RESELLER DEALER</Text>
-            {usersLoading ? (
-               <Text style={{ color: '#8E8E8E', fontSize: wp('3%') }}>Loading resellers...</Text>
-            ) : resellers.length > 0 ? (
-              resellers.map((dealer) => (
-                <TouchableOpacity
-                  key={dealer.id}
-                  style={[
-                    styles.dealerCardSelect,
-                    selectedDealerId === dealer.id && styles.selectedDealerCard
-                  ]}
-                  onPress={() => setSelectedDealerId(dealer.id)}
-                >
-                  <View>
-                    <Text style={[styles.dealerName, selectedDealerId === dealer.id && { color: '#C6122E' }]}>
-                      {dealer.name}
-                    </Text>
-                    <Text style={styles.dealerAddressText}>{dealer.address || dealer.email}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))
-            ) : (
-              <Text style={{ color: '#8E8E8E', fontSize: wp('3%') }}>No resellers found.</Text>
-            )}
-          </View>
-        )}
-
-        {/* Quantity Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>QUANTITY REQUIRED</Text>
-          <View style={styles.quantityContainer}>
-            <TouchableOpacity style={styles.qtyBtn} onPress={decrement}>
-              <Minus color="#000000" size={wp('5%')} />
+      {/* Reseller / Dealer Selector */}
+      <Text style={styles.sectionLabel}>ASSIGN TO AUTHORIZED DEALER</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.dealerPillRow}
+      >
+        {resellers.map((r) => {
+          const isSelected = selectedDealerId === r.id;
+          return (
+            <TouchableOpacity
+              key={r.id}
+              style={[
+                styles.dealerPill,
+                isSelected && styles.dealerPillSelected,
+              ]}
+              onPress={() => setSelectedDealerId(r.id)}
+              activeOpacity={0.7}
+            >
+              <Store
+                size={14}
+                color={isSelected ? '#FFFFFF' : '#4B5563'}
+              />
+              <Text
+                style={[
+                  styles.dealerPillText,
+                  isSelected && styles.dealerPillTextSelected,
+                ]}
+              >
+                {r.name || r.email}
+              </Text>
+              {isSelected && <CheckCircle2 size={13} color="#FFFFFF" />}
             </TouchableOpacity>
-            <Text style={styles.qtyText}>{quantity}</Text>
-            <TouchableOpacity style={styles.qtyBtn} onPress={increment}>
-              <Plus color="#000000" size={wp('5%')} />
-            </TouchableOpacity>
-          </View>
-        </View>
+          );
+        })}
+      </ScrollView>
 
-        {/* Enquiry Details */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>ENQUIRY DETAILS</Text>
-          <TextInput
-            style={styles.textArea}
-            placeholder="Describe your technical requirement or vehicle modification details..."
-            placeholderTextColor="#D1D1D1"
-            multiline={true}
-            numberOfLines={10}
-            value={enquiryDetails}
-            onChangeText={setEnquiryDetails}
-            textAlignVertical="top"
-          />
-        </View>
-
-        {/* Photo Reference */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>PHOTO REFERENCE {(!vehicle && !part) ? '(REQUIRED)' : '(OPTIONAL)'}</Text>
-          <TouchableOpacity style={styles.uploadBox} onPress={handleImagePick}>
-            <UploadCloud color="#D1D1D1" size={wp('8%')} />
-            <Text style={styles.uploadText}>{imageUri ? 'PHOTO SELECTED (TAP TO CHANGE)' : 'UPLOAD CURRENT PART'}</Text>
+      {/* Quantity Selector */}
+      <View style={styles.quantityCard}>
+        <Text style={styles.quantityLabel}>Requested Quantity</Text>
+        <View style={styles.stepperBox}>
+          <TouchableOpacity
+            style={styles.stepperBtn}
+            onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+            activeOpacity={0.7}
+          >
+            <Minus size={16} color="#111827" />
+          </TouchableOpacity>
+          <Text style={styles.stepperValue}>{quantity}</Text>
+          <TouchableOpacity
+            style={styles.stepperBtn}
+            onPress={() => setQuantity((q) => q + 1)}
+            activeOpacity={0.7}
+          >
+            <Plus size={16} color="#111827" />
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Submit Button */}
-        <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitBtnText}>Submit enquiry</Text>
-          )}
-        </TouchableOpacity>
+      {/* Multi-line Description Field */}
+      <AppInput
+        label="Description / Issue Details"
+        placeholder="Describe the vehicle symptom, VIN number, or fitment question..."
+        value={enquiryDetails}
+        onChangeText={setEnquiryDetails}
+        multiline={true}
+        numberOfLines={4}
+      />
 
-      </ScrollView>
-    </SafeAreaView>
+      {/* Photo Attachment Bar */}
+      <Text style={styles.sectionLabel}>PHOTO REFERENCE (OPTIONAL)</Text>
+      <View style={styles.photoContainer}>
+        {imageUri ? (
+          <View style={styles.photoPreviewWrapper}>
+            <Image source={{ uri: imageUri }} style={styles.photoPreview} />
+            <TouchableOpacity
+              style={styles.photoDeleteBtn}
+              onPress={handleRemoveImage}
+              activeOpacity={0.7}
+            >
+              <Trash2 size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.photoUploadBtn}
+            onPress={handleImagePick}
+            activeOpacity={0.7}
+          >
+            <UploadCloud size={20} color="#6B7280" />
+            <Text style={styles.photoUploadText}>Tap to attach photo or diagram</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  contextCard: {
     backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
   },
-  header: {
-    backgroundColor: '#C6122E',
-    height: hp('8%'),
+  contextRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp('4%'),
+    gap: 8,
   },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-  },
-  homeIconContainer: {
-    backgroundColor: '#FFFFFF',
-    width: wp('9%'),
-    height: wp('9%'),
-    borderRadius: wp('4.5%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContent: {
-    paddingHorizontal: wp('6%'),
-    paddingTop: hp('3%'),
-    paddingBottom: hp('5%'),
-  },
-  infoBox: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: wp('3%'),
-    padding: wp('4%'),
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: hp('3%'),
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  infoBoxText: {
-    fontSize: wp('2.8%'),
-    color: '#000000',
-    fontWeight: '500',
-    marginLeft: wp('3%'),
-    flexShrink: 1,
-    lineHeight: wp('4%'),
-  },
-  targetCard: {
-    backgroundColor: '#FFF9FA',
-    borderRadius: wp('4%'),
-    padding: wp('4%'),
-    marginBottom: hp('3%'),
-    borderWidth: 1,
-    borderColor: '#FFE0E6',
-  },
-  targetLabel: {
-    fontSize: wp('2.5%'),
-    color: '#C6122E',
-    fontWeight: 'bold',
-    marginBottom: hp('0.5%'),
-    letterSpacing: 0.5,
-  },
-  targetTitle: {
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  targetSubtitle: {
-    fontSize: wp('3.2%'),
-    color: '#666666',
-    marginTop: hp('0.2%'),
-  },
-  dealerCardSelect: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: wp('4%'),
-    padding: wp('4%'),
-    marginBottom: hp('1.5%'),
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  selectedDealerCard: {
-    backgroundColor: '#FFF9FA',
-    borderColor: '#C6122E',
-  },
-  dealerName: {
-    fontSize: wp('4%'),
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  dealerAddressText: {
-    fontSize: wp('3%'),
-    color: '#666666',
-    marginTop: hp('0.5%'),
-  },
-  section: {
-    marginBottom: hp('4%'),
+  contextText: {
+    fontSize: 13,
+    color: '#374151',
   },
   sectionLabel: {
-    fontSize: wp('2.8%'),
-    color: '#8E8E8E',
-    fontWeight: 'bold',
-    marginBottom: hp('1.5%'),
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#6B7280',
     letterSpacing: 0.5,
+    marginBottom: 8,
   },
-  quantityContainer: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: wp('4%'),
-    height: hp('8%'),
+  dealerPillRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  dealerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  dealerPillSelected: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  dealerPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  dealerPillTextSelected: {
+    color: '#FFFFFF',
+  },
+  quantityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: wp('2%'),
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  qtyBtn: {
-    width: wp('12%'),
-    height: hp('6%'),
     backgroundColor: '#FFFFFF',
-    borderRadius: wp('3%'),
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 14,
+  },
+  quantityLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  stepperBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    padding: 2,
+  },
+  stepperBtn: {
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
   },
-  qtyText: {
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-    color: '#000000',
+  stepperValue: {
+    paddingHorizontal: 12,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
   },
-  textArea: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: wp('4%'),
-    padding: wp('4%'),
-    height: hp('15%'),
-    fontSize: wp('3.5%'),
-    color: '#000000',
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
+  photoContainer: {
+    marginBottom: 14,
   },
-  uploadBox: {
-    borderWidth: 1,
-    borderColor: '#D1D1D1',
+  photoUploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
     borderStyle: 'dashed',
-    borderRadius: wp('4%'),
-    height: hp('12%'),
+    paddingVertical: 16,
+  },
+  photoUploadText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  photoPreviewWrapper: {
+    position: 'relative',
+    width: 100,
+    height: 80,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  photoPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  photoDeleteBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  uploadText: {
-    fontSize: wp('2.5%'),
-    color: '#8E8E8E',
-    fontWeight: 'bold',
-    marginTop: hp('1%'),
-    letterSpacing: 0.5,
-  },
-  submitBtn: {
-    backgroundColor: '#C6122E',
-    borderRadius: wp('4%'),
-    height: hp('8%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: hp('2%'),
-    shadowColor: '#C6122E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  submitBtnText: {
-    color: '#FFFFFF',
-    fontSize: wp('4%'),
-    fontWeight: 'bold',
   },
 });
 

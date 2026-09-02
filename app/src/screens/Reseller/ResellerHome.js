@@ -1,463 +1,340 @@
-import React, { useEffect } from "react";
+import React, { useEffect } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    SafeAreaView,
-    StatusBar,
-    ScrollView,
-} from "react-native";
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from "react-native-responsive-screen";
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
+  Image,
+} from 'react-native';
 import {
-    Menu,
-    Bell,
-    Home,
-    Search,
-    MessageSquare,
-    ShoppingCart,
-    Settings,
-    Truck,
-    ChevronRight,
-    CheckCircle,
-    Clock
-} from "lucide-react-native";
-import { useNavigation, DrawerActions } from "@react-navigation/native";
-import { useDispatch, useSelector } from "react-redux";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getEnquiryRedux, getMyselfRedux, getArticlesRedux } from "../../redux/getData";
+  Menu,
+  Bell,
+  Search,
+  MessageSquare,
+  Package,
+  MapPin,
+  Clock,
+  CheckCircle2,
+  ChevronRight,
+  TrendingUp,
+} from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getEnquiryRedux, getMyselfRedux } from '../../redux/getData';
 
 const ResellerHomeScreen = () => {
-    const navigation = useNavigation();
-    const dispatch = useDispatch();
-    const { enquiry, myself, articles } = useSelector((state) => state.getData);
+  const navigation = useNavigation();
+  const dispatch = useDispatch();
+  const { enquiry, myself } = useSelector((state) => state.getData);
 
-    useEffect(() => {
-        const fetchDashboardData = async () => {
-            const userId = await AsyncStorage.getItem("userId");
-            if (userId) {
-                dispatch(getMyselfRedux(userId));
-                dispatch(getEnquiryRedux(userId));
-            }
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        dispatch(getMyselfRedux(userId));
+        dispatch(getEnquiryRedux(userId));
+      }
+    };
+    fetchDashboardData();
+  }, [dispatch]);
 
-            const getArticlesParams = {
-                "articleCountry": "ZA",
-                "dataSupplierIds": ["5567", "7729"],
-                "lang": "en",
-                "perPage": 10,
-                "page": 1,
-                "includeAll": true
-            };
-            dispatch(getArticlesRedux({ getArticles: getArticlesParams }));
-        };
+  const pendingCount =
+    enquiry?.filter((e) => (e.status || 'Pending').toLowerCase() === 'pending')
+      ?.length || 0;
+  const inProgressCount =
+    enquiry?.filter(
+      (e) => (e.status || '').toLowerCase() === 'in progress'
+    )?.length || 0;
 
-        fetchDashboardData();
-    }, [dispatch]);
+  const quickActions = [
+    {
+      id: 'lookup',
+      title: 'Parts Lookup',
+      subtitle: 'Fast OE & cross-reference',
+      icon: <Search size={22} color="#C6122E" />,
+      bg: '#FEE2E2',
+      route: 'PartsFinder',
+    },
+    {
+      id: 'enquiries',
+      title: 'Active Tickets',
+      subtitle: `${pendingCount} pending customer requests`,
+      icon: <MessageSquare size={22} color="#2563EB" />,
+      bg: '#DBEAFE',
+      route: 'MyEnquiries',
+    },
+    {
+      id: 'orders',
+      title: 'Trade Supply',
+      subtitle: 'Distributor order requests',
+      icon: <Package size={22} color="#059669" />,
+      bg: '#D1FAE5',
+      route: 'PartsFinder',
+    },
+    {
+      id: 'dealers',
+      title: 'Stockists',
+      subtitle: 'Regional supplier network',
+      icon: <MapPin size={22} color="#D97706" />,
+      bg: '#FEF3C7',
+      route: 'DealerLocatorScreen',
+    },
+  ];
 
-    const pendingCount = enquiry?.filter(e => (e.vehicle?.status || e.status) === 'Pending')?.length || 0;
-    const approvedCount = enquiry?.filter(e => (e.vehicle?.status || e.status) === 'Approved')?.length || 0;
-    const recentEnquiries = enquiry?.slice(0, 2) || [];
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#D3132A" />
+      {/* 52px Native App Header */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => navigation.navigate('CustomDrawer')}
+          activeOpacity={0.7}
+        >
+          <Menu size={22} color="#111827" />
+        </TouchableOpacity>
 
-            {/* HEADER */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigation.navigate('CustomDrawer')}>
-                    <Menu color="#fff" size={wp("6%")} />
-                </TouchableOpacity>
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
 
-                <Text style={styles.headerTitle}>Reseller Portal</Text>
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => navigation.navigate('Notifications')}
+          activeOpacity={0.7}
+        >
+          <Bell size={20} color="#111827" />
+          {pendingCount > 0 && <View style={styles.badgeDot} />}
+        </TouchableOpacity>
+      </View>
 
-                <View style={styles.headerRight}>
-                    <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications')}>
-                        {pendingCount > 0 && <View style={styles.badge} />}
-                        <Bell color="#fff" size={wp("6%")} />
-                    </TouchableOpacity>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Workshop Header */}
+        <View style={styles.greetingSection}>
+          <View style={styles.resellerBadge}>
+            <Text style={styles.resellerBadgeText}>RESELLER & WORKSHOP</Text>
+          </View>
+          <Text style={styles.greetingName}>
+            {myself?.name ? myself.name : 'Workshop Partner'}
+          </Text>
+        </View>
 
-                    <TouchableOpacity style={styles.homeIcon}>
-                        <Home color="#D3132A" size={wp("5%")} />
-                    </TouchableOpacity>
-                </View>
+        {/* KPI Metric Chips */}
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiCard}>
+            <View style={styles.kpiIconWrapper}>
+              <Clock size={16} color="#D97706" />
             </View>
+            <Text style={styles.kpiValue}>{pendingCount}</Text>
+            <Text style={styles.kpiLabel}>Pending Tickets</Text>
+          </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: hp('10%') }}>
-
-                {/* HERO CARD */}
-                <View style={styles.heroCard}>
-                    <View style={styles.tag}>
-                        <Text style={styles.tagText}>LIVE SYNC ACTIVE</Text>
-                    </View>
-
-                    <Text style={styles.heroTitle}>Welcome, {myself?.name || 'Partner'}!</Text>
-
-                    <Text style={styles.heroSub}>
-                        {myself?.email || 'Reseller Account'} • {pendingCount} enquiries pending review
-                    </Text>
-                </View>
-
-                {/* STATS CARDS */}
-                <View style={styles.statsRow}>
-                    <TouchableOpacity
-                        style={styles.statCard}
-                        activeOpacity={0.8}
-                        onPress={() => navigation.navigate("MyEnquiries")}
-                    >
-                        <View style={styles.iconCircleYellow}>
-                            <Clock size={20} color="#D97706" />
-                        </View>
-                        <Text style={styles.statNumber}>{pendingCount}</Text>
-                        <Text style={styles.statLabel}>Pending Requests</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={styles.statCard}
-                        activeOpacity={0.8}
-                        onPress={() => navigation.navigate("MyEnquiries")}
-                    >
-                        <View style={styles.iconCircleGreen}>
-                            <CheckCircle size={20} color="#10B981" />
-                        </View>
-                        <Text style={styles.statNumber}>{approvedCount}</Text>
-                        <Text style={styles.statLabel}>Approved Orders</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* RECENT ENQUIRIES SECTION */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Recent Enquiries</Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('MyEnquiries')}>
-                        <Text style={styles.viewAllText}>View All</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {recentEnquiries.map((item, index) => {
-                    const v = item.vehicle || {};
-                    const status = v.status || item.status || 'Pending';
-                    const title = v.title || item.title || 'Technical Enquiry';
-                    const date = item.enquiryDate ? new Date(item.enquiryDate).toLocaleDateString() : '';
-
-                    return (
-                        <TouchableOpacity
-                            key={index}
-                            style={styles.enquiryCard}
-                            onPress={() => navigation.navigate('MyEnquiries')}
-                        >
-                            <View style={styles.enqCardLeft}>
-                                <View style={styles.enqIconBox}>
-                                    <MessageSquare color="#D3132A" size={20} />
-                                </View>
-                                <View style={styles.enqInfo}>
-                                    <Text style={styles.enqTitle} numberOfLines={1}>{title}</Text>
-                                    <Text style={styles.enqDate}>ENQ-{item.id} • {date}</Text>
-                                </View>
-                            </View>
-                            <View style={[styles.statusBadge, status === 'Approved' ? styles.badgeApproved : styles.badgePending]}>
-                                <Text style={styles.statusBadgeText}>{status.toUpperCase()}</Text>
-                            </View>
-                        </TouchableOpacity>
-                    );
-                })}
-
-                {recentEnquiries.length === 0 && (
-                    <View style={styles.emptyCard}>
-                        <Text style={styles.emptyText}>No recent enquiries available.</Text>
-                    </View>
-                )}
-
-                {/* CATALOG CARD */}
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('PartsFinder')}
-                    style={styles.catalogCard}
-                >
-                    <Search color="#D3132A" size={24} />
-                    <View style={{ flex: 1, marginLeft: 15 }}>
-                        <Text style={styles.catalogTitle}>Instant Catalog</Text>
-                        <Text style={styles.catalogSub}>
-                            {articles?.length ? `${articles.length}+ parts loaded` : 'Find part numbers for customers'}
-                        </Text>
-                    </View>
-                    <ChevronRight color="#BDBDBD" size={22} />
-                </TouchableOpacity>
-
-            </ScrollView>
-
-            {/* BOTTOM NAVIGATION */}
-            <View style={styles.bottomNav}>
-                <TouchableOpacity style={styles.navItem}>
-                    <Home color="#fff" size={22} />
-                    <Text style={styles.navText}>Portal</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('PartsFinder')}>
-                    <Search color="#fff" size={22} />
-                    <Text style={styles.navText}>Search</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => navigation.navigate('MyEnquiries')} style={styles.navItem}>
-                    <MessageSquare color="#fff" size={22} />
-                    <Text style={styles.navText}>Inbox</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => navigation.navigate('DealerLocator')} style={styles.navItem}>
-                    <ShoppingCart color="#fff" size={22} />
-                    <Text style={styles.navText}>Depots</Text>
-                </TouchableOpacity>
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiIconWrapper, { backgroundColor: '#DBEAFE' }]}>
+              <TrendingUp size={16} color="#2563EB" />
             </View>
-        </SafeAreaView>
-    );
+            <Text style={styles.kpiValue}>{inProgressCount}</Text>
+            <Text style={styles.kpiLabel}>In Progress</Text>
+          </View>
+
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiIconWrapper, { backgroundColor: '#D1FAE5' }]}>
+              <CheckCircle2 size={16} color="#059669" />
+            </View>
+            <Text style={styles.kpiValue}>
+              {enquiry?.length || 0}
+            </Text>
+            <Text style={styles.kpiLabel}>Total Queries</Text>
+          </View>
+        </View>
+
+        {/* 2x2 Quick Action Grid */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Workshop Tools</Text>
+        </View>
+
+        <View style={styles.gridContainer}>
+          {quickActions.map((action) => (
+            <TouchableOpacity
+              key={action.id}
+              style={styles.gridTile}
+              onPress={() => navigation.navigate(action.route)}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.tileIconCircle, { backgroundColor: action.bg }]}>
+                {action.icon}
+              </View>
+              <Text style={styles.tileTitle}>{action.title}</Text>
+              <Text style={styles.tileSubtitle} numberOfLines={2}>
+                {action.subtitle}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 };
 
-export default ResellerHomeScreen;
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: "#F5F6FA"
-    },
-    header: {
-        backgroundColor: "#D3132A",
-        height: hp("8%"),
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: wp("4%")
-    },
-    headerTitle: {
-        color: "#fff",
-        fontSize: wp("4.5%"),
-        fontWeight: "bold"
-    },
-    headerRight: {
-        flexDirection: "row",
-        alignItems: "center"
-    },
-    headerIcon: {
-        marginRight: 10
-    },
-    badge: {
-        position: "absolute",
-        right: -2,
-        top: -2,
-        width: 8,
-        height: 8,
-        backgroundColor: "#fff",
-        borderRadius: 10
-    },
-    homeIcon: {
-        backgroundColor: "#fff",
-        width: 36,
-        height: 36,
-        borderRadius: 20,
-        justifyContent: "center",
-        alignItems: "center"
-    },
-    heroCard: {
-        backgroundColor: "#000",
-        margin: wp("5%"),
-        borderRadius: wp("6%"),
-        padding: wp("6%"),
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
-        elevation: 5,
-    },
-    tag: {
-        backgroundColor: "#D3132A",
-        alignSelf: "flex-start",
-        paddingHorizontal: wp("3%"),
-        paddingVertical: hp("0.5%"),
-        borderRadius: wp("1.5%"),
-        marginBottom: hp("1.5%")
-    },
-    tagText: {
-        color: "#fff",
-        fontSize: wp("2.5%"),
-        fontWeight: "bold"
-    },
-    heroTitle: {
-        color: "#fff",
-        fontSize: wp("6%"),
-        fontWeight: "bold"
-    },
-    heroSub: {
-        color: "#aaa",
-        marginTop: hp("0.8%"),
-        fontSize: wp("3.2%")
-    },
-    statsRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingHorizontal: wp("5%"),
-        marginBottom: hp("2.5%")
-    },
-    statCard: {
-        backgroundColor: "#fff",
-        width: "48%",
-        borderRadius: wp("5%"),
-        padding: wp("5%"),
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2
-    },
-    iconCircleYellow: {
-        backgroundColor: "#FEF3C7",
-        width: wp("10%"),
-        height: wp("10%"),
-        borderRadius: wp("2.5%"),
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: hp("1.5%")
-    },
-    iconCircleGreen: {
-        backgroundColor: "#D1FAE5",
-        width: wp("10%"),
-        height: wp("10%"),
-        borderRadius: wp("2.5%"),
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: hp("1.5%")
-    },
-    statNumber: {
-        fontSize: wp("5.5%"),
-        fontWeight: "bold",
-        color: "#000"
-    },
-    statLabel: {
-        color: "#9CA3AF",
-        marginTop: hp("0.5%"),
-        fontSize: wp("3%")
-    },
-    sectionHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingHorizontal: wp("5%"),
-        marginBottom: hp("1.5%")
-    },
-    sectionTitle: {
-        fontSize: wp("4.5%"),
-        fontWeight: "bold",
-        color: "#000"
-    },
-    viewAllText: {
-        color: "#D3132A",
-        fontSize: wp("3.5%"),
-        fontWeight: "bold"
-    },
-    enquiryCard: {
-        backgroundColor: "#fff",
-        marginHorizontal: wp("5%"),
-        marginBottom: hp("1.5%"),
-        borderRadius: wp("4%"),
-        padding: wp("4%"),
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-        elevation: 2,
-    },
-    enqCardLeft: {
-        flexDirection: "row",
-        alignItems: "center",
-        flex: 1,
-        marginRight: wp("3%")
-    },
-    enqIconBox: {
-        backgroundColor: "#FFF1F2",
-        padding: wp("3%"),
-        borderRadius: wp("3%"),
-        marginRight: wp("3%")
-    },
-    enqInfo: {
-        flex: 1,
-    },
-    enqTitle: {
-        fontSize: wp("3.8%"),
-        fontWeight: "bold",
-        color: "#000",
-        marginBottom: hp("0.3%")
-    },
-    enqDate: {
-        fontSize: wp("2.8%"),
-        color: "#8E8E8E"
-    },
-    statusBadge: {
-        paddingHorizontal: wp("3%"),
-        paddingVertical: hp("0.6%"),
-        borderRadius: wp("2%"),
-    },
-    badgeApproved: {
-        backgroundColor: "#10B981"
-    },
-    badgePending: {
-        backgroundColor: "#D97706"
-    },
-    statusBadgeText: {
-        color: "#fff",
-        fontSize: wp("2.5%"),
-        fontWeight: "bold"
-    },
-    emptyCard: {
-        backgroundColor: "#fff",
-        marginHorizontal: wp("5%"),
-        marginBottom: hp("2.5%"),
-        borderRadius: wp("4%"),
-        padding: wp("6%"),
-        alignItems: "center"
-    },
-    emptyText: {
-        color: "#8E8E8E",
-        fontSize: wp("3.2%")
-    },
-    catalogCard: {
-        backgroundColor: "#fff",
-        marginHorizontal: wp("5%"),
-        marginTop: hp("1%"),
-        borderRadius: wp("5%"),
-        padding: wp("5%"),
-        flexDirection: "row",
-        alignItems: "center",
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2
-    },
-    catalogTitle: {
-        fontSize: wp("4.2%"),
-        fontWeight: "bold",
-        color: "#000"
-    },
-    catalogSub: {
-        color: "#9CA3AF",
-        fontSize: wp("3%"),
-        marginTop: hp("0.3%")
-    },
-    bottomNav: {
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        flexDirection: "row",
-        backgroundColor: "#D3132A",
-        height: hp("8%"),
-        justifyContent: "space-around",
-        alignItems: "center"
-    },
-    navItem: {
-        alignItems: "center"
-    },
-    navText: {
-        color: "#fff",
-        fontSize: wp("2.8%"),
-        marginTop: hp("0.4%")
-    }
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  header: {
+    height: 52,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  headerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#C6122E',
+  },
+  headerLogo: {
+    width: 100,
+    height: 32,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+  },
+  greetingSection: {
+    marginBottom: 14,
+  },
+  resellerBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  resellerBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#D97706',
+  },
+  greetingName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.4,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 18,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  kpiIconWrapper: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  kpiValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  kpiLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  sectionHeader: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  gridTile: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  tileIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  tileTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  tileSubtitle: {
+    fontSize: 11,
+    color: '#6B7280',
+    lineHeight: 15,
+  },
 });
+
+export default ResellerHomeScreen;

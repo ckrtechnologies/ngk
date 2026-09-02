@@ -9,350 +9,296 @@ import {
   StatusBar,
   Modal,
   TextInput,
-  ActivityIndicator
+  ActivityIndicator,
+  Image,
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { ChevronLeft, Home, ArrowRight, PlusCircle, Send, CheckCircle, XCircle } from 'lucide-react-native';
+import {
+  MessageSquare,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  ChevronRight,
+  Send,
+  X,
+  Store,
+  Tag,
+  Car,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
-import { getEnquiryRedux, getMyselfRedux } from '../redux/getData';
+import { getEnquiryRedux } from '../redux/getData';
 import { apiFunction } from '../apis/apiFunction';
-import { updateEnquiryStatusApi, addEnquiryMessageApi } from '../apis/api';
+import { addEnquiryMessageApi } from '../apis/api';
+import AppHeader from '../components/common/AppHeader';
 
 const MyEnquiriesScreen = () => {
   const navigation = useNavigation();
-  const [activeFilter, setActiveFilter] = useState('ALL');
-  const { enquiry, myself } = useSelector((state) => state.getData);
-  const [chatVisible, setChatVisible] = useState(false);
-  const [selectedEnquiry, setSelectedEnquiry] = useState(null);
-  const [message, setMessage] = useState("");
-  const [userRole, setUserRole] = useState("owner");
-  const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [sendingMessage, setSendingMessage] = useState(false);
   const dispatch = useDispatch();
+  const { enquiry } = useSelector((state) => state.getData);
+
+  const [activeFilter, setActiveFilter] = useState('ALL');
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+
+  const refreshEnquiries = async () => {
+    const userId = await AsyncStorage.getItem('userId');
+    if (userId) dispatch(getEnquiryRedux(userId));
+  };
 
   useEffect(() => {
-    const getInitialData = async () => {
-      const userId = await AsyncStorage.getItem("userId");
-      const role = await AsyncStorage.getItem("role");
-      if (role) setUserRole(role);
-
-      dispatch(getEnquiryRedux(userId));
-      dispatch(getMyselfRedux(userId));
-    };
-
-    getInitialData();
+    refreshEnquiries();
   }, [dispatch]);
 
-  const filteredEnquiries = enquiry?.filter(item => {
-    const v = item.vehicle || {};
-    const status = v.status || item.status || 'Pending';
-    if (activeFilter === 'ALL') return true;
-    return status.toUpperCase() === activeFilter;
-  });
+  const filterTabs = ['ALL', 'PENDING', 'IN PROGRESS', 'RESOLVED'];
 
-  console.log(enquiry, "enquiry data")
+  const getFilteredList = () => {
+    if (!enquiry) return [];
+    if (activeFilter === 'ALL') return enquiry;
+    return enquiry.filter(
+      (e) => (e.status || 'Pending').toUpperCase() === activeFilter
+    );
+  };
 
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case 'Approved': return styles.approvedBadge;
-      case 'Pending': return styles.pendingBadge;
-      case 'Resolved': return styles.resolvedBadge;
-      case 'Rejected': return styles.rejectedBadge;
-      default: return styles.pendingBadge;
+  const getStatusBadge = (status) => {
+    const s = (status || 'Pending').toLowerCase();
+    switch (s) {
+      case 'resolved':
+      case 'approved':
+        return {
+          bg: '#D1FAE5',
+          color: '#059669',
+          label: 'Resolved',
+        };
+      case 'in progress':
+        return {
+          bg: '#DBEAFE',
+          color: '#2563EB',
+          label: 'In Progress',
+        };
+      case 'closed':
+        return {
+          bg: '#F3F4F6',
+          color: '#4B5563',
+          label: 'Closed',
+        };
+      default:
+        return {
+          bg: '#FEF3C7',
+          color: '#D97706',
+          label: 'Pending',
+        };
     }
   };
 
-  const handleUpdateStatus = async (newStatus) => {
-    if (!selectedEnquiry) return;
-    setUpdatingStatus(true);
+  const handleSendReply = async () => {
+    if (!replyMessage.trim() || !selectedTicket) return;
+
+    setSendingReply(true);
+    const userId = await AsyncStorage.getItem('userId');
+    const role = await AsyncStorage.getItem('role');
+
+    const payload = {
+      enquiryId: selectedTicket.id,
+      senderId: Number(userId),
+      senderRole: role || 'owner',
+      message: replyMessage.trim(),
+    };
+
     try {
-      const body = {
-        status: newStatus,
-        responderName: myself?.name || (userRole === 'distributor' ? 'Distributor Admin' : 'Reseller Support'),
-        role: userRole
-      };
-
-      const res = await apiFunction(`${updateEnquiryStatusApi}/${selectedEnquiry.id}`, [], body, "PUT", false);
-
+      const res = await apiFunction(addEnquiryMessageApi, [], payload, 'POST', false);
+      setSendingReply(false);
       if (res?.success) {
-        Toast.show({
-          type: 'success',
-          text1: `Enquiry ${newStatus}`,
-        });
-        const userId = await AsyncStorage.getItem("userId");
-        dispatch(getEnquiryRedux(userId));
-        setSelectedEnquiry(res.enquiry[0]);
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: res?.message || 'Failed to update status',
-        });
+        setReplyMessage('');
+        Toast.show({ type: 'success', text1: 'Reply Sent' });
+        refreshEnquiries();
+        setSelectedTicket(null);
       }
-    } catch (error) {
-      console.log("Error updating status:", error);
-      Toast.show({
-        type: 'error',
-        text1: 'Something went wrong',
-      });
+    } catch (err) {
+      setSendingReply(false);
+      Toast.show({ type: 'error', text1: 'Failed to send reply' });
     }
-    setUpdatingStatus(false);
   };
 
-  const handleSendMessage = async () => {
-    if (!message.trim() || !selectedEnquiry) return;
-    setSendingMessage(true);
-    try {
-      const body = {
-        sender: userRole,
-        senderName: myself?.name || (userRole === 'owner' ? 'Owner' : userRole === 'distributor' ? 'Distributor' : 'Reseller'),
-        text: message
-      };
-
-      const res = await apiFunction(`${addEnquiryMessageApi}/${selectedEnquiry.id}`, [], body, "POST", false);
-
-      if (res?.success) {
-        setMessage("");
-        const userId = await AsyncStorage.getItem("userId");
-        dispatch(getEnquiryRedux(userId));
-        setSelectedEnquiry(res.enquiry[0]);
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: res?.message || 'Failed to send message',
-        });
-      }
-    } catch (error) {
-      console.log("Error sending message:", error);
-      Toast.show({
-        type: 'error',
-        text1: 'Something went wrong',
-      });
-    }
-    setSendingMessage(false);
-  };
-
-  // Helper to extract unpacked or packed vehicle data
-  const getSelectedVehicleData = (enq) => {
-    if (!enq) return {};
-    return enq.vehicle || {};
-  };
-
-  const selectedV = getSelectedVehicleData(selectedEnquiry);
-  const selectedStatus = selectedV.status || selectedEnquiry?.status || 'Pending';
-  const selectedMessages = selectedV.messages || selectedEnquiry?.messages || [];
-  const selectedPart = selectedV.part;
-  const selectedVehicleObj = selectedV.vehicle;
-  const selectedQuantity = selectedV.quantity || 1;
+  const filtered = getFilteredList();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ChevronLeft color="#FFFFFF" size={wp('6%')} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{userRole === 'owner' ? 'MY ENQUIRIES' : 'ENQUIRIES INBOX'}</Text>
-        <TouchableOpacity style={styles.homeIconContainer} onPress={() => navigation.navigate(userRole === 'owner' ? 'OwnerHome' : userRole === 'reseller' ? 'ResellerHome' : 'DistributorHomeScreen')}>
-          <Home color="#C6122E" size={wp('5%')} />
-        </TouchableOpacity>
-      </View>
+      <AppHeader
+        title="Technical Tickets"
+        subtitle={`${enquiry?.length || 0} Total Requests`}
+        onBack={() => navigation.goBack()}
+      />
 
       {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {['ALL', 'APPROVED', 'PENDING', 'RESOLVED', 'REJECTED'].map((filter) => (
-            <TouchableOpacity
-              key={filter}
-              style={[styles.filterTab, activeFilter === filter && styles.activeFilterTab]}
-              onPress={() => setActiveFilter(filter)}
-            >
-              <Text style={[styles.filterTabText, activeFilter === filter && styles.activeFilterTabText]}>
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      <View style={styles.tabBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {filterTabs.map((tab) => {
+            const isSelected = activeFilter === tab;
+            return (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tabPill, isSelected && styles.tabPillSelected]}
+                onPress={() => setActiveFilter(tab)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.tabPillText,
+                    isSelected && styles.tabPillTextSelected,
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.sectionLabel}>{userRole === 'owner' ? 'YOUR ENQUIRIES' : 'ALL RECEIVED ENQUIRIES'}</Text>
-
-        {filteredEnquiries?.map((item, index) => {
-          const v = item.vehicle || {};
-          const status = v.status || item.status || 'Pending';
-          const title = v.title || item.title || 'Technical Enquiry';
-          const description = v.description || item.description || 'No details available';
-          const date = item.enquiryDate ? new Date(item.enquiryDate).toLocaleDateString() : (item.created_at ? new Date(item.created_at).toLocaleDateString() : '');
-
-          return (
-            <View key={index} style={styles.enquiryCard}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.enqId}>ENQ-{item.id}</Text>
-                <View style={[styles.statusBadge, getStatusStyle(status)]}>
-                  <Text style={styles.statusText}>{status.toUpperCase()}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.enqTitle}>{title}</Text>
-              <Text style={styles.enqDesc}>{description}</Text>
-
-              {userRole !== 'owner' && item.users && (
-                <Text style={styles.enqAuthor}>From: {item.users.name} ({item.users.email})</Text>
-              )}
-
-              <View style={styles.cardSeparator} />
-
-              <View style={styles.cardFooter}>
-                <Text style={styles.enqDate}>{date}</Text>
-                <TouchableOpacity style={styles.viewDetailsBtn} onPress={() => {
-                  setSelectedEnquiry(item);
-                  setChatVisible(true);
-                }}>
-                  <Text style={styles.viewDetailsText}>VIEW DETAILS</Text>
-                  <ArrowRight color={status === 'Resolved' ? '#C6122E' : '#000000'} size={wp('4%')} style={{ marginLeft: wp('1%') }} />
-                </TouchableOpacity>
-              </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollBody}
+      >
+        {filtered.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconCircle}>
+              <MessageSquare size={32} color="#C6122E" />
             </View>
-          );
-        })}
+            <Text style={styles.emptyTitle}>No Enquiries Found</Text>
+            <Text style={styles.emptySubtitle}>
+              You don't have any tickets matching the "{activeFilter}" filter.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.ticketList}>
+            {filtered.map((item, idx) => {
+              const statusStyle = getStatusBadge(item.status);
+              return (
+                <TouchableOpacity
+                  key={item.id || idx}
+                  style={styles.ticketCard}
+                  onPress={() => setSelectedTicket(item)}
+                  activeOpacity={0.75}
+                >
+                  <View style={styles.ticketTop}>
+                    <Text style={styles.ticketId}>TICKET #{item.id || idx + 1}</Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: statusStyle.bg },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          { color: statusStyle.color },
+                        ]}
+                      >
+                        {statusStyle.label}
+                      </Text>
+                    </View>
+                  </View>
 
-        {!filteredEnquiries?.length && (
-          <View style={{ padding: hp('5%'), alignItems: 'center' }}>
-            <Text style={{ fontSize: wp('4%'), color: '#8E8E8E' }}>No enquiries found.</Text>
+                  <Text style={styles.partTitle} numberOfLines={1}>
+                    {item.part_name || item.car_name || item.enquiry_details || 'Technical Support'}
+                  </Text>
+
+                  {item.part_number && (
+                    <Text style={styles.partNo}>Part #: {item.part_number}</Text>
+                  )}
+
+                  <View style={styles.ticketFooter}>
+                    <View style={styles.dealerInfo}>
+                      <Store size={13} color="#6B7280" />
+                      <Text style={styles.dealerName} numberOfLines={1}>
+                        {item.dealer?.name || 'Assigned Reseller'}
+                      </Text>
+                    </View>
+                    <ChevronRight size={16} color="#9CA3AF" />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
-
-        <View style={{ height: hp('15%') }} />
       </ScrollView>
 
-      {/* Fixed Bottom Button Container (Only for Owner) */}
-      {userRole === 'owner' && (
-        <View style={styles.bottomContainer}>
-          <TouchableOpacity
-            style={styles.submitBtn}
-            onPress={() => navigation.navigate('TechnicalEnquiry')}
-          >
-            <PlusCircle color="#FFFFFF" size={wp('5%')} />
-            <Text style={styles.submitBtnText}>SUBMIT NEW ENQUIRY</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Dynamic Enquiry Details & Chat Modal */}
+      {/* Ticket Detail & Thread Modal */}
       <Modal
-        visible={chatVisible}
+        visible={!!selectedTicket}
         animationType="slide"
-        transparent
-        onRequestClose={() => setChatVisible(false)}
+        transparent={true}
+        onRequestClose={() => setSelectedTicket(null)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.chatBox}>
-
-            {/* Modal Header */}
-            <View style={styles.chatHeader}>
-              <View style={styles.chatHeaderTitleRow}>
-                <Text style={styles.chatTitle}>ENQ-{selectedEnquiry?.id}</Text>
-                <View style={[styles.statusBadgeSmall, getStatusStyle(selectedStatus)]}>
-                  <Text style={styles.statusTextSmall}>{selectedStatus.toUpperCase()}</Text>
-                </View>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>
+                  Ticket #{selectedTicket?.id}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  {selectedTicket?.created_at
+                    ? new Date(selectedTicket.created_at).toLocaleDateString()
+                    : 'Recent'}
+                </Text>
               </View>
-
-              <TouchableOpacity onPress={() => setChatVisible(false)}>
-                <Text style={styles.closeBtnText}>Close</Text>
+              <TouchableOpacity
+                onPress={() => setSelectedTicket(null)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            {/* Enquiry Specifications Section */}
-            <View style={styles.specsContainer}>
-              <Text style={styles.specsSectionTitle}>ENQUIRY SUMMARY</Text>
-              <Text style={styles.specItem}><Text style={styles.specLabel}>Target:</Text> {selectedV.title || selectedEnquiry?.title || 'Technical Enquiry'}</Text>
-              <Text style={styles.specItem}><Text style={styles.specLabel}>Details:</Text> {selectedV.description || selectedEnquiry?.description || 'None'}</Text>
-              <Text style={styles.specItem}><Text style={styles.specLabel}>Quantity Required:</Text> {selectedQuantity}</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Context Details */}
+              <View style={styles.detailBox}>
+                <Text style={styles.detailLabel}>REQUEST DETAILS</Text>
+                <Text style={styles.detailBody}>
+                  {selectedTicket?.enquiry_details || 'No description provided.'}
+                </Text>
 
-              {selectedPart && (
-                <Text style={styles.specItem}><Text style={styles.specLabel}>Part Ref:</Text> {selectedPart.partNumber || selectedPart.subtitle || 'N/A'}</Text>
-              )}
-              {selectedVehicleObj && (
-                <Text style={styles.specItem}><Text style={styles.specLabel}>Vehicle Make:</Text> {selectedVehicleObj.manuName || selectedVehicleObj.make || 'N/A'}</Text>
-              )}
-            </View>
+                {selectedTicket?.image_url && (
+                  <Image
+                    source={{ uri: selectedTicket.image_url }}
+                    style={styles.attachedImage}
+                    resizeMode="cover"
+                  />
+                )}
+              </View>
 
-            {/* Reseller / Distributor Action Buttons (Approve / Reject) */}
-            {userRole !== 'owner' && selectedStatus === 'Pending' && (
-              <View style={styles.actionButtonsContainer}>
+              {/* Reply Box */}
+              <Text style={[styles.detailLabel, { marginTop: 14 }]}>
+                SEND MESSAGE / REPLY
+              </Text>
+              <View style={styles.replyRow}>
+                <TextInput
+                  style={styles.replyInput}
+                  placeholder="Type message to technical support..."
+                  placeholderTextColor="#9CA3AF"
+                  value={replyMessage}
+                  onChangeText={setReplyMessage}
+                />
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.approveBtn]}
-                  onPress={() => handleUpdateStatus('Approved')}
-                  disabled={updatingStatus}
+                  style={styles.sendBtn}
+                  onPress={handleSendReply}
+                  disabled={sendingReply || !replyMessage.trim()}
+                  activeOpacity={0.7}
                 >
-                  {updatingStatus ? <ActivityIndicator color="#FFFFFF" size="small" /> : (
-                    <>
-                      <CheckCircle color="#FFFFFF" size={wp('4.5%')} />
-                      <Text style={styles.actionBtnText}>APPROVE</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.rejectBtn]}
-                  onPress={() => handleUpdateStatus('Rejected')}
-                  disabled={updatingStatus}
-                >
-                  {updatingStatus ? <ActivityIndicator color="#FFFFFF" size="small" /> : (
-                    <>
-                      <XCircle color="#FFFFFF" size={wp('4.5%')} />
-                      <Text style={styles.actionBtnText}>REJECT</Text>
-                    </>
+                  {sendingReply ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Send size={16} color="#FFFFFF" />
                   )}
                 </TouchableOpacity>
               </View>
-            )}
-
-            {/* Chat Messages */}
-            <ScrollView style={styles.messagesScroll}>
-              {selectedMessages.map((msg, idx) => {
-                const isMe = msg.sender === userRole || (userRole === 'owner' && msg.sender === 'owner');
-                if (msg.isSystem) {
-                  return (
-                    <View key={idx} style={styles.systemMessage}>
-                      <Text style={styles.systemMsgText}>{msg.text}</Text>
-                      <Text style={styles.msgTime}>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                    </View>
-                  );
-                }
-
-                return (
-                  <View key={idx} style={isMe ? styles.messageRight : styles.messageLeft}>
-                    <Text style={styles.msgAuthor}>{msg.senderName || msg.sender}</Text>
-                    <Text style={isMe ? styles.msgTextRight : styles.msgTextLeft}>{msg.text}</Text>
-                    <Text style={isMe ? styles.msgTimeRight : styles.msgTimeLeft}>
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
-                );
-              })}
             </ScrollView>
-
-            {/* Chat Input Container */}
-            <View style={styles.chatInputContainer}>
-              <TextInput
-                value={message}
-                onChangeText={setMessage}
-                placeholder="Type your response..."
-                placeholderTextColor="#A0A0A0"
-                style={styles.chatInput}
-              />
-
-              <TouchableOpacity style={styles.sendBtn} onPress={handleSendMessage} disabled={sendingMessage}>
-                {sendingMessage ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Send color="#FFFFFF" size={18} />}
-              </TouchableOpacity>
-            </View>
-
           </View>
         </View>
       </Modal>
@@ -361,385 +307,208 @@ const MyEnquiriesScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#F5F6FA',
+    backgroundColor: '#F9FAFB',
   },
-  header: {
-    backgroundColor: '#C6122E',
-    height: hp('8%'),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp('4%'),
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-  },
-  homeIconContainer: {
+  tabBar: {
     backgroundColor: '#FFFFFF',
-    width: wp('9%'),
-    height: wp('9%'),
-    borderRadius: wp('4.5%'),
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  tabPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  tabPillSelected: {
+    backgroundColor: '#C6122E',
+  },
+  tabPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  tabPillTextSelected: {
+    color: '#FFFFFF',
+  },
+  scrollBody: {
+    padding: 16,
+    paddingBottom: 24,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 50,
+    paddingHorizontal: 20,
+  },
+  emptyIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF2F2',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 14,
   },
-  filterContainer: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: hp('1.5%'),
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  filterScroll: {
-    paddingHorizontal: wp('4%'),
-  },
-  filterTab: {
-    paddingHorizontal: wp('6%'),
-    paddingVertical: hp('1%'),
-    borderRadius: wp('8%'),
-    backgroundColor: '#F5F6FA',
-    marginRight: wp('3%'),
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  activeFilterTab: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
-  },
-  filterTabText: {
-    fontSize: wp('2.8%'),
-    color: '#8E8E8E',
-    fontWeight: 'bold',
-  },
-  activeFilterTabText: {
-    color: '#FFFFFF',
-  },
-  scrollContent: {
-    paddingHorizontal: wp('6%'),
-    paddingTop: hp('3%'),
-  },
-  sectionLabel: {
-    fontSize: wp('2.8%'),
-    color: '#8E8E8E',
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-    marginBottom: hp('2%'),
-    textTransform: 'uppercase',
-  },
-  enquiryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: wp('8%'),
-    padding: wp('6%'),
-    marginBottom: hp('2.5%'),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: hp('1.5%'),
-  },
-  enqId: {
-    fontSize: wp('2.8%'),
-    color: '#C6122E',
+  emptyTitle: {
+    fontSize: 16,
     fontWeight: '800',
-    letterSpacing: 1,
+    color: '#111827',
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  ticketList: {
+    gap: 12,
+  },
+  ticketCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  ticketTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  ticketId: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
   },
   statusBadge: {
-    paddingHorizontal: wp('3%'),
-    paddingVertical: hp('0.5%'),
-    borderRadius: wp('2%'),
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  approvedBadge: {
-    backgroundColor: '#2E8B57',
-  },
-  pendingBadge: {
-    backgroundColor: '#D97706',
-  },
-  resolvedBadge: {
-    backgroundColor: '#1E40AF',
-  },
-  rejectedBadge: {
-    backgroundColor: '#DC2626',
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: wp('2.4%'),
-    fontWeight: 'bold',
-  },
-  enqTitle: {
-    fontSize: wp('5%'),
-    fontWeight: '900',
-    color: '#000000',
-    marginBottom: hp('1%'),
-  },
-  enqDesc: {
-    fontSize: wp('3.2%'),
-    color: '#6B7280',
-    lineHeight: wp('5%'),
-    fontStyle: 'italic',
-    marginBottom: hp('1.5%'),
-  },
-  enqAuthor: {
-    fontSize: wp('2.8%'),
-    color: '#374151',
-    fontWeight: '600',
-    marginBottom: hp('1.5%'),
-  },
-  cardSeparator: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginBottom: hp('1.5%'),
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  enqDate: {
-    fontSize: wp('2.5%'),
-    color: '#9CA3AF',
+  statusBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
+    textTransform: 'uppercase',
   },
-  viewDetailsBtn: {
+  partTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  partNo: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  ticketFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  viewDetailsText: {
-    fontSize: wp('2.8%'),
-    color: '#000000',
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  bottomContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: wp('6%'),
-    paddingTop: hp('2%'),
-    paddingBottom: hp('4%'),
-    borderTopLeftRadius: wp('10%'),
-    borderTopRightRadius: wp('10%'),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 20,
-  },
-  submitBtn: {
-    backgroundColor: '#C6122E',
-    borderRadius: wp('5%'),
-    height: hp('8%'),
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  submitBtnText: {
-    color: '#FFFFFF',
-    fontSize: wp('3.5%'),
-    fontWeight: 'bold',
-    marginLeft: wp('2%'),
-    letterSpacing: 0.5,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end'
-  },
-  chatBox: {
-    height: hp('85%'),
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: wp('8%'),
-    borderTopRightRadius: wp('8%'),
-    paddingHorizontal: wp('6%'),
-    paddingTop: hp('3%'),
-    paddingBottom: hp('4%'),
-  },
-  chatHeader: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: hp('2%'),
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-    paddingBottom: hp('1.5%'),
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    marginTop: 10,
+    paddingTop: 8,
   },
-  chatHeaderTitleRow: {
+  dealerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    flex: 1,
   },
-  chatTitle: {
-    fontWeight: '900',
-    fontSize: wp('4.5%'),
-    color: '#000000',
-    marginRight: wp('3%'),
+  dealerName: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
   },
-  statusBadgeSmall: {
-    paddingHorizontal: wp('2.5%'),
-    paddingVertical: hp('0.4%'),
-    borderRadius: wp('1.5%'),
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
   },
-  statusTextSmall: {
-    color: '#FFFFFF',
-    fontSize: wp('2.2%'),
-    fontWeight: 'bold',
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 28,
   },
-  closeBtnText: {
-    fontWeight: 'bold',
-    fontSize: wp('3.5%'),
-    color: '#C6122E',
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
   },
-  specsContainer: {
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  detailBox: {
     backgroundColor: '#F9FAFB',
-    borderRadius: wp('4%'),
-    padding: wp('4%'),
-    marginBottom: hp('2%'),
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  specsSectionTitle: {
-    fontSize: wp('2.5%'),
-    fontWeight: 'bold',
-    color: '#6B7280',
-    marginBottom: hp('1%'),
+  detailLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#9CA3AF',
     letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  specItem: {
-    fontSize: wp('3.2%'),
-    color: '#1F2937',
-    marginBottom: hp('0.5%'),
+  detailBody: {
+    fontSize: 14,
+    color: '#111827',
+    lineHeight: 20,
   },
-  specLabel: {
-    fontWeight: 'bold',
-    color: '#4B5563',
+  attachedImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 8,
+    marginTop: 10,
   },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: hp('2%'),
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    height: hp('6.5%'),
-    borderRadius: wp('3%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: wp('1%'),
-  },
-  approveBtn: {
-    backgroundColor: '#2E8B57',
-  },
-  rejectBtn: {
-    backgroundColor: '#DC2626',
-  },
-  actionBtnText: {
-    color: '#FFFFFF',
-    fontSize: wp('3.2%'),
-    fontWeight: 'bold',
-    marginLeft: wp('2%'),
-    letterSpacing: 0.5,
-  },
-  messagesScroll: {
-    flex: 1,
-    marginBottom: hp('2%'),
-  },
-  systemMessage: {
-    backgroundColor: '#FEF3C7',
-    padding: wp('3%'),
-    borderRadius: wp('3%'),
-    alignItems: 'center',
-    marginVertical: hp('1%'),
-    alignSelf: 'center',
-    width: '90%',
-    borderWidth: 1,
-    borderColor: '#F59E0B',
-  },
-  systemMsgText: {
-    color: '#92400E',
-    fontSize: wp('3%'),
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  messageLeft: {
-    backgroundColor: '#F1F5F9',
-    padding: wp('3.5%'),
-    borderRadius: wp('4%'),
-    borderTopLeftRadius: wp('1%'),
-    marginBottom: hp('1.5%'),
-    alignSelf: 'flex-start',
-    maxWidth: '80%',
-  },
-  messageRight: {
-    backgroundColor: '#C6122E',
-    padding: wp('3.5%'),
-    borderRadius: wp('4%'),
-    borderTopRightRadius: wp('1%'),
-    marginBottom: hp('1.5%'),
-    alignSelf: 'flex-end',
-    maxWidth: '80%',
-  },
-  msgAuthor: {
-    fontSize: wp('2.5%'),
-    fontWeight: 'bold',
-    color: '#94A3B8',
-    marginBottom: hp('0.5%'),
-  },
-  msgTextLeft: {
-    color: '#0f172a',
-    fontSize: wp('3.5%'),
-  },
-  msgTextRight: {
-    color: '#FFFFFF',
-    fontSize: wp('3.5%'),
-  },
-  msgTimeLeft: {
-    fontSize: wp('2.2%'),
-    color: '#94A3B8',
-    alignSelf: 'flex-end',
-    marginTop: hp('0.5%'),
-  },
-  msgTimeRight: {
-    fontSize: wp('2.2%'),
-    color: '#F1F5F9',
-    alignSelf: 'flex-end',
-    marginTop: hp('0.5%'),
-  },
-  chatInputContainer: {
+  replyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingTop: hp('1.5%'),
+    gap: 8,
+    marginTop: 6,
   },
-  chatInput: {
+  replyInput: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    borderRadius: wp('6%'),
-    paddingHorizontal: wp('4%'),
-    height: hp('6.5%'),
-    fontSize: wp('3.5%'),
-    color: '#000000',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    fontSize: 13,
+    color: '#111827',
   },
   sendBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: '#C6122E',
-    width: hp('6.5%'),
-    height: hp('6.5%'),
-    borderRadius: hp('3.25%'),
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: wp('2.5%'),
-  }
+  },
 });
 
 export default MyEnquiriesScreen;

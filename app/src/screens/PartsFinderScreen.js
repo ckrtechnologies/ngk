@@ -7,568 +7,498 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Dimensions,
-  Image,
   Modal,
   FlatList,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { apiFunction } from '../apis/apiFunction';
-import { addSearchHistoryApi, serviceJsonApi } from '../apis/api';
 import {
-  ChevronLeft,
-  Home,
   Car,
-  User,
-  Triangle,
-  Flag,
-  Building2,
-  Globe,
-  Check,
+  Bike,
+  Wrench,
+  Search,
   ChevronDown,
-  Info,
+  Check,
   X,
-  Search
+  Sparkles,
+  ArrowRight,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiFunction } from '../apis/apiFunction';
+import { serviceJsonApi, addSearchHistoryApi } from '../apis/api';
 import { getMyselfRedux } from '../redux/getData';
 import Toast from 'react-native-toast-message';
-
-const { width } = Dimensions.get('window');
+import AppHeader from '../components/common/AppHeader';
+import AppButton from '../components/common/AppButton';
+import AppInput from '../components/common/AppInput';
 
 const PartsFinderScreen = () => {
   const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState('Vehicle Finder');
-  const [currentStep, setCurrentStep] = useState(1);
-  const { myself } = useSelector((state) => state.getData);
   const dispatch = useDispatch();
+  const { myself } = useSelector((state) => state.getData);
 
-  // Data states
-  const [manufacturersData, setManufacturersData] = useState([]);
-  const [seriesData, setSeriesData] = useState([]);
-  const [variantData, setVariantData] = useState([]);
-
-  // Selection States
+  const [searchMode, setSearchMode] = useState('vehicle'); // 'vehicle' | 'part'
   const [selectedApp, setSelectedApp] = useState('Passenger');
   const [selectedManufacturer, setSelectedManufacturer] = useState(null);
   const [selectedSeries, setSelectedSeries] = useState(null);
-  const [selectedVariant, setSelectedVariant] = useState(null);
 
-  const [loadingType, setLoadingType] = useState(''); // 'manufacturer', 'series', 'variant'
-
-  // Part Number States
+  // Direct Part Number state
   const [partNumber, setPartNumber] = useState('');
+  const [partSearching, setPartSearching] = useState(false);
 
-  // Modal visibility
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownType, setDropdownType] = useState(''); // 'manufacturer', 'series' or 'variant'
+  // Dropdown data
+  const [manufacturersData, setManufacturersData] = useState([]);
+  const [seriesData, setSeriesData] = useState([]);
+  const [loadingDropdown, setLoadingDropdown] = useState(false);
+
+  // Modal selector state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalType, setModalType] = useState(''); // 'manufacturer' | 'series'
+  const [filterQuery, setFilterQuery] = useState('');
 
   const applications = [
     { id: 'Passenger', label: 'Passenger', icon: Car, type: 'P' },
-    { id: 'Motorcycle', label: 'Motorcycle', icon: User, type: 'M' },
-    { id: 'Garden', label: 'Garden', icon: Triangle, type: 'P' },
-    { id: 'Go Cart', label: 'Go Cart', icon: Flag, type: 'P' },
-    { id: 'Construction', label: 'Construction', icon: Building2, type: 'O' },
-    { id: 'Marine', label: 'Marine', icon: Globe, type: 'P' },
+    { id: 'Motorcycle', label: 'Motorcycle', icon: Bike, type: 'M' },
+    { id: 'Commercial', label: 'Commercial', icon: Wrench, type: 'O' },
   ];
 
   useEffect(() => {
-    const getMyself = async () => {
-      const userId = await AsyncStorage.getItem("userId");
-      dispatch(getMyselfRedux(userId));
-    }
-    if (!myself) {
-      getMyself();
-    }
-  }, [dispatch])
+    const fetchMyself = async () => {
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) dispatch(getMyselfRedux(userId));
+    };
+    if (!myself) fetchMyself();
+  }, [dispatch]);
 
-  // Fetch Manufacturers
+  // Fetch manufacturers when application changes
   useEffect(() => {
-    if (currentStep >= 2) {
-      const fetchManufacturers = async () => {
-        setLoadingType('manufacturer');
-        const appType = applications.find(app => app.id === selectedApp)?.type || 'P';
-        const payload = {
-          "getManufacturers2": {
-            "country": "ZA",
-            "lang": "en",
-            "linkingTargetType": appType,
-            "includeAll": true
-          }
-        };
-        const res = await apiFunction(serviceJsonApi, [], payload, "POST", true);
-        console.log(res?.data?.array, '---------> manufacturer')
-        if (res?.data?.array) {
-          setManufacturersData(res.data.array.map(m => ({ id: m.manuId, label: m.manuName, favorFlag: m.favorFlag })));
-        }
-        setLoadingType('');
+    const fetchManufacturers = async () => {
+      setLoadingDropdown(true);
+      const appType =
+        applications.find((a) => a.id === selectedApp)?.type || 'P';
+      const payload = {
+        getManufacturers2: {
+          country: 'ZA',
+          lang: 'en',
+          linkingTargetType: appType,
+          includeAll: true,
+        },
       };
-      fetchManufacturers();
-    }
-  }, [selectedApp, currentStep]);
 
-  // Fetch Series
-  useEffect(() => {
-    if (currentStep >= 3 && selectedManufacturer) {
-      const fetchSeries = async () => {
-        setLoadingType('series');
-        const appType = applications.find(app => app.id === selectedApp)?.type || 'P';
-        const payload = {
-          "getModelSeries": {
-            "country": "ZA",
-            "lang": "en",
-            "manuId": selectedManufacturer.id,
-            "linkingTargetType": appType
-          }
-        };
-        const res = await apiFunction(serviceJsonApi, [], payload, "POST", true);
-        if (res?.data?.array) {
-          setSeriesData(res.data.array.map(s => ({ id: s.modelId, label: s.modelname || s.name })));
-        }
-        setLoadingType('');
-      };
-      fetchSeries();
-    }
-  }, [selectedManufacturer, currentStep]);
-
-  // Fetch Variants
-  useEffect(() => {
-    if (currentStep >= 4 && selectedSeries) {
-      const fetchVariants = async () => {
-        setLoadingType('variant');
-        const appType = applications.find(app => app.id === selectedApp)?.type || 'P';
-        const payload = {
-          "getVehicleIdsByCriteria": {
-            "carType": appType,
-            "countriesCarSelection": "ZA",
-            "lang": "en",
-            "manuId": selectedManufacturer.id,
-            "modId": selectedSeries.id
-          }
-        };
-        const res = await apiFunction(serviceJsonApi, [], payload, "POST", true);
-
-
-
-        if (res?.data?.array?.length > 0) {
-          const carIds = res.data.array.map(v => v.carId);
-          const detailsPayload = {
-            "getVehicleByIds3": {
-              "articleCountry": "ZA",
-              "lang": "en",
-              "carIds": { "array": carIds },
-              "countriesCarSelection": "ZA",
-              "country": "ZA",
-            }
-          };
-          const detailsRes = await apiFunction(serviceJsonApi, [], detailsPayload, "POST", true);
-
-          if (detailsRes?.data?.array) {
-            setVariantData(detailsRes.data.array.map(v => {
-              const details = v.vehicleDetails || {};
-              const yearFrom = details.yearOfConstrFrom ? details.yearOfConstrFrom.toString().substring(0, 4) : '';
-              const yearTo = details.yearOfConstrTo ? details.yearOfConstrTo.toString().substring(0, 4) : 'Present';
-              const years = yearFrom ? `[${yearFrom} - ${yearTo}]` : '';
-              const model = details.modelName || '';
-              const type = details.typeName || '';
-              const fuel = details.fuelType || '';
-              const ccm = details.ccmTech ? `${details.ccmTech}cc` : '';
-              const hp = details.powerHpTo ? `${details.powerHpTo}HP` : '';
-
-              const label = `${model} ${type} ${years} ${fuel ? `(${fuel}${ccm ? `, ${ccm}` : ''}${hp ? `, ${hp}` : ''})` : ''}`.trim();
-
-              return {
-                id: v.carId,
-                label: label,
-                vehicle: details
-              };
-            }));
-          } else {
-            setVariantData([]);
-          }
-        } else {
-          setVariantData([]);
-        }
-        setLoadingType('');
-      };
-      fetchVariants();
-    }
-  }, [selectedSeries, currentStep]);
-
-  console.log(manufacturersData, "manufacturersData")
-
-  const handleContinue = async () => {
-    if (activeTab === 'Vehicle Finder') {
-      if (currentStep < 4) {
-        setCurrentStep(currentStep + 1);
-      } else {
-
-        const res = await apiFunction(addSearchHistoryApi, [myself?.id], { dat: selectedVariant?.vehicle }, "PUT", false)
-        if (!res.success) {
-          Toast.show({
-            type: 'error',
-            text1: 'Failed to add vehicle in the enquiry',
-          })
-        }
-        navigation.navigate('VerifiedParts', { vehicle: selectedVariant?.vehicle || null });
+      try {
+        const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+        const list =
+          res?.data?.array ||
+          res?.getManufacturers2?.array ||
+          res?.data ||
+          [];
+        setManufacturersData(list);
+      } catch (err) {
+        console.warn('Failed to load manufacturers', err);
+      } finally {
+        setLoadingDropdown(false);
       }
-    } else {
-      // Navigate to Verified Parts with the part number
-      navigation.navigate('VerifiedParts', { partNumber: partNumber });
+    };
+
+    fetchManufacturers();
+    setSelectedManufacturer(null);
+    setSelectedSeries(null);
+    setSeriesData([]);
+  }, [selectedApp]);
+
+  // Fetch series when manufacturer is selected
+  const fetchSeriesForManufacturer = async (manu) => {
+    setLoadingDropdown(true);
+    const appType =
+      applications.find((a) => a.id === selectedApp)?.type || 'P';
+    const payload = {
+      getModelSeries2: {
+        country: 'ZA',
+        lang: 'en',
+        linkingTargetType: appType,
+        manuId: manu.manuId || manu.id,
+        includeAll: true,
+      },
+    };
+
+    try {
+      const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+      const list =
+        res?.data?.array ||
+        res?.getModelSeries2?.array ||
+        res?.data ||
+        [];
+      setSeriesData(list);
+    } catch (err) {
+      console.warn('Failed to load model series', err);
+    } finally {
+      setLoadingDropdown(false);
     }
   };
 
-  const handleChipPress = (item) => {
-    setSelectedVariant(item);
-    navigation.navigate('VerifiedParts', { vehicle: item || null });
-  }
-
-  const openDropdown = (type) => {
-    setDropdownType(type);
-    setShowDropdown(true);
+  const openPicker = (type) => {
+    setModalType(type);
+    setFilterQuery('');
+    setModalVisible(true);
   };
 
-  console.log(manufacturersData[0], "manufacturersData")
+  const handleSelectManufacturer = (item) => {
+    setSelectedManufacturer(item);
+    setSelectedSeries(null);
+    setModalVisible(false);
+    fetchSeriesForManufacturer(item);
+  };
 
-  const selectOption = (option) => {
-    if (dropdownType === 'manufacturer') {
-      setSelectedManufacturer(option);
-      setSelectedSeries(null); // Reset downstream
-      setSelectedVariant(null);
-    } else if (dropdownType === 'series') {
-      setSelectedSeries(option);
-      setSelectedVariant(null); // Reset downstream
-    } else {
-      setSelectedVariant(option);
+  const handleSelectSeries = (item) => {
+    setSelectedSeries(item);
+    setModalVisible(false);
+  };
+
+  const handleProceedToVehicles = () => {
+    if (!selectedManufacturer || !selectedSeries) {
+      Toast.show({
+        type: 'error',
+        text1: 'Selection Required',
+        text2: 'Please choose both Manufacturer and Model Series.',
+      });
+      return;
     }
-    setShowDropdown(false);
+
+    const appType =
+      applications.find((a) => a.id === selectedApp)?.type || 'P';
+    navigation.navigate('vehiclesListScreen', {
+      selectedApp,
+      appType,
+      selectedManufacturer,
+      selectedSeries,
+    });
   };
 
-  const renderStepHeader = () => {
-    let title = "Application Setup";
-    if (currentStep === 2) title = "Manufacturer Setup";
-    if (currentStep === 3) title = "Series Selection";
-    if (currentStep === 4) title = "Variant Selection";
+  const handlePartSearch = async () => {
+    if (!partNumber.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Part Number Required',
+        text2: 'Please enter an NGK or OE part number.',
+      });
+      return;
+    }
 
-    return (
-      <View style={styles.setupHeader}>
-        <Text style={styles.setupTitle}>{title}</Text>
-        <View style={styles.stepRow}>
-          {[1, 2, 3, 4].map((step) => (
-            <TouchableOpacity
-              key={step}
-              onPress={() => setCurrentStep(step)}
-              style={[
-                styles.stepCircle,
-                currentStep >= step && styles.completedStepCircle,
-                currentStep === step && styles.activeStepCircle
-              ]}
-            >
-              <Text style={[
-                styles.stepText,
-                currentStep >= step && styles.completedStepText,
-                currentStep === step && styles.activeStepText
-              ]}>
-                {step === 1 ? 'S1' : step === 2 ? 'S2' : step === 3 ? 'S3' : 'S4'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    );
-  };
+    setPartSearching(true);
+    const payload = {
+      getArticles: {
+        articleCountry: 'ZA',
+        dataSupplierIds: ['5567', '7729'],
+        searchQuery: partNumber.trim(),
+        lang: 'en',
+        perPage: 20,
+        page: 1,
+        includeAll: true,
+      },
+    };
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <View>
-            <Text style={styles.instructionText}>1. Choose application</Text>
-            <View style={styles.grid}>
-              {applications.map((item) => {
-                const IconComponent = item.icon;
-                const isSelected = selectedApp === item.id;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.gridItem, isSelected && styles.selectedGridItem]}
-                    onPress={() => {
-                      setSelectedApp(item.id);
-                      setSelectedManufacturer(null);
-                      setSelectedSeries(null);
-                      setSelectedVariant(null);
-                    }}
-                  >
-                    {isSelected && (
-                      <View style={styles.checkBadge}>
-                        <Check color="#C6122E" size={wp('3%')} strokeWidth={3} />
-                      </View>
-                    )}
-                    <IconComponent
-                      color={isSelected ? '#C6122E' : '#444'}
-                      size={wp('8%')}
-                      strokeWidth={1.5}
-                    />
-                    <Text style={[styles.gridLabel, isSelected && styles.selectedGridLabel]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        );
+    try {
+      const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+      setPartSearching(false);
+      const results =
+        res?.data?.array || res?.getArticles?.array || res?.data || [];
 
-      case 2:
-        return (
-          <View>
-            <Text style={styles.instructionText}>2. Select manufacturer</Text>
+      // Record Search History if user logged in
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        apiFunction(
+          addSearchHistoryApi,
+          [],
+          { userId, query: partNumber.trim(), resultsCount: results.length },
+          'POST',
+          false
+        ).catch(() => {});
+      }
 
-            {/* Custom Dropdown */}
-            <TouchableOpacity
-              style={styles.dropdownTrigger}
-              onPress={() => openDropdown('manufacturer')}
-              disabled={loadingType === 'manufacturer'}
-            >
-              <Text style={styles.dropdownValue}>
-                {loadingType === 'manufacturer' ? 'Loading...' : selectedManufacturer?.label || 'Select manufacturer'}
-              </Text>
-              <ChevronDown color="#C6122E" size={wp('6%')} />
-            </TouchableOpacity>
-
-            <View style={styles.popularMakersHeader}>
-              <Text style={styles.popularMakersText}>Popular makers</Text>
-              <View style={styles.line} />
-            </View>
-
-            <View style={styles.grid}>
-              {manufacturersData.filter((item) => item.favorFlag == 1).map((item) => {
-                const isSelected = selectedManufacturer?.id === item.id;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.makerItem, isSelected && styles.selectedGridItem, { height: wp('28%') }]}
-                    onPress={() => selectOption(item)}
-                  >
-                    <Car color={isSelected ? '#C6122E' : '#D1D1D1'} size={wp('10%')} />
-                    <Text style={[styles.gridLabel, { fontSize: wp('2.5%'), textAlign: 'center' }, isSelected && styles.selectedGridLabel]}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        );
-
-      case 3:
-        return (
-          <View>
-            <Text style={styles.instructionText}>3. Selection</Text>
-
-            <TouchableOpacity
-              style={styles.dropdownTrigger}
-              onPress={() => openDropdown('series')}
-              disabled={loadingType === 'series'}
-            >
-              <Text style={[styles.dropdownValue, !selectedSeries && { color: '#D1D1D1' }]}>
-                {loadingType === 'series' ? 'Loading...' : selectedSeries?.label || 'Select series'}
-              </Text>
-              <ChevronDown color="#C6122E" size={wp('6%')} />
-            </TouchableOpacity>
-
-            <View style={styles.infoContainer}>
-              <View style={styles.infoCircle}>
-                <Info color="#D1D1D1" size={wp('10%')} strokeWidth={1} />
-              </View>
-              <Text style={styles.infoText}>Fill required fields to continue</Text>
-            </View>
-          </View>
-        );
-
-      case 4:
-        return (
-          <View>
-            <Text style={styles.instructionText}>4.Selection</Text>
-
-            <TouchableOpacity
-              style={styles.dropdownTrigger}
-              onPress={() => openDropdown('variant')}
-              disabled={loadingType === 'variant'}
-            >
-              <Text style={[styles.dropdownValue, !selectedVariant && { color: '#D1D1D1' }]}>
-                {loadingType === 'variant' ? 'Loading...' : selectedVariant?.label || 'Select variant'}
-              </Text>
-              <ChevronDown color="#C6122E" size={wp('6%')} />
-            </TouchableOpacity>
-
-            <View style={styles.infoContainer}>
-              <View style={styles.infoCircle}>
-                <Info color="#D1D1D1" size={wp('10%')} strokeWidth={1} />
-              </View>
-              <Text style={styles.infoText}>Fill required fields to continue</Text>
-            </View>
-          </View>
-        );
-
-      default:
-        return null;
+      navigation.navigate('VerifiedParts', {
+        articles: results,
+        searchQuery: partNumber.trim(),
+        directSearch: true,
+      });
+    } catch (err) {
+      setPartSearching(false);
+      Toast.show({
+        type: 'error',
+        text1: 'Search Failed',
+        text2: err?.response?.data?.message || 'Error searching catalog.',
+      });
     }
   };
 
-  const renderPartNumberContent = () => {
-    return (
-      <View>
-        <Text style={styles.setupTitlePart}>Global Lookup</Text>
-        <View style={styles.divider} />
-
-        <Text style={styles.instructionText}>Enter part number</Text>
-
-        <View style={styles.searchContainer}>
-          <Search color="#C6122E" size={wp('6%')} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="e.g. BKR6EIX"
-            placeholderTextColor="#D1D1D1"
-            value={partNumber}
-            onChangeText={setPartNumber}
-            autoCapitalize="characters"
-          />
-        </View>
-
-        <Text style={styles.helperText}>
-          Search our global technical database with at least 3 characters.
-        </Text>
-
-        <View style={styles.infoContainer}>
-          <View style={styles.infoCircle}>
-            <Info color="#D1D1D1" size={wp('10%')} strokeWidth={1} />
-          </View>
-          <Text style={styles.infoText}>Fill required fields to continue</Text>
-        </View>
-      </View>
-    );
-  };
-
-  const isContinueDisabled = () => {
-    if (activeTab === 'Vehicle Finder') {
-      return (currentStep === 2 && !selectedManufacturer) || (currentStep === 3 && !selectedSeries) || (currentStep === 4 && !selectedVariant);
-    } else {
-      return partNumber.length < 3;
-    }
+  const getFilteredModalList = () => {
+    const list = modalType === 'manufacturer' ? manufacturersData : seriesData;
+    if (!filterQuery.trim()) return list;
+    return list.filter((item) => {
+      const name = item.manuName || item.modelname || item.name || '';
+      return name.toLowerCase().includes(filterQuery.toLowerCase());
+    });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <ChevronLeft color="#FFFFFF" size={wp('6%')} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Parts Finder</Text>
-        <TouchableOpacity style={styles.homeIconContainer} onPress={() => navigation.navigate('OwnerHome')}>
-          <Home color="#C6122E" size={wp('5%')} />
-        </TouchableOpacity>
-      </View>
+      <AppHeader
+        title="Parts Finder"
+        subtitle="TecDoc Pegasus 3.0 Catalog"
+        onBack={() => navigation.goBack()}
+      />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
-        {/* Recently Searched */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionLabel}>Recently searched</Text>
-          <View style={styles.chipRow}>
-            {myself?.searchHistory?.length > 0 ? myself?.searchHistory?.slice(0, 3)?.map((item, index) => (
-              <TouchableOpacity key={index} style={styles.chip} onPress={() => handleChipPress(item)}>
-                <Text style={styles.chipText}>{item?.manuName} {`(${item?.modelName})`} </Text>
-              </TouchableOpacity>
-            )) : <Text style={styles.chipText}>No search history</Text>}
-          </View>
-        </View>
-
-        {/* Tab Switcher */}
-        <View style={styles.tabContainer}>
+      <View style={styles.container}>
+        {/* Segmented Mode Tabs */}
+        <View style={styles.segmentContainer}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'Vehicle Finder' && styles.activeTab]}
-            onPress={() => setActiveTab('Vehicle Finder')}
+            style={[
+              styles.segmentBtn,
+              searchMode === 'vehicle' && styles.segmentBtnActive,
+            ]}
+            onPress={() => setSearchMode('vehicle')}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.tabText, activeTab === 'Vehicle Finder' && styles.activeTabText]}>
-              Vehicle Finder
+            <Car
+              size={16}
+              color={searchMode === 'vehicle' ? '#C6122E' : '#6B7280'}
+            />
+            <Text
+              style={[
+                styles.segmentText,
+                searchMode === 'vehicle' && styles.segmentTextActive,
+              ]}
+            >
+              By Vehicle
             </Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.tab, activeTab === 'Part Number' && styles.activeTab]}
-            onPress={() => setActiveTab('Part Number')}
+            style={[
+              styles.segmentBtn,
+              searchMode === 'part' && styles.segmentBtnActive,
+            ]}
+            onPress={() => setSearchMode('part')}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.tabText, activeTab === 'Part Number' && styles.activeTabText]}>
-              Part Number
+            <Search
+              size={16}
+              color={searchMode === 'part' ? '#C6122E' : '#6B7280'}
+            />
+            <Text
+              style={[
+                styles.segmentText,
+                searchMode === 'part' && styles.segmentTextActive,
+              ]}
+            >
+              By Part #
             </Text>
           </TouchableOpacity>
         </View>
 
-        {activeTab === 'Vehicle Finder' ? (
-          <>
-            {renderStepHeader()}
-            <View style={styles.divider} />
-            {renderStepContent()}
-          </>
+        {searchMode === 'vehicle' ? (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollBody}
+          >
+            {/* Step 1: Vehicle Application Type Pills */}
+            <Text style={styles.inputSectionLabel}>APPLICATION TYPE</Text>
+            <View style={styles.appTypeRow}>
+              {applications.map((app) => {
+                const IconComponent = app.icon;
+                const isSelected = selectedApp === app.id;
+                return (
+                  <TouchableOpacity
+                    key={app.id}
+                    style={[
+                      styles.appTypePill,
+                      isSelected && styles.appTypePillSelected,
+                    ]}
+                    onPress={() => setSelectedApp(app.id)}
+                    activeOpacity={0.7}
+                  >
+                    <IconComponent
+                      size={16}
+                      color={isSelected ? '#FFFFFF' : '#4B5563'}
+                    />
+                    <Text
+                      style={[
+                        styles.appTypePillText,
+                        isSelected && styles.appTypePillTextSelected,
+                      ]}
+                    >
+                      {app.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Step 2: Make & Model Cascade */}
+            <Text style={[styles.inputSectionLabel, { marginTop: 14 }]}>
+              VEHICLE SPECIFICATIONS
+            </Text>
+
+            {/* Manufacturer Selector */}
+            <TouchableOpacity
+              style={styles.pickerField}
+              onPress={() => openPicker('manufacturer')}
+              activeOpacity={0.75}
+            >
+              <View>
+                <Text style={styles.pickerFieldLabel}>Make / Manufacturer</Text>
+                <Text
+                  style={[
+                    styles.pickerFieldValue,
+                    !selectedManufacturer && styles.pickerFieldPlaceholder,
+                  ]}
+                >
+                  {selectedManufacturer?.manuName ||
+                    selectedManufacturer?.name ||
+                    'Select Make (e.g. Toyota, BMW)'}
+                </Text>
+              </View>
+              <ChevronDown size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+
+            {/* Series Selector */}
+            <TouchableOpacity
+              style={[
+                styles.pickerField,
+                !selectedManufacturer && styles.pickerFieldDisabled,
+              ]}
+              onPress={() => selectedManufacturer && openPicker('series')}
+              disabled={!selectedManufacturer}
+              activeOpacity={0.75}
+            >
+              <View>
+                <Text style={styles.pickerFieldLabel}>Model Series</Text>
+                <Text
+                  style={[
+                    styles.pickerFieldValue,
+                    !selectedSeries && styles.pickerFieldPlaceholder,
+                  ]}
+                >
+                  {selectedSeries?.modelname ||
+                    selectedSeries?.name ||
+                    (selectedManufacturer
+                      ? 'Select Model (e.g. Hilux, 3 Series)'
+                      : 'Select Make first')}
+                </Text>
+              </View>
+              <ChevronDown size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+
+            {/* Proceed CTA */}
+            <AppButton
+              title="View Matching Engines & Trims"
+              rightIcon={<ArrowRight size={16} color="#FFFFFF" />}
+              onPress={handleProceedToVehicles}
+              disabled={!selectedManufacturer || !selectedSeries}
+              style={styles.proceedBtn}
+            />
+          </ScrollView>
         ) : (
-          renderPartNumberContent()
+          <View style={styles.partSearchContainer}>
+            <Text style={styles.inputSectionLabel}>DIRECT PART NUMBER LOOKUP</Text>
+            <AppInput
+              placeholder="e.g. BKR6E-11, ILKAR7C10, 93501"
+              value={partNumber}
+              onChangeText={setPartNumber}
+              autoCapitalize="characters"
+              leftIcon={<Search size={18} color="#9CA3AF" />}
+              containerStyle={{ marginBottom: 12 }}
+            />
+
+            <AppButton
+              title="Search NGK & OE Catalog"
+              onPress={handlePartSearch}
+              loading={partSearching}
+              style={styles.proceedBtn}
+            />
+
+            <View style={styles.infoHintCard}>
+              <Sparkles size={18} color="#C6122E" />
+              <Text style={styles.infoHintText}>
+                Supports NGK Stock Numbers, Order Numbers, and OE Cross-Reference Part Numbers.
+              </Text>
+            </View>
+          </View>
         )}
-
-      </ScrollView>
-
-      {/* Footer Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[
-            styles.continueBtn,
-            isContinueDisabled() && { backgroundColor: '#D1D1D1' }
-          ]}
-          onPress={handleContinue}
-          disabled={isContinueDisabled()}
-        >
-          <Text style={styles.continueBtnText}>
-            {activeTab === 'Vehicle Finder' && currentStep === 4 ? 'Complete Selection' : 'Continue'}
-          </Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Dropdown Modal */}
+      {/* Modern Bottom Sheet Modal Picker */}
       <Modal
-        visible={showDropdown}
+        visible={modalVisible}
+        animationType="slide"
         transparent={true}
-        animationType="none"
-        onRequestClose={() => setShowDropdown(false)}
+        onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.dropdownModal}>
+          <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select {dropdownType}</Text>
-              <TouchableOpacity onPress={() => setShowDropdown(false)}>
-                <X color="#000" size={wp('6%')} />
+              <Text style={styles.modalTitle}>
+                {modalType === 'manufacturer'
+                  ? 'Select Manufacturer'
+                  : 'Select Model Series'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
-            <FlatList
-              data={
-                dropdownType === 'manufacturer' ? manufacturersData :
-                  dropdownType === 'series' ? seriesData :
-                    variantData
-              }
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.dropdownItem}
-                  onPress={() => selectOption(item)}
-                >
-                  <Text style={styles.dropdownItemText}>{item.label}</Text>
-                </TouchableOpacity>
-              )}
-            />
+
+            {/* Filter Search Input */}
+            <View style={styles.modalSearchBox}>
+              <Search size={16} color="#9CA3AF" />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder="Type to filter..."
+                placeholderTextColor="#9CA3AF"
+                value={filterQuery}
+                onChangeText={setFilterQuery}
+                autoCapitalize="none"
+              />
+            </View>
+
+            {/* List */}
+            {loadingDropdown ? (
+              <View style={styles.modalLoading}>
+                <ActivityIndicator color="#C6122E" size="small" />
+                <Text style={styles.modalLoadingText}>Loading options...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={getFilteredModalList()}
+                keyExtractor={(item, idx) =>
+                  String(item.manuId || item.modelId || idx)
+                }
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => {
+                  const label =
+                    item.manuName || item.modelname || item.name || '';
+                  return (
+                    <TouchableOpacity
+                      style={styles.modalRow}
+                      onPress={() =>
+                        modalType === 'manufacturer'
+                          ? handleSelectManufacturer(item)
+                          : handleSelectSeries(item)
+                      }
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.modalRowText}>{label}</Text>
+                      <Check size={16} color="#C6122E" style={{ opacity: 0 }} />
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -577,361 +507,211 @@ const PartsFinderScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
-  header: {
-    backgroundColor: '#C6122E',
-    height: hp('8%'),
+  segmentContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp('4%'),
-    // marginTop:35,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 16,
   },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-  },
-  homeIconContainer: {
-    backgroundColor: '#FFFFFF',
-    width: wp('9%'),
-    height: wp('9%'),
-    borderRadius: wp('4.5%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContent: {
-    paddingBottom: hp('15%'),
-  },
-  sectionHeader: {
-    paddingHorizontal: wp('6%'),
-    marginTop: hp('3%'),
-  },
-  sectionLabel: {
-    fontSize: wp('3%'),
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: hp('1.5%'),
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  chip: {
-    backgroundColor: '#F5F6FA',
-    paddingHorizontal: wp('4%'),
-    paddingVertical: hp('1.5%'),
-    borderRadius: wp('3%'),
-    marginRight: wp('3%'),
-    marginBottom: wp('3%'),
-  },
-  chipText: {
-    fontSize: wp('3%'),
-    color: '#000000',
-    fontWeight: '500',
-  },
-  tabContainer: {
-    backgroundColor: '#F0F1F5',
-    marginHorizontal: wp('6%'),
-    marginTop: hp('2%'),
-    borderRadius: wp('4%'),
-    flexDirection: 'row',
-    padding: wp('1%'),
-    height: hp('8%'),
-  },
-  tab: {
+  segmentBtn: {
     flex: 1,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: wp('3%'),
+    justifyContent: 'center',
+    gap: 6,
+    height: 38,
+    borderRadius: 10,
   },
-  activeTab: {
+  segmentBtnActive: {
     backgroundColor: '#FFFFFF',
-    elevation: 2,
-    shadowColor: '#000',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 2,
-    borderWidth: 1,
-    borderColor: '#000000',
+    elevation: 2,
   },
-  tabText: {
-    fontSize: wp('3.5%'),
-    color: '#8E8E8E',
-    fontWeight: 'bold',
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
   },
-  activeTabText: {
-    color: '#000000',
+  segmentTextActive: {
+    color: '#111827',
+    fontWeight: '700',
   },
-  setupHeader: {
+  scrollBody: {
+    paddingBottom: 24,
+  },
+  inputSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#6B7280',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  appTypeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: wp('6%'),
-    marginTop: hp('4%'),
+    gap: 8,
+    marginBottom: 10,
   },
-  setupTitle: {
-    fontSize: wp('5.5%'),
-    fontWeight: '900',
-    color: '#000000',
-  },
-  setupTitlePart: {
-    fontSize: wp('5.5%'),
-    fontWeight: '900',
-    color: '#000000',
-    marginHorizontal: wp('6%'),
-    marginTop: hp('4%'),
-  },
-  stepRow: {
+  appTypePill: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  stepCircle: {
-    width: wp('7%'),
-    height: wp('7%'),
-    borderRadius: wp('3.5%'),
-    backgroundColor: '#F0F1F5',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: wp('2%'),
+    gap: 6,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  completedStepCircle: {
-    backgroundColor: '#000000',
-  },
-  activeStepCircle: {
+  appTypePillSelected: {
     backgroundColor: '#C6122E',
-    width: wp('10%'),
-    borderRadius: wp('5%'),
-  },
-  stepText: {
-    fontSize: wp('2.5%'),
-    color: '#8E8E8E',
-    fontWeight: 'bold',
-  },
-  completedStepText: {
-    color: '#FFFFFF',
-  },
-  activeStepText: {
-    color: '#FFFFFF',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F0F0F0',
-    marginHorizontal: wp('6%'),
-    marginTop: hp('1.5%'),
-  },
-  instructionText: {
-    fontSize: wp('3.5%'),
-    fontWeight: 'bold',
-    color: '#000000',
-    marginHorizontal: wp('6%'),
-    marginTop: hp('4%'),
-    marginBottom: hp('2%'),
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: wp('4.5%'),
-    justifyContent: 'space-between',
-  },
-  gridItem: {
-    width: wp('28%'),
-    height: wp('28%'),
-    backgroundColor: '#FFFFFF',
-    borderRadius: wp('6%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: wp('3%'),
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  makerItem: {
-    width: wp('28%'),
-    height: wp('34%'),
-    backgroundColor: '#FFFFFF',
-    borderRadius: wp('6%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: wp('3%'),
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-  },
-  selectedGridItem: {
-    backgroundColor: '#FFF1F3',
     borderColor: '#C6122E',
   },
-  gridLabel: {
-    fontSize: wp('2.5%'),
-    fontWeight: 'bold',
-    color: '#000000',
-    marginTop: hp('1%'),
+  appTypePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4B5563',
   },
-  selectedGridLabel: {
-    color: '#C6122E',
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: wp('2%'),
-    right: wp('2%'),
-  },
-  makerLogo: {
-    width: wp('10%'),
-    height: wp('10%'),
-  },
-  dropdownTrigger: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: wp('6%'),
-    paddingHorizontal: wp('6%'),
-    paddingVertical: hp('2.5%'),
-    borderRadius: wp('5%'),
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    marginTop: hp('1%'),
-  },
-  dropdownValue: {
-    fontSize: wp('4.5%'),
-    fontWeight: '900',
-    color: '#000000',
-  },
-  popularMakersHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: wp('6%'),
-    marginTop: hp('4%'),
-    marginBottom: hp('2%'),
-  },
-  popularMakersText: {
-    fontSize: wp('2.8%'),
-    color: '#8E8E8E',
-    fontWeight: 'bold',
-    marginRight: wp('4%'),
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#F0F0F0',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: wp('6%'),
-    paddingHorizontal: wp('6%'),
-    paddingVertical: hp('3%'),
-    borderRadius: wp('8%'),
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-    backgroundColor: '#FFFFFF',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    marginTop: hp('1%'),
-  },
-  searchIcon: {
-    marginRight: wp('4%'),
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: wp('6%'),
-    fontWeight: '900',
-    color: '#000000',
-    opacity: 0.8,
-  },
-  helperText: {
-    fontSize: wp('2.8%'),
-    color: '#8E8E8E',
-    textAlign: 'center',
-    marginTop: hp('2%'),
-    marginHorizontal: wp('6%'),
-  },
-  infoContainer: {
-    alignItems: 'center',
-    marginTop: hp('8%'),
-  },
-  infoCircle: {
-    backgroundColor: '#F5F6FA',
-    width: wp('18%'),
-    height: wp('18%'),
-    borderRadius: wp('9%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: hp('2%'),
-  },
-  infoText: {
-    fontSize: wp('3.2%'),
-    color: '#D1D1D1',
-    fontWeight: '600',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: wp('6%'),
-    paddingBottom: hp('4%'),
-    paddingTop: hp('2%'),
-    borderTopLeftRadius: wp('8%'),
-    borderTopRightRadius: wp('8%'),
-  },
-  continueBtn: {
-    backgroundColor: '#000000',
-    borderRadius: wp('8%'),
-    height: hp('8%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  continueBtnText: {
+  appTypePillTextSelected: {
     color: '#FFFFFF',
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
   },
-  // Modal Styles
+  pickerField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  pickerFieldDisabled: {
+    backgroundColor: '#F3F4F6',
+    opacity: 0.7,
+  },
+  pickerFieldLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  pickerFieldValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  pickerFieldPlaceholder: {
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  proceedBtn: {
+    marginTop: 10,
+  },
+  partSearchContainer: {
+    flex: 1,
+  },
+  infoHintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#C6122E',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 10,
+  },
+  infoHintText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 16,
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
   },
-  dropdownModal: {
+  modalSheet: {
     backgroundColor: '#FFFFFF',
-    width: '85%',
-    maxHeight: '70%',
-    borderRadius: wp('6%'),
-    padding: wp('6%'),
-  },
-  modalTitle: {
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-    color: '#000000',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '75%',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: hp('2%'),
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  dropdownItem: {
-    paddingVertical: hp('2%'),
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  modalSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    marginBottom: 12,
+    gap: 8,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#111827',
+    padding: 0,
+  },
+  modalLoading: {
+    paddingVertical: 30,
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalLoadingText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#F3F4F6',
   },
-  dropdownItemText: {
-    fontSize: wp('4%'),
-    color: '#000000',
-    fontWeight: '500',
+  modalRowText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
   },
 });
 

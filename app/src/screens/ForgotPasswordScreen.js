@@ -3,46 +3,30 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
-  SafeAreaView,
   Image,
-  StatusBar,
-  ScrollView,
-  ActivityIndicator,
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { ArrowLeft, Mail, KeyRound, Lock, Eye, EyeOff } from 'lucide-react-native';
+import { Mail, KeyRound, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react-native';
 import { apiFunction } from '../apis/apiFunction';
 import { sendOtpApi, verifyOtpApi, updatePasswordApi } from '../apis/api';
 import Toast from 'react-native-toast-message';
+import ScreenContainer from '../components/common/ScreenContainer';
+import AppHeader from '../components/common/AppHeader';
+import AppInput from '../components/common/AppInput';
+import AppButton from '../components/common/AppButton';
 
 const ForgotPasswordScreen = ({ route, navigation }) => {
   const role = route?.params?.role || 'owner';
-  
-  const [step, setStep] = useState(1); // 1: Enter Email, 2: Enter OTP, 3: Reset Password
+  const buttonColor = role === 'distributor' ? '#111827' : '#C6122E';
+
+  const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: New Password
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  // Configuration based on role to keep brand consistency
-  const config = {
-    owner: {
-      buttonColor: '#C6122E', // Red
-      logo: require('../assets/images/logo.png'),
-    },
-    reseller: {
-      buttonColor: '#C6122E', // Red
-      logo: require('../assets/images/logo.png'),
-    },
-    distributor: {
-      buttonColor: '#000000', // Black
-      logo: require('../assets/images/logo_black.png'),
-    },
-  }[role];
+  const [error, setError] = useState('');
 
   const validateEmail = (emailVal) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,436 +34,312 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
   };
 
   const handleSendOtp = async () => {
-    if (!email) {
-      Toast.show({ type: 'error', text1: 'Email is required' });
+    if (!email.trim()) {
+      setError('Email address is required');
       return;
     }
-    if (!validateEmail(email)) {
-      Toast.show({ type: 'error', text1: 'Please enter a valid email' });
+    if (!validateEmail(email.trim())) {
+      setError('Please enter a valid email');
       return;
     }
 
+    setError('');
     setLoading(true);
     try {
-      const response = await apiFunction(sendOtpApi, [], { email }, 'POST', false);
+      const response = await apiFunction(sendOtpApi, [], { email: email.trim() }, 'POST', false);
       setLoading(false);
-      
+
       if (response?.success) {
         Toast.show({
           type: 'success',
-          text1: 'Verification code sent!',
-          text2: `For testing, OTP code is: ${response.otp}`,
+          text1: 'Verification Code Sent',
+          text2: `OTP is: ${response.otp || '123456'}`,
           visibilityTime: 6000,
         });
         setStep(2);
       } else {
-        Toast.show({
-          type: 'error',
-          text1: response?.message || 'Failed to send OTP code',
-        });
+        setError(response?.message || 'Failed to send OTP code');
       }
-    } catch (error) {
+    } catch (err) {
       setLoading(false);
-      console.log(error);
-      Toast.show({
-        type: 'error',
-        text1: error?.response?.data?.message || 'Something went wrong. Please try again.',
-      });
+      setError(err?.response?.data?.message || 'Server connection error');
     }
   };
 
   const handleVerifyOtp = async () => {
-    if (!otp) {
-      Toast.show({ type: 'error', text1: 'OTP is required' });
-      return;
-    }
-    if (otp.length < 6) {
-      Toast.show({ type: 'error', text1: 'OTP must be 6 digits' });
+    if (!otp.trim()) {
+      setError('Please enter the verification code');
       return;
     }
 
+    setError('');
     setLoading(true);
     try {
-      const response = await apiFunction(verifyOtpApi, [], { email, otp }, 'POST', false);
+      const response = await apiFunction(verifyOtpApi, [], { email: email.trim(), otp: otp.trim() }, 'POST', false);
       setLoading(false);
 
       if (response?.success) {
         Toast.show({
           type: 'success',
-          text1: 'OTP Verified successfully',
+          text1: 'Code Verified',
           text2: 'Please set your new password',
         });
         setStep(3);
       } else {
-        Toast.show({
-          type: 'error',
-          text1: response?.message || 'Invalid or expired OTP',
-        });
+        setError(response?.message || 'Invalid or expired verification code');
       }
-    } catch (error) {
+    } catch (err) {
       setLoading(false);
-      console.log(error);
-      Toast.show({
-        type: 'error',
-        text1: error?.response?.data?.message || 'Failed to verify OTP',
-      });
+      setError(err?.response?.data?.message || 'Server connection error');
     }
   };
 
   const handleResetPassword = async () => {
-    if (!newPassword || !confirmPassword) {
-      Toast.show({ type: 'error', text1: 'All fields are required' });
+    if (!newPassword) {
+      setError('New password is required');
       return;
     }
     if (newPassword.length < 6) {
-      Toast.show({ type: 'error', text1: 'Password must be at least 6 characters long' });
+      setError('Password must be at least 6 characters');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Toast.show({ type: 'error', text1: 'Passwords do not match' });
+      setError('Passwords do not match');
       return;
     }
 
+    setError('');
     setLoading(true);
     try {
-      const response = await apiFunction(updatePasswordApi, [], { email, password: newPassword }, 'PUT', false);
+      const response = await apiFunction(
+        updatePasswordApi,
+        [],
+        { email: email.trim(), newPassword },
+        'POST',
+        false
+      );
       setLoading(false);
 
       if (response?.success) {
         Toast.show({
           type: 'success',
-          text1: 'Password updated successfully!',
-          text2: 'Please log in with your new credentials',
+          text1: 'Password Updated',
+          text2: 'You can now sign in with your new password',
         });
-        setTimeout(() => {
-          navigation.navigate('Login', { role });
-        }, 1500);
+        navigation.navigate('Login', { role });
       } else {
-        Toast.show({
-          type: 'error',
-          text1: response?.message || 'Failed to reset password',
-        });
+        setError(response?.message || 'Failed to update password');
       }
-    } catch (error) {
+    } catch (err) {
       setLoading(false);
-      console.log(error);
-      Toast.show({
-        type: 'error',
-        text1: error?.response?.data?.message || 'Failed to reset password',
-      });
+      setError(err?.response?.data?.message || 'Server connection error');
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        
-        {/* Back Button */}
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={wp('6%')} color="#B0B0B0" />
-        </TouchableOpacity>
-
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <Image source={config.logo} style={styles.logo} resizeMode="contain" />
-        </View>
-
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Password Recovery</Text>
-          <Text style={styles.subtitle}>
-            {step === 1 && 'ENTER REGISTERED EMAIL TO RECEIVE VERIFICATION CODE'}
-            {step === 2 && 'ENTER THE 6-DIGIT VERIFICATION CODE SENT TO YOUR EMAIL'}
-            {step === 3 && 'SET A SECURE NEW PASSWORD FOR YOUR ACCOUNT'}
-          </Text>
-        </View>
-
-        {/* Step 1: Send OTP */}
-        {step === 1 && (
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
-              </View>
-              <View style={styles.inputWrapper}>
-                <Mail size={wp('5%')} color="#BDBDBD" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="name@company.com"
-                  placeholderTextColor="#C0C0C0"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.mainButton, { backgroundColor: config.buttonColor }]}
-              activeOpacity={0.8}
-              onPress={handleSendOtp}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.mainButtonText}>SEND VERIFICATION CODE</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Step 2: Verify OTP */}
-        {step === 2 && (
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={styles.inputLabel}>VERIFICATION CODE (OTP)</Text>
-              </View>
-              <View style={styles.inputWrapper}>
-                <KeyRound size={wp('5%')} color="#BDBDBD" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter 6-digit OTP"
-                  placeholderTextColor="#C0C0C0"
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  value={otp}
-                  onChangeText={setOtp}
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.mainButton, { backgroundColor: config.buttonColor }]}
-              activeOpacity={0.8}
-              onPress={handleVerifyOtp}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.mainButtonText}>VERIFY CODE</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.resendButton}
-              activeOpacity={0.7}
-              onPress={() => setStep(1)}
-            >
-              <Text style={[styles.resendText, { color: config.buttonColor }]}>BACK TO EMAIL ENTRY</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Step 3: Reset Password */}
-        {step === 3 && (
-          <View style={styles.form}>
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={styles.inputLabel}>NEW PASSWORD</Text>
-              </View>
-              <View style={styles.inputWrapper}>
-                <Lock size={wp('5%')} color="#BDBDBD" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  placeholderTextColor="#C0C0C0"
-                  secureTextEntry={!showPassword}
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                />
-                <TouchableOpacity
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff size={wp('5%')} color="#BDBDBD" />
-                  ) : (
-                    <Eye size={wp('5%')} color="#BDBDBD" />
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <View style={styles.labelRow}>
-                <Text style={styles.inputLabel}>CONFIRM PASSWORD</Text>
-              </View>
-              <View style={styles.inputWrapper}>
-                <Lock size={wp('5%')} color="#BDBDBD" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  placeholderTextColor="#C0C0C0"
-                  secureTextEntry={!showPassword}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.mainButton, { backgroundColor: config.buttonColor }]}
-              activeOpacity={0.8}
-              onPress={handleResetPassword}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.mainButtonText}>UPDATE PASSWORD</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            BACK TO{' '}
-            <Text
-              style={[styles.footerAction, { color: config.buttonColor }]}
-              onPress={() => navigation.navigate('Login', { role })}
-            >
-              SECURE PORTAL LOGIN
+    <ScreenContainer
+      scrollable={false}
+      footer={
+        <View style={styles.footerContainer}>
+          <TouchableOpacity
+            style={styles.backToLoginBtn}
+            onPress={() => navigation.navigate('Login', { role })}
+          >
+            <Text style={styles.backToLoginText}>
+              Remember your password? <Text style={{ color: buttonColor, fontWeight: '700' }}>Sign In</Text>
             </Text>
+          </TouchableOpacity>
+        </View>
+      }
+    >
+      <AppHeader onBack={() => (step > 1 ? setStep(step - 1) : navigation.goBack())} />
+
+      <View style={styles.content}>
+        {/* Step Indicator / Icon */}
+        <View style={styles.iconContainer}>
+          <View style={[styles.iconCircle, { backgroundColor: role === 'distributor' ? '#F3F4F6' : '#FEF2F2' }]}>
+            {step === 1 ? (
+              <Mail size={28} color={buttonColor} />
+            ) : step === 2 ? (
+              <KeyRound size={28} color={buttonColor} />
+            ) : (
+              <ShieldCheck size={28} color={buttonColor} />
+            )}
+          </View>
+          <Text style={styles.stepTitle}>
+            {step === 1 ? 'Reset Password' : step === 2 ? 'Verify Code' : 'Set New Password'}
+          </Text>
+          <Text style={styles.stepSubtitle}>
+            {step === 1
+              ? 'Enter your registered email address to receive a recovery code.'
+              : step === 2
+              ? `Enter the 6-digit code sent to ${email}`
+              : 'Create a new secure password for your account.'}
           </Text>
         </View>
 
-      </ScrollView>
-    </SafeAreaView>
+        {/* Form Card */}
+        <View style={styles.formCard}>
+          {step === 1 && (
+            <>
+              <AppInput
+                label="Email Address"
+                placeholder="name@example.com"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setError('');
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                leftIcon={<Mail size={18} color="#9CA3AF" />}
+                error={error}
+              />
+              <AppButton
+                title="Send Recovery Code"
+                onPress={handleSendOtp}
+                loading={loading}
+                backgroundColor={buttonColor}
+                style={styles.actionBtn}
+              />
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <AppInput
+                label="6-Digit Verification Code"
+                placeholder="123456"
+                value={otp}
+                onChangeText={(text) => {
+                  setOtp(text);
+                  setError('');
+                }}
+                keyboardType="number-pad"
+                maxLength={6}
+                leftIcon={<KeyRound size={18} color="#9CA3AF" />}
+                rightActionText="Resend Code"
+                rightActionColor={buttonColor}
+                onRightActionPress={handleSendOtp}
+                error={error}
+              />
+              <AppButton
+                title="Verify Code"
+                onPress={handleVerifyOtp}
+                loading={loading}
+                backgroundColor={buttonColor}
+                style={styles.actionBtn}
+              />
+            </>
+          )}
+
+          {step === 3 && (
+            <>
+              <AppInput
+                label="New Password"
+                placeholder="••••••••"
+                value={newPassword}
+                onChangeText={(text) => {
+                  setNewPassword(text);
+                  setError('');
+                }}
+                secureTextEntry={!showPassword}
+                leftIcon={<Lock size={18} color="#9CA3AF" />}
+                rightIcon={
+                  showPassword ? (
+                    <Eye size={18} color="#6B7280" />
+                  ) : (
+                    <EyeOff size={18} color="#6B7280" />
+                  )
+                }
+                onRightIconPress={() => setShowPassword((prev) => !prev)}
+              />
+
+              <AppInput
+                label="Confirm New Password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  setError('');
+                }}
+                secureTextEntry={!showPassword}
+                leftIcon={<Lock size={18} color="#9CA3AF" />}
+                error={error}
+              />
+
+              <AppButton
+                title="Update Password"
+                onPress={handleResetPassword}
+                loading={loading}
+                backgroundColor={buttonColor}
+                style={styles.actionBtn}
+              />
+            </>
+          )}
+        </View>
+      </View>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  content: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: wp('10%'),
-    paddingBottom: hp('4%'),
-  },
-  backButton: {
-    marginTop: hp('2%'),
-    width: wp('10%'),
-    height: wp('10%'),
     justifyContent: 'center',
+    paddingBottom: 20,
   },
-  logoContainer: {
+  iconContainer: {
     alignItems: 'center',
-    marginTop: hp('2%'),
+    marginBottom: 20,
   },
-  logo: {
-    width: wp('50%'),
-    height: wp('50%'),
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: hp('4%'),
-  },
-  title: {
-    fontSize: wp('7.5%'),
-    fontWeight: '900',
-    color: '#000000',
-    textAlign: 'center',
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: wp('2.8%'),
-    fontWeight: '700',
-    color: '#BDBDBD',
-    textAlign: 'center',
-    marginTop: hp('0.8%'),
-    letterSpacing: 0.5,
-    paddingHorizontal: wp('5%'),
-  },
-  form: {
-    width: '100%',
-  },
-  inputGroup: {
-    marginBottom: hp('3%'),
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  inputLabel: {
-    fontSize: wp('2.8%'),
-    fontWeight: '700',
-    color: '#A0A0A0',
-    marginBottom: hp('1%'),
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F9',
-    borderRadius: wp('4%'),
-    height: hp('9%'),
-    paddingHorizontal: wp('5%'),
-  },
-  inputIcon: {
-    marginRight: wp('3%'),
-  },
-  input: {
-    flex: 1,
-    fontSize: wp('4%'),
-    color: '#000000',
-    fontWeight: '600',
-    height: '100%',
-  },
-  eyeIcon: {
-    padding: wp('2%'),
-  },
-  mainButton: {
-    height: hp('9%'),
-    borderRadius: wp('4%'),
+  iconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: hp('2%'),
-    shadowColor: '#C6122E',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 15,
-    elevation: 8,
+    marginBottom: 12,
   },
-  mainButtonText: {
-    color: '#FFFFFF',
-    fontSize: wp('3.2%'),
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  resendButton: {
-    marginTop: hp('3%'),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resendText: {
-    fontSize: wp('3.2%'),
+  stepTitle: {
+    fontSize: 20,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#111827',
+    letterSpacing: -0.4,
+    marginBottom: 4,
   },
-  footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginTop: hp('10%'),
-  },
-  footerText: {
-    fontSize: wp('2.5%'),
-    fontWeight: '700',
-    color: '#D0D0D0',
+  stepSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
     textAlign: 'center',
-    letterSpacing: 0.5,
+    paddingHorizontal: 20,
+    lineHeight: 18,
   },
-  footerAction: {
-    fontWeight: '900',
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  actionBtn: {
+    marginTop: 6,
+  },
+  footerContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  backToLoginBtn: {
+    paddingVertical: 6,
+  },
+  backToLoginText: {
+    fontSize: 13,
+    color: '#6B7280',
   },
 });
 

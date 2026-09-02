@@ -1,384 +1,200 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-    View,
-    Text,
-    StyleSheet,
-    FlatList,
-    TouchableOpacity,
-    SafeAreaView,
-    StatusBar,
-    TextInput,
-    Keyboard,
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  TextInput,
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { ChevronLeft, Search, Truck, ChevronRight, X } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import {
+  Car,
+  Search,
+  ChevronRight,
+  X,
+  Sparkles,
+} from 'lucide-react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
-import { getVehiclesRedux } from '../redux/getData';
-
-const SEARCH_TYPES = {
-    GENERAL: 'GENERAL',
-    VIN: 'VIN',
-    PLATE: 'PLATE',
-};
+import AppHeader from '../components/common/AppHeader';
 
 const VehiclesListScreen = () => {
-    const navigation = useNavigation();
-    const dispatch = useDispatch();
-    const { vehicles, loading } = useSelector(state => state.getData);
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { selectedManufacturer, selectedSeries } = route.params || {};
 
-    const [searchType, setSearchType] = useState("GENERAL");
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filteredVehicles, setFilteredVehicles] = useState([]);
+  const { vehicles } = useSelector((state) => state.getData);
+  const [searchQuery, setSearchQuery] = useState('');
 
-    useEffect(() => {
-        if (searchType === SEARCH_TYPES.GENERAL) {
-            const getLinkageTargets = {
-                "linkageTargetCountry": "ZA",
-                "lang": "en",
-                "linkageTargetType": "P",
-                "perPage": 0,
-                "page": 1,
-                "includeMfrFacets": true
-            };
-            dispatch(getVehiclesRedux({ getLinkageTargets }));
-        }
-    }, [dispatch, searchType]);
+  const rawList = useMemo(() => {
+    return vehicles?.mfrFacets?.counts || vehicles?.data?.array || vehicles?.data || [];
+  }, [vehicles]);
 
-    console.log("vehicles", vehicles, searchType);
+  const filteredList = useMemo(() => {
+    if (!searchQuery.trim()) return rawList;
+    return rawList.filter((item) => {
+      const name = item.matchCode || item.manuName || item.modelname || item.name || '';
+      return name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+  }, [rawList, searchQuery]);
 
+  const handleSelectVehicle = (item) => {
+    navigation.navigate('VerifiedParts', {
+      vehicle: item,
+      selectedManufacturer,
+      selectedSeries,
+    });
+  };
 
-    const getExtractedList = () => {
-        if (searchType === SEARCH_TYPES.GENERAL) {
-            return vehicles?.mfrFacets?.counts || [];
-        }
-        return vehicles?.data?.array || vehicles?.data || vehicles || [];
-    };
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-    const vehicleList = useMemo(() => {
-        return getExtractedList();
-    }, [vehicles])
+      <AppHeader
+        title={selectedManufacturer?.manuName || selectedSeries?.modelname || 'Vehicle Variants'}
+        subtitle="Select exact engine & year trim"
+        onBack={() => navigation.goBack()}
+      />
 
-
-    useEffect(() => {
-        if (searchType === SEARCH_TYPES.GENERAL && Array.isArray(vehicleList)) {
-            if (searchQuery) {
-                const lowerCaseQuery = searchQuery?.toLowerCase();
-                const filtered = vehicleList.filter(item => {
-                    const name = item?.name?.toLowerCase();
-                    const count = item?.count?.toString()?.toLowerCase();
-                    return name?.includes(lowerCaseQuery) || count?.includes(lowerCaseQuery);
-                });
-                setFilteredVehicles(filtered);
-            } else {
-                setFilteredVehicles(vehicleList);
-            }
-        } else if (searchType !== SEARCH_TYPES.GENERAL) {
-
-            setFilteredVehicles(Array.isArray(vehicleList) ? vehicleList : []);
-        }
-    }, [searchQuery, vehicles, searchType]);
-
-    const executeApiSearch = () => {
-        Keyboard.dismiss();
-        if (!searchQuery.trim()) return;
-
-        if (searchType === SEARCH_TYPES.VIN) {
-            const payload = {
-                "getVehiclesByVIN": {
-                    "vin": searchQuery.trim(),
-                    "country": "ZA",
-                    "lang": "en"
-                }
-            };
-            dispatch(getVehiclesRedux(payload));
-        } else if (searchType === SEARCH_TYPES.PLATE) {
-            const payload = {
-                "getVehiclesByKeyNumberPlates": {
-                    "numberPlate": searchQuery.trim(),
-                    "countryGroupFlag": false,
-                    "country": "ZA",
-                    "lang": "en"
-                }
-            };
-            dispatch(getVehiclesRedux(payload));
-        }
-    };
-
-    const handleSelect = (vehicle) => {
-
-        console.log("Vehicle selected:", vehicle);
-        navigation.navigate('ModalsScreen', {
-            manuId: vehicle.manuId || vehicle.id || vehicle.name,
-            mfrName: vehicle.mfrName || vehicle.name || 'Vehicle'
-        });
-    };
-
-    const clearSearch = () => {
-        setSearchQuery('');
-        if (searchType !== SEARCH_TYPES.GENERAL) {
-            setFilteredVehicles([]);
-        }
-    };
-
-    const renderVehicleItem = ({ item }) => {
-
-        let title = '';
-        let subtitle = '';
-        let year = '';
-
-        if (searchType === SEARCH_TYPES.GENERAL) {
-            title = item.name || 'Unknown Make';
-            subtitle = item.count ? `${item.count} models available` : '';
-        } else {
-            title = item.mfrName || item.manuName || item.description || 'Unknown Make';
-            subtitle = item.modelName || item.modelSeriesName || item.carName || item.description || 'Unknown Model';
-            year = item.yearOfConstrFrom ? `${item.yearOfConstrFrom.toString().substring(0, 4)}` : '';
-        }
-
-        return (
-            <TouchableOpacity style={styles.vehicleCard} onPress={() => handleSelect(item)}>
-                <View style={styles.iconBox}>
-                    <Truck color="#C6122E" size={wp('6%')} />
-                </View>
-                <View style={styles.textContainer}>
-                    <Text style={styles.vehicleTitle} numberOfLines={1}>{title}</Text>
-                    <Text style={styles.vehicleSubtitle} numberOfLines={1}>
-                        {year ? `${year} • ` : ''}{subtitle}
-                    </Text>
-                </View>
-                <ChevronRight color="#D1D1D1" size={wp('6%')} />
+      <View style={styles.container}>
+        {/* Search Filter Bar */}
+        <View style={styles.searchBar}>
+          <Search size={16} color="#9CA3AF" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search variant, engine, or kW..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X size={16} color="#6B7280" />
             </TouchableOpacity>
-        );
-    };
+          )}
+        </View>
 
-    return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#C6122E" />
-
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => navigation.goBack()}>
-                        <ChevronLeft size={28} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Vehicles</Text>
+        <FlatList
+          data={filteredList}
+          keyExtractor={(item, index) => String(item.manuId || item.id || index)}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => {
+            const title =
+              item.matchCode || item.manuName || item.modelname || item.name || 'Standard Variant';
+            const count = item.count;
+            return (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => handleSelectVehicle(item)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.iconCircle}>
+                  <Car size={18} color="#C6122E" />
                 </View>
+
+                <View style={styles.infoCol}>
+                  <Text style={styles.cardTitle}>{title}</Text>
+                  <Text style={styles.cardSubtitle}>
+                    {count ? `${count} linked parts available` : '100% verified compatibility'}
+                  </Text>
+                </View>
+
+                <ChevronRight size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyText}>No matching vehicle trims found</Text>
             </View>
-
-            <View style={styles.searchContainer}>
-                {/* Search Type Tabs */}
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                        style={[styles.tabButton, searchType === SEARCH_TYPES.GENERAL && styles.activeTabButton]}
-                        onPress={() => { setSearchType(SEARCH_TYPES.GENERAL); setSearchQuery(''); }}
-                    >
-                        <Text style={[styles.tabText, searchType === SEARCH_TYPES.GENERAL && styles.activeTabText]}>Make/Model</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tabButton, searchType === SEARCH_TYPES.VIN && styles.activeTabButton]}
-                        onPress={() => { setSearchType(SEARCH_TYPES.VIN); setSearchQuery(''); setFilteredVehicles([]); }}
-                    >
-                        <Text style={[styles.tabText, searchType === SEARCH_TYPES.VIN && styles.activeTabText]}>VIN</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tabButton, searchType === SEARCH_TYPES.PLATE && styles.activeTabButton]}
-                        onPress={() => { setSearchType(SEARCH_TYPES.PLATE); setSearchQuery(''); setFilteredVehicles([]); }}
-                    >
-                        <Text style={[styles.tabText, searchType === SEARCH_TYPES.PLATE && styles.activeTabText]}>Number Plate</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Search Bar */}
-                <View style={styles.searchBoxRow}>
-                    <View style={styles.searchBox}>
-                        <Search color="#8E8E8E" size={wp('5%')} style={styles.searchIcon} />
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder={
-                                searchType === SEARCH_TYPES.VIN ? "Enter VIN..." :
-                                    searchType === SEARCH_TYPES.PLATE ? "Enter Number Plate..." :
-                                        "Search vehicles..."
-                            }
-                            placeholderTextColor="#8E8E8E"
-                            value={searchQuery}
-                            onChangeText={setSearchQuery}
-                            onSubmitEditing={searchType !== SEARCH_TYPES.GENERAL ? executeApiSearch : null}
-                            returnKeyType={searchType === SEARCH_TYPES.GENERAL ? "done" : "search"}
-                        />
-                        {searchQuery.length > 0 && (
-                            <TouchableOpacity onPress={clearSearch}>
-                                <X color="#8E8E8E" size={wp('5%')} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-
-                    {searchType !== SEARCH_TYPES.GENERAL && (
-                        <TouchableOpacity style={styles.searchActionButton} onPress={executeApiSearch}>
-                            <Text style={styles.searchActionText}>Find</Text>
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-
-            {/* List */}
-            <FlatList
-                data={filteredVehicles}
-                keyExtractor={(item, index) => item.linkageTargetId?.toString() || item.id?.toString() || item.carId?.toString() || index.toString()}
-                renderItem={renderVehicleItem}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>
-                            {loading ? "Searching..." :
-                                (searchType !== SEARCH_TYPES.GENERAL && !searchQuery) ? `Enter a ${searchType === SEARCH_TYPES.VIN ? 'VIN' : 'Number Plate'} to search` :
-                                    "No vehicles found."}
-                        </Text>
-                    </View>
-                }
-            />
-        </SafeAreaView>
-    );
+          }
+        />
+      </View>
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F6FA',
-    },
-    header: {
-        backgroundColor: '#C6122E',
-        height: hp('8%'),
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: wp('4%'),
-    },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    headerTitle: {
-        color: '#FFFFFF',
-        fontSize: wp('5%'),
-        fontWeight: 'bold',
-        marginLeft: wp('4%'),
-    },
-    searchContainer: {
-        paddingHorizontal: wp('6%'),
-        paddingBottom: hp('2%'),
-        paddingTop: hp('1%'),
-        backgroundColor: '#C6122E',
-        borderBottomLeftRadius: wp('6%'),
-        borderBottomRightRadius: wp('6%'),
-    },
-    tabContainer: {
-        flexDirection: 'row',
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        borderRadius: wp('2%'),
-        marginBottom: hp('1.5%'),
-        padding: wp('1%'),
-    },
-    tabButton: {
-        flex: 1,
-        paddingVertical: hp('0.8%'),
-        alignItems: 'center',
-        borderRadius: wp('1.5%'),
-    },
-    activeTabButton: {
-        backgroundColor: '#FFFFFF',
-    },
-    tabText: {
-        color: '#FFFFFF',
-        fontSize: wp('3.2%'),
-        fontWeight: '600',
-    },
-    activeTabText: {
-        color: '#C6122E',
-    },
-    searchBoxRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    searchBox: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        borderRadius: wp('4%'),
-        paddingHorizontal: wp('4%'),
-        height: hp('6%'),
-    },
-    searchIcon: {
-        marginRight: wp('2%'),
-    },
-    searchInput: {
-        flex: 1,
-        fontSize: wp('3.8%'),
-        color: '#000000',
-        height: '100%',
-    },
-    searchActionButton: {
-        backgroundColor: '#000000',
-        marginLeft: wp('2%'),
-        height: hp('6%'),
-        paddingHorizontal: wp('5%'),
-        justifyContent: 'center',
-        borderRadius: wp('4%'),
-    },
-    searchActionText: {
-        color: '#FFFFFF',
-        fontWeight: 'bold',
-        fontSize: wp('3.8%'),
-    },
-    listContent: {
-        paddingHorizontal: wp('6%'),
-        paddingTop: hp('2%'),
-        paddingBottom: hp('5%'),
-    },
-    vehicleCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: wp('5%'),
-        padding: wp('4%'),
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: hp('2%'),
-        // Shadow
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
-    },
-    iconBox: {
-        backgroundColor: '#FFF1F3',
-        padding: wp('3%'),
-        borderRadius: wp('4%'),
-        marginRight: wp('4%'),
-    },
-    textContainer: {
-        flex: 1,
-    },
-    vehicleTitle: {
-        fontSize: wp('4.5%'),
-        fontWeight: 'bold',
-        color: '#000000',
-    },
-    vehicleSubtitle: {
-        fontSize: wp('3.2%'),
-        color: '#8E8E8E',
-        marginTop: hp('0.5%'),
-    },
-    emptyContainer: {
-        paddingVertical: hp('10%'),
-        alignItems: 'center',
-    },
-    emptyText: {
-        fontSize: wp('4%'),
-        color: '#8E8E8E',
-        textAlign: 'center',
-        paddingHorizontal: wp('10%'),
-    },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    padding: 0,
+  },
+  listContent: {
+    paddingBottom: 24,
+    gap: 8,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  iconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  infoCol: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  emptyBox: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
 });
 
 export default VehiclesListScreen;

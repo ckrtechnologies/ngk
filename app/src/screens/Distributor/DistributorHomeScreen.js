@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,461 +6,334 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  ScrollView
-} from "react-native";
+  ScrollView,
+  Image,
+} from 'react-native';
 import {
   Menu,
   Bell,
-  Home,
   Search,
   MessageSquare,
-  ShoppingCart,
   Truck,
-  ChevronRight,
-  Package,
-  Clock
-} from "lucide-react-native";
-import { useNavigation, DrawerActions } from "@react-navigation/native";
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from "react-native-responsive-screen";
-import { useDispatch, useSelector } from "react-redux";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getEnquiryRedux, getMyselfRedux, getArticlesRedux } from "../../redux/getData";
+  Layers,
+  Clock,
+  CheckCircle2,
+  TrendingUp,
+} from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getEnquiryRedux, getMyselfRedux } from '../../redux/getData';
 
 const DistributorHomeScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const { enquiry, myself, articles } = useSelector((state) => state.getData);
+  const { enquiry, myself } = useSelector((state) => state.getData);
 
   useEffect(() => {
     const fetchHubData = async () => {
-      const userId = await AsyncStorage.getItem("userId");
+      const userId = await AsyncStorage.getItem('userId');
       if (userId) {
         dispatch(getMyselfRedux(userId));
         dispatch(getEnquiryRedux(userId));
       }
-
-      const getArticlesParams = {
-        "articleCountry": "ZA",
-        "dataSupplierIds": ["5567", "7729"],
-        "lang": "en",
-        "perPage": 10,
-        "page": 1,
-        "includeAll": true
-      };
-      dispatch(getArticlesRedux({ getArticles: getArticlesParams }));
     };
-
     fetchHubData();
   }, [dispatch]);
 
-  const pendingCount = enquiry?.filter(e => (e.vehicle?.status || e.status) === 'Pending')?.length || 0;
-  const recentEnquiries = enquiry?.slice(0, 2) || [];
+  const pendingCount =
+    enquiry?.filter((e) => (e.status || 'Pending').toLowerCase() === 'pending')
+      ?.length || 0;
+  const inProgressCount =
+    enquiry?.filter(
+      (e) => (e.status || '').toLowerCase() === 'in progress'
+    )?.length || 0;
+
+  const quickActions = [
+    {
+      id: 'catalog',
+      title: 'Bulk Catalog',
+      subtitle: 'TecDoc OE & application index',
+      icon: <Search size={22} color="#111827" />,
+      bg: '#F3F4F6',
+      route: 'PartsFinder',
+    },
+    {
+      id: 'enquiries',
+      title: 'Regional Tickets',
+      subtitle: `${pendingCount} open technical enquiries`,
+      icon: <MessageSquare size={22} color="#C6122E" />,
+      bg: '#FEE2E2',
+      route: 'MyEnquiries',
+    },
+    {
+      id: 'logistics',
+      title: 'Stock Allocation',
+      subtitle: 'Regional inventory levels',
+      icon: <Truck size={22} color="#2563EB" />,
+      bg: '#DBEAFE',
+      route: 'PartsFinder',
+    },
+    {
+      id: 'dealers',
+      title: 'Reseller Network',
+      subtitle: 'Authorized dealer management',
+      icon: <Layers size={22} color="#059669" />,
+      bg: '#D1FAE5',
+      route: 'DealerLocatorScreen',
+    },
+  ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#111111" />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* HEADER */}
+      {/* 52px Native App Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('CustomDrawer')}>
-          <Menu color="#fff" size={wp("6%")} />
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => navigation.navigate('CustomDrawer')}
+          activeOpacity={0.7}
+        >
+          <Menu size={22} color="#111827" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Distributor Hub</Text>
+        <Image
+          source={require('../../assets/images/logo_black.png')}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
 
-        <View style={styles.headerRight}>
-          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.headerIcon}>
-            {pendingCount > 0 && <View style={styles.badge} />}
-            <Bell color="#fff" size={wp("6%")} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.homeIcon}>
-            <Home color="#111" size={wp("5%")} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => navigation.navigate('Notifications')}
+          activeOpacity={0.7}
+        >
+          <Bell size={20} color="#111827" />
+          {pendingCount > 0 && <View style={styles.badgeDot} />}
+        </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: hp('10%') }}>
-
-        {/* HERO CARD */}
-        <View style={styles.heroCard}>
-          <View style={styles.tag}>
-            <Text style={styles.tagText}>WHOLESALE ACTIVE</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Distributor Header */}
+        <View style={styles.greetingSection}>
+          <View style={styles.distributorBadge}>
+            <Text style={styles.distributorBadgeText}>AUTHORIZED DISTRIBUTOR</Text>
           </View>
-
-          <Text style={styles.heroTitle}>Welcome, {myself?.name || 'Distributor'}!</Text>
-
-          <Text style={styles.heroSub}>
-            {myself?.email || 'Authorized Hub'} • {pendingCount} enquiries awaiting wholesale authorization
+          <Text style={styles.greetingName}>
+            {myself?.name ? myself.name : 'Distribution Partner'}
           </Text>
         </View>
 
-        {/* STATS */}
-        <View style={styles.statsRow}>
-
-          {/* Pending Wholesale Orders */}
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate("MyEnquiries")}
-          >
-            <View style={styles.iconCircleRed}>
-              <Clock color="#D3132A" size={20} />
+        {/* KPI Metric Chips */}
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiCard}>
+            <View style={styles.kpiIconWrapper}>
+              <Clock size={16} color="#C6122E" />
             </View>
-            <Text style={styles.statNumber}>{pendingCount}</Text>
-            <Text style={styles.statLabel}>Pending Orders</Text>
-          </TouchableOpacity>
+            <Text style={styles.kpiValue}>{pendingCount}</Text>
+            <Text style={styles.kpiLabel}>Pending Actions</Text>
+          </View>
 
-          {/* Catalog Master Parts */}
-          <TouchableOpacity
-            style={styles.statCard}
-            onPress={() => navigation.navigate("PartsFinder")}
-          >
-            <View style={styles.iconCircleGray}>
-              <Package color="#4B5563" size={20} />
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiIconWrapper, { backgroundColor: '#DBEAFE' }]}>
+              <TrendingUp size={16} color="#2563EB" />
             </View>
-            <Text style={styles.statNumber}>{articles?.length || 0}</Text>
-            <Text style={styles.statLabel}>Master Parts</Text>
-          </TouchableOpacity>
+            <Text style={styles.kpiValue}>{inProgressCount}</Text>
+            <Text style={styles.kpiLabel}>Active Tickets</Text>
+          </View>
 
+          <View style={styles.kpiCard}>
+            <View style={[styles.kpiIconWrapper, { backgroundColor: '#D1FAE5' }]}>
+              <CheckCircle2 size={16} color="#059669" />
+            </View>
+            <Text style={styles.kpiValue}>
+              {enquiry?.length || 0}
+            </Text>
+            <Text style={styles.kpiLabel}>Total Managed</Text>
+          </View>
         </View>
 
-        {/* RECENT ENQUIRIES SECTION */}
+        {/* 2x2 Quick Action Grid */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Wholesale Requests</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('MyEnquiries')}>
-            <Text style={styles.viewAllText}>View All</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Distribution Hub</Text>
         </View>
 
-        {recentEnquiries.map((item, index) => {
-          const v = item.vehicle || {};
-          const status = v.status || item.status || 'Pending';
-          const title = v.title || item.title || 'Wholesale Enquiry';
-          const date = item.enquiryDate ? new Date(item.enquiryDate).toLocaleDateString() : '';
-
-          return (
+        <View style={styles.gridContainer}>
+          {quickActions.map((action) => (
             <TouchableOpacity
-              key={index}
-              style={styles.enquiryCard}
-              onPress={() => navigation.navigate('MyEnquiries')}
+              key={action.id}
+              style={styles.gridTile}
+              onPress={() => navigation.navigate(action.route)}
+              activeOpacity={0.75}
             >
-              <View style={styles.enqCardLeft}>
-                <View style={styles.enqIconBox}>
-                  <MessageSquare color="#D3132A" size={20} />
-                </View>
-                <View style={styles.enqInfo}>
-                  <Text style={styles.enqTitle} numberOfLines={1}>{title}</Text>
-                  <Text style={styles.enqDate}>ENQ-{item.id} • {date}</Text>
-                </View>
+              <View style={[styles.tileIconCircle, { backgroundColor: action.bg }]}>
+                {action.icon}
               </View>
-              <View style={[styles.statusBadge, status === 'Approved' ? styles.badgeApproved : styles.badgePending]}>
-                <Text style={styles.statusBadgeText}>{status.toUpperCase()}</Text>
-              </View>
+              <Text style={styles.tileTitle}>{action.title}</Text>
+              <Text style={styles.tileSubtitle} numberOfLines={2}>
+                {action.subtitle}
+              </Text>
             </TouchableOpacity>
-          );
-        })}
-
-        {recentEnquiries.length === 0 && (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No pending wholesale requests.</Text>
-          </View>
-        )}
-
-        {/* GLOBAL PART FINDER */}
-        <TouchableOpacity
-          style={styles.partFinder}
-          onPress={() => navigation.navigate("PartsFinder")}
-        >
-          <Search color="#D3132A" size={24} />
-          <View style={{ flex: 1, marginLeft: 15 }}>
-            <Text style={styles.partFinderTitle}>
-              Global Part Finder
-            </Text>
-            <Text style={styles.partFinderSub}>
-              Cross-reference technical database
-            </Text>
-          </View>
-          <ChevronRight color="#777" size={22} />
-        </TouchableOpacity>
-
+          ))}
+        </View>
       </ScrollView>
-
-      {/* BOTTOM NAV */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity onPress={() => navigation.navigate("DistributorHome")} style={styles.navItem}>
-          <Home color="#fff" size={22} />
-          <Text style={styles.navText}>Portal</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate("PartsFinder")} style={styles.navItem}>
-          <Search color="#fff" size={22} />
-          <Text style={styles.navText}>Search</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate("MyEnquiries")} style={styles.navItem}>
-          <MessageSquare color="#fff" size={22} />
-          <Text style={styles.navText}>Inbox</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate("DealerLocator")} style={styles.navItem}>
-          <ShoppingCart color="#fff" size={22} />
-          <Text style={styles.navText}>Depots</Text>
-        </TouchableOpacity>
-      </View>
-
     </SafeAreaView>
   );
 };
 
-export default DistributorHomeScreen;
-
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: "#F3F4F6"
+    backgroundColor: '#F9FAFB',
   },
   header: {
-    backgroundColor: "#111",
-    height: hp("8%"),
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: wp("4%")
+    height: 52,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  headerTitle: {
-    color: "#fff",
-    fontSize: wp("4.5%"),
-    fontWeight: "bold"
-  },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center"
-  },
-  headerIcon: {
-    marginRight: 12
-  },
-  badge: {
-    position: "absolute",
-    top: -3,
-    right: -3,
-    width: 8,
-    height: 8,
-    borderRadius: 10,
-    backgroundColor: "#D3132A"
-  },
-  homeIcon: {
-    backgroundColor: "#fff",
+  headerBtn: {
     width: 36,
     height: 36,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center"
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
   },
-  heroCard: {
-    backgroundColor: "#0F0F10",
-    margin: wp("5%"),
-    borderRadius: wp("6%"),
-    padding: wp("6%"),
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5
+  badgeDot: {
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#C6122E',
   },
-  tag: {
-    backgroundColor: "#D3132A",
-    alignSelf: "flex-start",
-    paddingHorizontal: wp("3%"),
-    paddingVertical: hp("0.5%"),
-    borderRadius: wp("1.5%"),
-    marginBottom: hp("1.5%")
+  headerLogo: {
+    width: 100,
+    height: 32,
   },
-  tagText: {
-    color: "#fff",
-    fontSize: wp("2.5%"),
-    fontWeight: "bold"
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
-  heroTitle: {
-    color: "#fff",
-    fontSize: wp("6%"),
-    fontWeight: "bold"
+  greetingSection: {
+    marginBottom: 14,
   },
-  heroSub: {
-    color: "#9CA3AF",
-    marginTop: hp("0.8%"),
-    fontSize: wp("3.2%")
+  distributorBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#111827',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
   },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: wp("5%"),
-    marginBottom: hp("2.5%")
+  distributorBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  statCard: {
-    backgroundColor: "#fff",
-    width: "48%",
-    borderRadius: wp("5%"),
-    padding: wp("5%"),
-    shadowColor: "#000",
+  greetingName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.4,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 18,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2
-  },
-  iconCircleRed: {
-    backgroundColor: "#FFF1F2",
-    width: wp("10%"),
-    height: wp("10%"),
-    borderRadius: wp("2.5%"),
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: hp("1.5%")
-  },
-  iconCircleGray: {
-    backgroundColor: "#F3F4F6",
-    width: wp("10%"),
-    height: wp("10%"),
-    borderRadius: wp("2.5%"),
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: hp("1.5%")
-  },
-  statNumber: {
-    fontSize: wp("5.5%"),
-    fontWeight: "bold",
-    color: "#000"
-  },
-  statLabel: {
-    color: "#9CA3AF",
-    marginTop: hp("0.5%"),
-    fontSize: wp("3%")
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: wp("5%"),
-    marginBottom: hp("1.5%")
-  },
-  sectionTitle: {
-    fontSize: wp("4.5%"),
-    fontWeight: "bold",
-    color: "#000"
-  },
-  viewAllText: {
-    color: "#D3132A",
-    fontSize: wp("3.5%"),
-    fontWeight: "bold"
-  },
-  enquiryCard: {
-    backgroundColor: "#fff",
-    marginHorizontal: wp("5%"),
-    marginBottom: hp("1.5%"),
-    borderRadius: wp("4%"),
-    padding: wp("4%"),
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
     elevation: 2,
   },
-  enqCardLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: wp("3%")
+  kpiIconWrapper: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
-  enqIconBox: {
-    backgroundColor: "#FFF1F2",
-    padding: wp("3%"),
-    borderRadius: wp("3%"),
-    marginRight: wp("3%")
+  kpiValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
   },
-  enqInfo: {
-    flex: 1,
+  kpiLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 2,
+    textAlign: 'center',
   },
-  enqTitle: {
-    fontSize: wp("3.8%"),
-    fontWeight: "bold",
-    color: "#000",
-    marginBottom: hp("0.3%")
+  sectionHeader: {
+    marginBottom: 10,
   },
-  enqDate: {
-    fontSize: wp("2.8%"),
-    color: "#8E8E8E"
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
   },
-  statusBadge: {
-    paddingHorizontal: wp("3%"),
-    paddingVertical: hp("0.6%"),
-    borderRadius: wp("2%"),
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  badgeApproved: {
-    backgroundColor: "#10B981"
+  gridTile: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  badgePending: {
-    backgroundColor: "#D97706"
+  tileIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  statusBadgeText: {
-    color: "#fff",
-    fontSize: wp("2.5%"),
-    fontWeight: "bold"
+  tileTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
   },
-  emptyCard: {
-    backgroundColor: "#fff",
-    marginHorizontal: wp("5%"),
-    marginBottom: hp("2.5%"),
-    borderRadius: wp("4%"),
-    padding: wp("6%"),
-    alignItems: "center"
+  tileSubtitle: {
+    fontSize: 11,
+    color: '#6B7280',
+    lineHeight: 15,
   },
-  emptyText: {
-    color: "#8E8E8E",
-    fontSize: wp("3.2%")
-  },
-  partFinder: {
-    backgroundColor: "#000",
-    marginHorizontal: wp("5%"),
-    marginTop: hp("1%"),
-    borderRadius: wp("5%"),
-    padding: wp("5%"),
-    flexDirection: "row",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 5
-  },
-  partFinderTitle: {
-    color: "#fff",
-    fontSize: wp("4.2%"),
-    fontWeight: "bold"
-  },
-  partFinderSub: {
-    color: "#9CA3AF",
-    fontSize: wp("3%"),
-    marginTop: hp("0.3%")
-  },
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    backgroundColor: "#0F0F10",
-    height: hp("8%"),
-    justifyContent: "space-around",
-    alignItems: "center"
-  },
-  navItem: {
-    alignItems: "center"
-  },
-  navText: {
-    color: "#fff",
-    fontSize: wp("2.8%"),
-    marginTop: hp("0.4%")
-  }
 });
+
+export default DistributorHomeScreen;

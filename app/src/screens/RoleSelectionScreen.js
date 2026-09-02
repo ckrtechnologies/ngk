@@ -1,159 +1,245 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { User, ShoppingCart, Truck, ChevronRight } from 'lucide-react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+} from 'react-native';
+import { User, ShoppingBag, Truck, ChevronRight } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ScreenContainer from '../components/common/ScreenContainer';
 
 const RoleSelectionScreen = ({ navigation }) => {
-
   useEffect(() => {
     const checkAlreadyLogin = async () => {
-      const token = await AsyncStorage.getItem("token");
-      const userId = await AsyncStorage.getItem("userId");
-      const role = await AsyncStorage.getItem("role");
+      const token = await AsyncStorage.getItem('token');
+      const userId = await AsyncStorage.getItem('userId');
+      const role = await AsyncStorage.getItem('role');
       if ((token || userId) && role) {
         const lowerRole = role.toLowerCase();
-        navigation.replace(lowerRole === "owner" ? "OwnerHome" : lowerRole === "reseller" ? "ResellerHome" : "DistributorHomeScreen");
+        navigation.replace(
+          lowerRole === 'owner'
+            ? 'OwnerHome'
+            : lowerRole === 'reseller'
+            ? 'ResellerHome'
+            : 'DistributorHomeScreen'
+        );
       }
     };
     checkAlreadyLogin();
   }, [navigation]);
+
   const roles = [
     {
       id: 'owner',
       title: 'Vehicle Owner',
-      description: 'Find parts for your personal vehicle',
-      icon: <User size={wp('6%')} color="#C6122E" />,
+      description: 'Search parts & track garage maintenance',
+      icon: <User size={22} color="#C6122E" />,
+      badge: 'Individual',
+      badgeBg: '#FEE2E2',
+      badgeColor: '#C6122E',
     },
     {
       id: 'reseller',
       title: 'Professional Reseller',
-      description: 'Inventory lookup & workshop supply',
-      icon: <ShoppingCart size={wp('6%')} color="#C6122E" />,
+      description: 'Workshop supply, trade catalogue & quotes',
+      icon: <ShoppingBag size={22} color="#C6122E" />,
+      badge: 'Trade & Workshop',
+      badgeBg: '#FEF3C7',
+      badgeColor: '#D97706',
     },
     {
       id: 'distributor',
       title: 'Authorized Distributor',
-      description: 'Bulk ordering & logistics management',
-      icon: <Truck size={wp('6%')} color="#C6122E" />,
+      description: 'Bulk logistics & tier-1 parts provisioning',
+      icon: <Truck size={22} color="#111827" />,
+      badge: 'Enterprise',
+      badgeBg: '#F3F4F6',
+      badgeColor: '#374151',
     },
   ];
 
   const handleRoleSelect = (roleId) => {
-    // Navigate to Login screen with the selected role
     navigation.navigate('Login', { role: roleId });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <ScreenContainer
+      scrollable={false}
+      footer={
+        <View style={styles.footer}>
+          <Text style={styles.footerBrand}>NGK SPARK PLUG CO., LTD.</Text>
+          <Text style={styles.footerVersion}>Technical Services Mobile • v2.0</Text>
+        </View>
+      }
+    >
       <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Choose Your Path</Text>
-          <Text style={styles.subtitle}>Select a profile to tailor your experience</Text>
+        {/* Top Branding */}
+        <View style={styles.topSection}>
+          <Image
+            source={require('../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.headline}>Select Your Profile</Text>
+          <Text style={styles.subheadline}>
+            Choose your account type to tailor your technical catalogue and service tools.
+          </Text>
         </View>
 
-        <View style={styles.cardsContainer}>
+        {/* 3 Compact Native Role Tiles */}
+        <View style={styles.rolesList}>
           {roles.map((role) => (
             <TouchableOpacity
               key={role.id}
-              style={styles.card}
-              activeOpacity={0.8}
+              style={styles.roleCard}
+              activeOpacity={0.7}
               onPress={() => handleRoleSelect(role.id)}
             >
-              <View style={styles.iconWrapper}>
+              <View
+                style={[
+                  styles.iconBox,
+                  { backgroundColor: role.id === 'distributor' ? '#F3F4F6' : '#FEF2F2' },
+                ]}
+              >
                 {role.icon}
               </View>
-              <View style={styles.textWrapper}>
-                <Text style={styles.roleTitle}>{role.title}</Text>
-                <Text style={styles.roleDescription}>{role.description}</Text>
+
+              <View style={styles.infoBox}>
+                <View style={styles.titleRow}>
+                  <Text style={styles.roleTitle}>{role.title}</Text>
+                  <View
+                    style={[
+                      styles.roleBadge,
+                      { backgroundColor: role.badgeBg },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.roleBadgeText,
+                        { color: role.badgeColor },
+                      ]}
+                    >
+                      {role.badge}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.roleDescription} numberOfLines={1}>
+                  {role.description}
+                </Text>
               </View>
-              <ChevronRight size={wp('5%')} color="#D1D1D1" />
+
+              <ChevronRight size={18} color="#9CA3AF" />
             </TouchableOpacity>
           ))}
         </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>NGK SPARK PLUG CO., LTD.</Text>
-        </View>
       </View>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
   content: {
     flex: 1,
-    paddingHorizontal: wp('6%'),
-    paddingTop: hp('8%'),
+    justifyContent: 'center',
+    paddingTop: 8,
   },
-  header: {
-    marginBottom: hp('5%'),
+  topSection: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
-  title: {
-    fontSize: wp('8%'),
+  logo: {
+    width: 140,
+    height: 48,
+    marginBottom: 16,
+  },
+  headline: {
+    fontSize: 22,
     fontWeight: '800',
-    color: '#000000',
-    marginBottom: hp('1%'),
+    color: '#111827',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+    marginBottom: 6,
   },
-  subtitle: {
-    fontSize: wp('4.2%'),
-    color: '#666666',
-    lineHeight: wp('6%'),
+  subheadline: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 12,
   },
-  cardsContainer: {
-    flex: 1,
+  rolesList: {
+    width: '100%',
+    gap: 12,
   },
-  card: {
+  roleCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    padding: wp('5%'),
-    borderRadius: wp('4%'),
-    marginBottom: hp('2.5%'),
-    // iOS Shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    // Android Elevation
-    elevation: 5,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  iconWrapper: {
-    width: wp('14%'),
-    height: wp('14%'),
-    borderRadius: wp('3%'),
-    backgroundColor: '#F7F7F7',
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: wp('4%'),
+    marginRight: 14,
   },
-  textWrapper: {
+  infoBox: {
     flex: 1,
+    marginRight: 8,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 3,
   },
   roleTitle: {
-    fontSize: wp('4.8%'),
+    fontSize: 15,
     fontWeight: '700',
-    color: '#000000',
-    marginBottom: hp('0.5%'),
+    color: '#111827',
+  },
+  roleBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   roleDescription: {
-    fontSize: wp('3.8%'),
-    color: '#666666',
-    paddingRight: wp('5%'),
+    fontSize: 12,
+    color: '#6B7280',
   },
   footer: {
-    paddingVertical: hp('3%'),
     alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  footerText: {
-    fontSize: wp('3%'),
-    color: '#D1D1D1',
-    letterSpacing: 0.5,
+  footerBrand: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.8,
+  },
+  footerVersion: {
+    fontSize: 10,
+    color: '#D1D5DB',
+    marginTop: 2,
   },
 });
 

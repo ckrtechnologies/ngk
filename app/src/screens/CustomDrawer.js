@@ -1,229 +1,286 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, PermissionsAndroid } from "react-native";
-import { Home, Heart, Search, Settings, LogOut, MessageSquare, Truck, Camera } from "lucide-react-native";
-import * as ImagePicker from "react-native-image-picker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useDispatch, useSelector } from "react-redux";
-import { getMyselfRedux } from "../redux/getData";
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
+} from 'react-native';
+import {
+  Home,
+  Search,
+  Car,
+  MessageSquare,
+  MapPin,
+  LogOut,
+  X,
+  User,
+  ShieldCheck,
+  ChevronRight,
+} from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useDispatch, useSelector } from 'react-redux';
+import { getMyselfRedux } from '../redux/getData';
+import Toast from 'react-native-toast-message';
 
 export default function CustomDrawer({ navigation }) {
-  const [Avatar, setAvatar] = React.useState(null);
-  const {myself} = useSelector((state) => state.getData);
-  const dispatch = useDispatch()
+  const dispatch = useDispatch();
+  const { myself } = useSelector((state) => state.getData);
+  const [role, setRole] = useState('owner');
 
   useEffect(() => {
-    if (!myself) {
-      dispatch(getMyselfRedux())
-    }
-  }, [dispatch]);
+    const fetchUser = async () => {
+      const storedRole = await AsyncStorage.getItem('role');
+      const userId = await AsyncStorage.getItem('userId');
+      if (storedRole) setRole(storedRole);
+      if (userId && !myself) dispatch(getMyselfRedux(userId));
+    };
+    fetchUser();
+  }, [dispatch, myself]);
 
-  const requestGalleryPermission = async () => {
-    if (Platform.OS === "android") {
-      try {
-
-        const permission =
-          Platform.Version >= 33
-            ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
-            : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
-
-        const granted = await PermissionsAndroid.request(permission);
-
-        if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-          return true;
-        } else {
-          console.log("Permission denied");
-          return false;
-        }
-
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true;
-  };
-  const AvatarHandler = async () => {
-
-    const hasPermission = await requestGalleryPermission();
-
-    if (!hasPermission) {
-      alert("Gallery permission required!");
-
-      return;
-
-    }
-
-    try {
-      const result = await ImagePicker.launchImageLibrary({
-        mediaType: "photo",
-        includeBase64: false,
-      });
-
-      if (result.didCancel) {
-        console.log("User cancelled image picker");
-      } else if (result.errorCode) {
-        console.log("ImagePicker Error: ", result.errorMessage);
-      } else {
-        setAvatar(result.assets[0].uri);
-      }
-
-    } catch (error) {
-      console.log("ImagePicker error:", error);
-    }
+  const handleLogout = async () => {
+    await AsyncStorage.multiRemove(['token', 'userId', 'role', 'user']);
+    Toast.show({ type: 'success', text1: 'Signed Out' });
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'RoleSelection' }],
+    });
   };
 
-  const handleLogout = () => {
-    AsyncStorage.removeItem("userId");
-    AsyncStorage.removeItem("role");
-    AsyncStorage.removeItem("apiKey");
-    navigation.replace("RoleSelection");
-  };
-
-  const MenuItem = ({ icon, title, onPress }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
-      {icon}
-      <Text style={styles.menuText}>{title}</Text>
-    </TouchableOpacity>
-  );
+  const menuItems = [
+    {
+      id: 'home',
+      label: 'Home Dashboard',
+      icon: Home,
+      action: () => {
+        const homeRoute =
+          role === 'reseller'
+            ? 'ResellerHome'
+            : role === 'distributor'
+            ? 'DistributorHomeScreen'
+            : 'OwnerHome';
+        navigation.navigate(homeRoute);
+      },
+    },
+    {
+      id: 'parts',
+      label: 'Parts & Catalog Lookup',
+      icon: Search,
+      action: () => navigation.navigate('PartsFinder'),
+    },
+    {
+      id: 'garage',
+      label: 'My Garage Vehicles',
+      icon: Car,
+      action: () => navigation.navigate('MyGarage'),
+    },
+    {
+      id: 'enquiries',
+      label: 'Technical Enquiries',
+      icon: MessageSquare,
+      action: () => navigation.navigate('MyEnquiries'),
+    },
+    {
+      id: 'dealers',
+      label: 'Authorized Stockists',
+      icon: MapPin,
+      action: () => navigation.navigate('DealerLocatorScreen'),
+    },
+  ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Profile */}
-      <View style={styles.profileSection}>
-
-        <TouchableOpacity onPress={AvatarHandler}>
-
-          <Image
-            source={Avatar ? { uri: Avatar } : { uri: "https://i.pravatar.cc/100" }}
-            style={styles.avatar}
-          />
-
-          {/* Edit Icon */}
-          <View style={styles.editIcon}>
-            <Camera size={12} color="#fff" />
+      {/* Drawer Header */}
+      <View style={styles.header}>
+        <View style={styles.profileRow}>
+          <View style={styles.avatarCircle}>
+            <User size={22} color="#C6122E" />
           </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.userName} numberOfLines={1}>
+              {myself?.name || 'Technical User'}
+            </Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>
+                {role.toUpperCase()}
+              </Text>
+            </View>
+          </View>
+        </View>
 
+        <TouchableOpacity
+          style={styles.closeBtn}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <X size={20} color="#6B7280" />
         </TouchableOpacity>
-        <Text style={styles.name}>{myself?.name}</Text>
-        <Text style={styles.role}>{myself?.role}</Text>
       </View>
 
-      {/* Navigation */}
-      <Text style={styles.section}>Navigation</Text>
+      {/* Menu List */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.menuList}
+      >
+        <Text style={styles.menuSectionHeader}>NAVIGATION</Text>
 
-      <MenuItem
-        icon={<Home color="#fff" size={20} />}
-        title="Home"
-        onPress={() => navigation.navigate("OwnerHome")}
-      />
+        {menuItems.map((item) => {
+          const IconComp = item.icon;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.menuItem}
+              onPress={item.action}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuIconWrapper}>
+                <IconComp size={18} color="#C6122E" />
+              </View>
+              <Text style={styles.menuItemText}>{item.label}</Text>
+              <ChevronRight size={16} color="#9CA3AF" />
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
-      <MenuItem
-        icon={<Truck color="#fff" size={20} />}
-        title="Garage"
-        onPress={() => navigation.navigate("MyGarage")}
-      />
+      {/* Drawer Footer & Logout */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={handleLogout}
+          activeOpacity={0.75}
+        >
+          <LogOut size={16} color="#EF4444" />
+          <Text style={styles.logoutText}>Sign Out Account</Text>
+        </TouchableOpacity>
 
-      {/* Catalog */}
-      <Text style={styles.section}>Catalog</Text>
-
-      <MenuItem
-        icon={<Search color="#fff" size={20} />}
-        title="Parts Finder"
-        onPress={() => navigation.navigate("PartsFinder")}
-      />
-
-      <MenuItem
-        icon={<Heart color="#fff" size={20} />}
-        title="Watchlist"
-        onPress={() => navigation.navigate("Watchlist")}
-      />
-
-      {/* Support */}
-      <Text style={styles.section}>Support</Text>
-
-      <MenuItem
-        icon={<MessageSquare color="#fff" size={20} />}
-        title="Enquiries"
-        onPress={() => navigation.navigate("MyEnquiries")}
-      />
-
-      {/* More */}
-      <Text style={styles.section}>More</Text>
-
-      {/* <MenuItem
-        icon={<Settings color="#fff" size={20} />}
-        title="Settings"
-      /> */}
-
-      <MenuItem
-        icon={<LogOut color="#fff" size={20} />}
-        onPress={handleLogout}
-        title="Sign Out"
-
-      />
-
-    </View>
+        <Text style={styles.copyrightText}>
+          NGK SPARK PLUGS (PTY) LTD • v2.0
+        </Text>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0F172A",
-    padding: 20,
+    backgroundColor: '#FFFFFF',
   },
-
-  profileSection: {
-    alignItems: "center",
-    marginBottom: 30,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-
-  avatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    marginBottom: 10,
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
   },
-
-  name: {
-    color: "#fff",
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  userName: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: '800',
+    color: '#111827',
   },
-
-  role: {
-    color: "#EF4444",
-    fontSize: 12,
+  roleBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 2,
   },
-
-  section: {
-    color: "#9CA3AF",
-    marginTop: 20,
-    marginBottom: 10,
-    fontWeight: "600",
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C6122E',
   },
-
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuList: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    gap: 6,
+  },
+  menuSectionHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#9CA3AF',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
   menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
   },
-
-  menuText: {
-    color: "#fff",
-    marginLeft: 15,
+  menuIconWrapper: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  menuItemText: {
+    flex: 1,
     fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
   },
-  editIcon: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#EF4444",
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    justifyContent: "center",
-    alignItems: "center",
-  }
+  footer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    height: 44,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  logoutText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  copyrightText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
 });

@@ -7,422 +7,428 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
-  Dimensions,
+  Image,
 } from 'react-native';
-import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
-import { Menu, Bell, Home, Search, Heart, MessageSquare, Truck, ChevronRight } from 'lucide-react-native';
+import {
+  Menu,
+  Bell,
+  Search,
+  Car,
+  MessageSquare,
+  MapPin,
+  ChevronRight,
+  Sparkles,
+  ShieldCheck,
+  Plus,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
-import { apiFunction } from '../apis/apiFunction';
-import { serviceJsonApi } from '../apis/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { getArticlesRedux, getMyselfRedux, getVehiclesRedux } from '../redux/getData';
 
-const { width } = Dimensions.get('window');
-
-const OwnerHomeScreen = ({ prop }) => {
+const OwnerHomeScreen = () => {
   const navigation = useNavigation();
-  const { articles, vehicles, myself } = useSelector(state => state.getData)
-  const dispatch = useDispatch()
-  const scrollCards = [
+  const dispatch = useDispatch();
+  const { myself, vehicles } = useSelector((state) => state.getData);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        dispatch(getMyselfRedux(userId));
+      }
+    };
+    fetchInitialData();
+  }, [dispatch]);
+
+  const quickActions = [
     {
-      id: '1',
-      tag: 'New Release',
-      title: 'Version 4.2.0',
-      description: '342 new parts added this week',
-      buttonText: 'Check Updates',
-      bgColor: '#000000',
+      id: 'parts',
+      title: 'Find Parts',
+      subtitle: 'Spark plugs, sensors & cables',
+      icon: <Search size={22} color="#C6122E" />,
+      bg: '#FEE2E2',
+      route: 'PartsFinder',
     },
     {
-      id: '2',
-      tag: 'Technical',
-      title: 'Wider Range',
-      description: 'Check out our latest sensor snapshots',
-      buttonText: 'Read More',
-      bgColor: '#1E2554',
+      id: 'garage',
+      title: 'My Garage',
+      subtitle: 'Saved cars & exact compatibility',
+      icon: <Car size={22} color="#2563EB" />,
+      bg: '#DBEAFE',
+      route: 'MyGarage',
+    },
+    {
+      id: 'enquiry',
+      title: 'Tech Enquiry',
+      subtitle: 'Photo upload & expert advice',
+      icon: <MessageSquare size={22} color="#059669" />,
+      bg: '#D1FAE5',
+      route: 'TechnicalEnquiry',
+    },
+    {
+      id: 'dealers',
+      title: 'Dealer Locator',
+      subtitle: 'Find authorized stockists nearby',
+      icon: <MapPin size={22} color="#D97706" />,
+      bg: '#FEF3C7',
+      route: 'DealerLocatorScreen',
     },
   ];
 
-
-
-  useEffect(() => {
-    const checkAPIKey = async () => {
-      const apiKey = await AsyncStorage.getItem("apiKey")
-      console.log(apiKey, "apiKey")
-      if (!apiKey) {
-        navigation.navigate("Login")
-      }
-    }
-    checkAPIKey()
-  }, []);
-
-  const getMyself = async () => {
-    const userId = await AsyncStorage.getItem("userId")
-    dispatch(getMyselfRedux(userId))
-  }
-
-
-  useEffect(() => {
-    const getArticles = {
-      "articleCountry": "ZA",
-      "dataSupplierIds": ["5567", "7729"],
-      "lang": "en",
-      "perPage": 10,
-      "page": 1,
-      "includeAll": true
-    }
-    dispatch(getArticlesRedux({ getArticles }))
-
-    const getLinkageTargets = {
-      "linkageTargetCountry": "ZA",
-      "lang": "en",
-      "linkageTargetType": "P",
-      "perPage": 0,
-      "page": 1,
-      "includeMfrFacets": true
-    }
-    dispatch(getVehiclesRedux({ getLinkageTargets }))
-    getMyself()
-  }, [dispatch]);
-
+  const activeCar = myself?.garage?.[0] || null;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle='dark-content' />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Header */}
+      {/* 52px Native App Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => navigation.navigate('CustomDrawer')}>
-            <Menu size={28} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>NGK <Text style={{ fontWeight: '300' }}>Technical</Text></Text>
-        </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerIcon} onPress={() => navigation.navigate('Notifications')}>
-            <View style={styles.notificationBadge} />
-            <Bell color="#FFFFFF" size={wp('6%')} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.homeIconContainer}>
-            <Home color="#C6122E" size={wp('5%')} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-
-        {/* Horizontal Scroll Cards */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={width * 0.85}
-          decelerationRate="fast"
-          contentContainerStyle={styles.horizontalScroll}
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => navigation.navigate('CustomDrawer')}
+          activeOpacity={0.7}
         >
-          {scrollCards.map((item) => (
-            <View key={item.id} style={[styles.promoCard, { backgroundColor: item.bgColor }]}>
-              <View style={styles.tagContainer}>
-                <Text style={styles.tagText}>{item.tag}</Text>
-              </View>
-              <Text style={styles.promoTitle}>{item.title}</Text>
-              <Text style={styles.promoDesc}>{item.description}</Text>
-              <TouchableOpacity style={styles.promoButton}>
-                <Text style={styles.promoButtonText}>{item.buttonText}</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </ScrollView>
-
-        {/* Saved Garage Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Saved Garage</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('VehiclesList')}>
-            <Text style={styles.viewAll}>View All</Text>
-          </TouchableOpacity>
-        </View>
-
-        {myself?.vehicleId?.length > 0 ? <TouchableOpacity style={styles.garageCard} onPress={() => navigation.navigate('MyGarage')}>
-          <View style={styles.garageIconBox}>
-            <Truck color="#C6122E" size={wp('6%')} />
-          </View>
-          <View style={styles.garageTextContainer}>
-            <Text style={styles.garageTitle}>{myself?.vehicleId[0]?.vehicleDescription}</Text>
-            <Text style={styles.garageSubtitle}>{myself?.vehicleId[0]?.yearOfConstrFrom} - {myself?.vehicleId[0]?.yearOfConstrTo} </Text>
-          </View>
-          <ChevronRight color="#D1D1D1" size={wp('6%')} />
-        </TouchableOpacity> : (
-          <TouchableOpacity onPress={() => navigation.navigate('VehiclesList')}
-            style={{ height: hp("6%"), margin: hp("3%"), borderRadius: hp("1%"), backgroundColor: "#C6122E", justifyContent: "center", alignItems: "center" }}>
-            <Text style={{ color: "white", fontWeight: "bold" }}>Please add vehicle</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Quick Actions (Grid) */}
-        <View style={styles.gridContainer}>
-          <View style={styles.gridItemContainer}>
-            <TouchableOpacity onPress={() => navigation.navigate('CatalogSearch')} style={styles.gridCard}>
-              <Search color="#C6122E" size={wp('8%')} />
-            </TouchableOpacity>
-            <Text style={styles.gridText}>Catalog Search</Text>
-          </View>
-          <View style={styles.gridItemContainer}>
-            <TouchableOpacity style={styles.gridCard} onPress={() => navigation.navigate('Watchlist')}>
-              <View style={styles.heartBadge}>
-                <Text style={styles.heartBadgeText}>{myself?.watchList?.length || 0}</Text>
-              </View>
-              <Heart color="#000000" fill="#000000" size={wp('8%')} />
-            </TouchableOpacity>
-            <Text style={styles.gridText}>Watchlist</Text>
-          </View>
-        </View>
-
-        {/* Technical Enquiry */}
-        <TouchableOpacity style={styles.enquiryCard} onPress={() => navigation.navigate('TechnicalEnquiry')}>
-          <View style={styles.enquiryIconBox}>
-            <MessageSquare color="#C6122E" fill="#C6122E" size={wp('6%')} />
-          </View>
-          <View style={styles.garageTextContainer}>
-            <Text style={styles.garageTitle}>Technical Enquiry</Text>
-            <Text style={styles.enquirySubtitle}>Direct contact with NGK engineers</Text>
-          </View>
-          <ChevronRight color="#D1D1D1" size={wp('6%')} />
+          <Menu size={22} color="#111827" />
         </TouchableOpacity>
 
+        <Image
+          source={require('../assets/images/logo.png')}
+          style={styles.headerLogo}
+          resizeMode="contain"
+        />
+
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => navigation.navigate('Notifications')}
+          activeOpacity={0.7}
+        >
+          <Bell size={20} color="#111827" />
+          <View style={styles.badgeDot} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Welcome Greeting */}
+        <View style={styles.greetingSection}>
+          <Text style={styles.greetingSub}>WELCOME BACK</Text>
+          <Text style={styles.greetingName}>
+            {myself?.name ? myself.name : 'Vehicle Owner'}
+          </Text>
+        </View>
+
+        {/* Active Garage Vehicle Banner */}
+        <View style={styles.garageCard}>
+          <View style={styles.garageCardHeader}>
+            <View style={styles.garageBadge}>
+              <Car size={14} color="#C6122E" />
+              <Text style={styles.garageBadgeText}>ACTIVE VEHICLE</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('MyGarage')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.manageGarageLink}>
+                {activeCar ? 'Switch' : 'Add Car'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {activeCar ? (
+            <View style={styles.activeCarBody}>
+              <Text style={styles.carTitle}>
+                {activeCar.make} {activeCar.model} ({activeCar.year})
+              </Text>
+              <Text style={styles.carEngine}>
+                {activeCar.engine || 'Standard Trim'} • {activeCar.fuel_type || 'Petrol'}
+              </Text>
+              <TouchableOpacity
+                style={styles.searchForCarBtn}
+                onPress={() =>
+                  navigation.navigate('PartsFinder', { preselectedVehicle: activeCar })
+                }
+                activeOpacity={0.8}
+              >
+                <Search size={14} color="#FFFFFF" />
+                <Text style={styles.searchForCarText}>View Compatible Parts</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.emptyGaragePrompt}
+              onPress={() => navigation.navigate('MyGarage')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.addCarCircle}>
+                <Plus size={18} color="#C6122E" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.emptyGarageTitle}>Add your vehicle to garage</Text>
+                <Text style={styles.emptyGarageSub}>
+                  Get 100% verified spark plugs & sensor matches
+                </Text>
+              </View>
+              <ChevronRight size={16} color="#9CA3AF" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* 2x2 Tactile Quick Action Grid */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quick Tools</Text>
+        </View>
+
+        <View style={styles.gridContainer}>
+          {quickActions.map((action) => (
+            <TouchableOpacity
+              key={action.id}
+              style={styles.gridTile}
+              onPress={() => navigation.navigate(action.route)}
+              activeOpacity={0.75}
+            >
+              <View style={[styles.tileIconCircle, { backgroundColor: action.bg }]}>
+                {action.icon}
+              </View>
+              <Text style={styles.tileTitle}>{action.title}</Text>
+              <Text style={styles.tileSubtitle} numberOfLines={2}>
+                {action.subtitle}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Technical Highlights / Tip Banner */}
+        <View style={styles.tipBanner}>
+          <ShieldCheck size={20} color="#C6122E" />
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text style={styles.tipTitle}>Genuine NGK Guarantee</Text>
+            <Text style={styles.tipText}>
+              Always verify part numbers and electrode gap before installation.
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#F5F6FA',
-    // padding:'20'
+    backgroundColor: '#F9FAFB',
   },
   header: {
-    backgroundColor: '#C6122E',
-    height: hp('8%'),
+    height: 52,
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: wp('4%'),
-    // marginTop:'35'
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  headerLeft: {
-    flexDirection: 'row',
+  headerBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: wp('5%'),
-    fontWeight: 'bold',
-    marginLeft: wp('4%'),
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  headerIcon: {
-    padding: wp('2%'),
     position: 'relative',
   },
-  notificationBadge: {
+  badgeDot: {
     position: 'absolute',
-    top: hp('1.5%'),
-    right: wp('1.5%'),
-    width: wp('2%'),
-    height: wp('2%'),
-    borderRadius: wp('1%'),
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#C6122E',
-    zIndex: 1,
+    top: 7,
+    right: 7,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#C6122E',
   },
-  homeIconContainer: {
-    backgroundColor: '#FFFFFF',
-    width: wp('9%'),
-    height: wp('9%'),
-    borderRadius: wp('4.5%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: wp('2%'),
+  headerLogo: {
+    width: 100,
+    height: 32,
   },
   scrollContent: {
-    paddingBottom: hp('5%'),
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
-  horizontalScroll: {
-    paddingLeft: wp('6%'),
-    paddingVertical: hp('3%'),
-    paddingRight: wp('6%'),
+  greetingSection: {
+    marginBottom: 14,
   },
-  promoCard: {
-    width: width * 0.75,
-    borderRadius: wp('8%'),
-    padding: wp('6%'),
-    marginRight: wp('4%'),
-    height: hp('24%'),
-    justifyContent: 'center',
+  greetingSub: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#9CA3AF',
+    letterSpacing: 0.8,
   },
-  tagContainer: {
-    backgroundColor: '#C6122E',
-    alignSelf: 'flex-start',
-    paddingHorizontal: wp('3%'),
-    paddingVertical: hp('0.5%'),
-    borderRadius: wp('2%'),
-    marginBottom: hp('1.5%'),
-  },
-  tagText: {
-    color: '#FFFFFF',
-    fontSize: wp('2.8%'),
-    fontWeight: 'bold',
-  },
-  promoTitle: {
-    color: '#FFFFFF',
-    fontSize: wp('7%'),
-    fontWeight: 'bold',
-    marginBottom: hp('0.5%'),
-  },
-  promoDesc: {
-    color: '#D0D0D0',
-    fontSize: wp('3.5%'),
-    marginBottom: hp('2.5%'),
-  },
-  promoButton: {
-    backgroundColor: '#FFFFFF',
-    alignSelf: 'flex-start',
-    paddingHorizontal: wp('5%'),
-    paddingVertical: hp('1%'),
-    borderRadius: wp('3%'),
-  },
-  promoButtonText: {
-    color: '#000000',
-    fontWeight: 'bold',
-    fontSize: wp('3.5%'),
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: wp('6%'),
-    marginTop: hp('1%'),
-    marginBottom: hp('1.5%'),
-  },
-  sectionTitle: {
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  viewAll: {
-    color: '#C6122E',
-    fontSize: wp('3.5%'),
-    fontWeight: '600',
+  greetingName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.4,
   },
   garageCard: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: wp('6%'),
-    borderRadius: wp('6%'),
-    padding: wp('4%'),
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  garageCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    // Shadow
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-    marginBottom: hp('2.5%'),
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  garageIconBox: {
-    backgroundColor: '#FFF1F3',
-    padding: wp('3%'),
-    borderRadius: wp('4%'),
-    marginRight: wp('4%'),
+  garageBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  garageTextContainer: {
-    flex: 1,
+  garageBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C6122E',
+    letterSpacing: 0.4,
   },
-  garageTitle: {
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-    color: '#000000',
+  manageGarageLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C6122E',
   },
-  garageSubtitle: {
-    fontSize: wp('3.2%'),
-    color: '#8E8E8E',
-    marginTop: hp('0.5%'),
+  activeCarBody: {
+    marginTop: 4,
+  },
+  carTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  carEngine: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  searchForCarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#111827',
+    height: 38,
+    borderRadius: 10,
+  },
+  searchForCarText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyGaragePrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  addCarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  emptyGarageTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  emptyGarageSub: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  sectionHeader: {
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
   },
   gridContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp('6%'),
-    marginBottom: hp('3%'),
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 18,
   },
-  gridItemContainer: {
-    width: wp('42%'),
-    alignItems: 'center',
-  },
-  gridCard: {
+  gridTile: {
+    width: '48%',
     backgroundColor: '#FFFFFF',
-    width: '100%',
-    height: hp('18%'),
-    borderRadius: wp('8%'),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: hp('1.5%'),
-    shadowColor: '#000',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
     elevation: 2,
-    position: 'relative',
   },
-  gridText: {
-    fontSize: wp('3.8%'),
-    fontWeight: 'bold',
-    color: '#000000',
-  },
-  heartBadge: {
-    position: 'absolute',
-    top: hp('2%'),
-    right: wp('4%'),
-    backgroundColor: '#C6122E',
-    width: wp('6%'),
-    height: wp('6%'),
-    borderRadius: wp('3%'),
+  tileIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
+    marginBottom: 10,
   },
-  heartBadgeText: {
-    color: '#FFFFFF',
-    fontSize: wp('2.8%'),
-    fontWeight: 'bold',
+  tileTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
   },
-  enquiryCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: wp('6%'),
-    borderRadius: wp('6%'),
-    padding: wp('5%'),
+  tileSubtitle: {
+    fontSize: 11,
+    color: '#6B7280',
+    lineHeight: 15,
+  },
+  tipBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-    marginBottom: hp('10%'),
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    borderLeftWidth: 4,
+    borderLeftColor: '#C6122E',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  enquiryIconBox: {
-    backgroundColor: '#F0F5FF',
-    padding: wp('3.5%'),
-    borderRadius: wp('4.5%'),
-    marginRight: wp('4%'),
+  tipTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
   },
-  enquirySubtitle: {
-    fontSize: wp('3.2%'),
-    color: '#8E8E8E',
-    marginTop: hp('0.5%'),
+  tipText: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
   },
 });
 
