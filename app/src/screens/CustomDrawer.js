@@ -87,7 +87,7 @@ export default function CustomDrawer({ navigation }) {
       id: 'dealers',
       label: 'Authorized Stockists',
       icon: MapPin,
-      action: () => navigation.navigate('DealerLocatorScreen'),
+      action: () => navigation.navigate('DealerLocator'),
     },
   ];
 

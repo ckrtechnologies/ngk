@@ -81,7 +81,7 @@ const DistributorHomeScreen = () => {
       subtitle: 'Authorized dealer management',
       icon: <Layers size={22} color="#059669" />,
       bg: '#D1FAE5',
-      route: 'DealerLocatorScreen',
+      route: 'DealerLocator',
     },
   ];
 

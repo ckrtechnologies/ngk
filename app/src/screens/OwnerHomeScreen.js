@@ -73,7 +73,7 @@ const OwnerHomeScreen = () => {
       subtitle: 'Find authorized stockists nearby',
       icon: <MapPin size={22} color="#D97706" />,
       bg: '#FEF3C7',
-      route: 'DealerLocatorScreen',
+      route: 'DealerLocator',
     },
   ];
 

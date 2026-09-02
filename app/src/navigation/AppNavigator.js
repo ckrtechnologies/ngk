@@ -110,6 +110,7 @@ const AppNavigator = () => {
       <Stack.Screen name="TechnicalEnquiry" component={TechnicalEnquiryScreen} />
       <Stack.Screen name="Success" component={SuccessScreen} />
       <Stack.Screen name="DealerLocator" component={DealerLocatorScreen} />
+      <Stack.Screen name="DealerLocatorScreen" component={DealerLocatorScreen} />
       <Stack.Screen name="MyEnquiries" component={MyEnquiriesScreen} />
       <Stack.Screen name='ResellerHome' component={ResellerHomeScreen} />
       <Stack.Screen name='DistributorHomeScreen' component={DistributorHomeScreen} />
@@ -118,6 +119,7 @@ const AppNavigator = () => {
       <Stack.Screen name="Notifications" component={Notification} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="VehiclesList" component={VehiclesListScreen} />
+      <Stack.Screen name="vehiclesListScreen" component={VehiclesListScreen} />
       <Stack.Screen name="ModalsScreen" component={ModalsScreen} />
       <Stack.Screen name="CatalogSearch" component={PartsFinderScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
