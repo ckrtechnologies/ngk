@@ -127,8 +127,8 @@ const TechnicalEnquiryScreen = () => {
 
       const userId = await AsyncStorage.getItem('userId');
       const payload = {
-        userId: userId ? Number(userId) : null,
-        dealerId: selectedDealerId ? Number(selectedDealerId) : null,
+        userId: userId || null,
+        dealerId: selectedDealerId || null,
         partName: part?.articleName || part?.name || null,
         partNumber: part?.articleNo || part?.partNumber || null,
         carName: vehicle?.model || vehicle?.name || null,

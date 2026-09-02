@@ -103,7 +103,7 @@ const MyEnquiriesScreen = () => {
 
     const payload = {
       enquiryId: selectedTicket.id,
-      senderId: Number(userId),
+      senderId: userId,
       senderRole: role || 'owner',
       message: replyMessage.trim(),
     };

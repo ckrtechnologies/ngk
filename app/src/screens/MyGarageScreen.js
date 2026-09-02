@@ -74,7 +74,7 @@ const MyGarageScreen = () => {
     setSubmitting(true);
     const userId = await AsyncStorage.getItem('userId');
     const payload = {
-      userId: Number(userId),
+      userId: userId,
       make: make.trim().toUpperCase(),
       model: model.trim().toUpperCase(),
       year: year.trim() || String(new Date().getFullYear()),
@@ -123,7 +123,7 @@ const MyGarageScreen = () => {
       const res = await apiFunction(
         removeFromWatchlistApi,
         [],
-        { userId: Number(userId), vehicleId },
+        { userId: userId, vehicleId },
         'POST',
         false
       );
