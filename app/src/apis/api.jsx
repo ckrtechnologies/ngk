@@ -1,6 +1,6 @@
 import Config from "react-native-config"
 
-const apiURL = Config.API_URL || "http://10.0.2.2:3001"
+const apiURL = Config.API_URL || "https://ngkapi.ckrtechnologies.in"
 const BASE_URL = `${apiURL}/api`
 
 // Auth & Users
