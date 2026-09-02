@@ -5,10 +5,10 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Car,
   Search,
@@ -23,6 +23,7 @@ import AppHeader from '../components/common/AppHeader';
 const VehiclesListScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const { selectedManufacturer, selectedSeries } = route.params || {};
 
   const { vehicles } = useSelector((state) => state.getData);
@@ -49,7 +50,15 @@ const VehiclesListScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View
+      style={[
+        styles.safeArea,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <AppHeader
@@ -114,7 +123,7 @@ const VehiclesListScreen = () => {
           }
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

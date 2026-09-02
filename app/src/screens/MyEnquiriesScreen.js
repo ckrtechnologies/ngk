@@ -5,13 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Modal,
   TextInput,
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   MessageSquare,
   Clock,
@@ -36,6 +36,7 @@ import AppHeader from '../components/common/AppHeader';
 const MyEnquiriesScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { enquiry } = useSelector((state) => state.getData);
 
   const [activeFilter, setActiveFilter] = useState('ALL');
@@ -125,7 +126,15 @@ const MyEnquiriesScreen = () => {
   const filtered = getFilteredList();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View
+      style={[
+        styles.safeArea,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <AppHeader
@@ -302,7 +311,7 @@ const MyEnquiriesScreen = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 

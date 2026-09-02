@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Menu,
   Bell,
@@ -29,6 +29,7 @@ import { getEnquiryRedux, getMyselfRedux } from '../../redux/getData';
 const ResellerHomeScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { enquiry, myself } = useSelector((state) => state.getData);
 
   useEffect(() => {
@@ -86,7 +87,15 @@ const ResellerHomeScreen = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View
+      style={[
+        styles.safeArea,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* 52px Native App Header */}
@@ -182,7 +191,7 @@ const ResellerHomeScreen = () => {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 

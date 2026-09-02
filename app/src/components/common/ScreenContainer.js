@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
@@ -10,6 +9,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ScreenContainer = ({
   children,
@@ -18,21 +18,44 @@ const ScreenContainer = ({
   statusBarStyle = 'dark-content',
   contentContainerStyle,
   style,
-  keyboardVerticalOffset = Platform.OS === 'ios' ? 0 : 0,
+  keyboardVerticalOffset = 0,
   footer,
+  paddingHorizontal = 20,
 }) => {
+  const insets = useSafeAreaInsets();
   const Container = scrollable ? ScrollView : View;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
-      <StatusBar barStyle={statusBarStyle} backgroundColor={backgroundColor} />
+    <View
+      style={[
+        styles.safeContainer,
+        {
+          backgroundColor,
+          paddingTop: insets.top,
+          paddingBottom: Math.max(insets.bottom, 12),
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
+    >
+      <StatusBar
+        barStyle={statusBarStyle}
+        backgroundColor={backgroundColor}
+        translucent={Platform.OS === 'android'}
+      />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoid}
         keyboardVerticalOffset={keyboardVerticalOffset}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={[styles.innerWrapper, style]}>
+          <View
+            style={[
+              styles.innerWrapper,
+              { paddingHorizontal },
+              style,
+            ]}
+          >
             <Container
               style={scrollable ? styles.scrollView : styles.flexView}
               contentContainerStyle={
@@ -50,12 +73,12 @@ const ScreenContainer = ({
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safeContainer: {
     flex: 1,
   },
   keyboardAvoid: {
@@ -63,7 +86,6 @@ const styles = StyleSheet.create({
   },
   innerWrapper: {
     flex: 1,
-    paddingHorizontal: 20,
   },
   flexView: {
     flex: 1,
@@ -75,7 +97,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   footerContainer: {
-    paddingVertical: 12,
+    paddingTop: 8,
   },
 });
 

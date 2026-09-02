@@ -5,10 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Menu,
   Bell,
@@ -29,6 +29,7 @@ import { getArticlesRedux, getMyselfRedux, getVehiclesRedux } from '../redux/get
 const OwnerHomeScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { myself, vehicles } = useSelector((state) => state.getData);
 
   useEffect(() => {
@@ -79,7 +80,15 @@ const OwnerHomeScreen = () => {
   const activeCar = myself?.garage?.[0] || null;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View
+      style={[
+        styles.safeArea,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* 52px Native App Header */}
@@ -211,7 +220,7 @@ const OwnerHomeScreen = () => {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 

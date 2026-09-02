@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Home,
   Search,
@@ -27,6 +27,7 @@ import Toast from 'react-native-toast-message';
 
 export default function CustomDrawer({ navigation }) {
   const dispatch = useDispatch();
+  const insets = useSafeAreaInsets();
   const { myself } = useSelector((state) => state.getData);
   const [role, setRole] = useState('owner');
 
@@ -91,7 +92,15 @@ export default function CustomDrawer({ navigation }) {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Drawer Header */}
@@ -162,7 +171,7 @@ export default function CustomDrawer({ navigation }) {
           NGK SPARK PLUGS (PTY) LTD • v2.0
         </Text>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
