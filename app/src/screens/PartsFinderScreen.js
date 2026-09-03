@@ -27,7 +27,13 @@ import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFunction } from '../apis/apiFunction';
-import { serviceJsonApi, addSearchHistoryApi, vehiclesApi, popularBrandsApi } from '../apis/api';
+import {
+  serviceJsonApi,
+  addSearchHistoryApi,
+  vehiclesApi,
+  popularBrandsApi,
+  articlesByPartApi,
+} from '../apis/api';
 import { getMyselfRedux } from '../redux/getData';
 import Toast from 'react-native-toast-message';
 import AppHeader from '../components/common/AppHeader';
@@ -253,13 +259,14 @@ const PartsFinderScreen = () => {
     }
 
     setPartSearching(true);
+    const trimmed = partNumber.trim();
     const payload = {
       getArticles: {
         articleCountry: 'ZA',
-        dataSupplierIds: ['5567', '7729'],
-        searchQuery: partNumber.trim(),
+        searchQuery: trimmed,
+        searchType: 10,
         lang: 'en',
-        perPage: 20,
+        perPage: 30,
         page: 1,
         includeAll: true,
       },
@@ -267,9 +274,21 @@ const PartsFinderScreen = () => {
 
     try {
       const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+      let results = res?.articles || res?.data?.array || res?.data || [];
+
+      // Fallback to backend REST endpoint if needed
+      if (!results || results.length === 0) {
+        const restRes = await apiFunction(
+          `${articlesByPartApi}?searchQuery=${encodeURIComponent(trimmed)}`,
+          [],
+          {},
+          'GET',
+          false
+        );
+        results = restRes?.articles || restRes?.data?.array || restRes?.data || [];
+      }
+
       setPartSearching(false);
-      const results =
-        res?.data?.array || res?.getArticles?.array || res?.data || [];
 
       // Record Search History if user logged in
       const userId = await AsyncStorage.getItem('userId');
@@ -277,7 +296,7 @@ const PartsFinderScreen = () => {
         apiFunction(
           addSearchHistoryApi,
           [],
-          { userId, query: partNumber.trim(), resultsCount: results.length },
+          { userId, query: trimmed, resultsCount: results.length },
           'POST',
           false
         ).catch(() => {});
@@ -285,7 +304,7 @@ const PartsFinderScreen = () => {
 
       navigation.navigate('VerifiedParts', {
         articles: results,
-        searchQuery: partNumber.trim(),
+        searchQuery: trimmed,
         directSearch: true,
       });
     } catch (err) {
@@ -293,7 +312,7 @@ const PartsFinderScreen = () => {
       Toast.show({
         type: 'error',
         text1: 'Search Failed',
-        text2: err?.response?.data?.message || 'Error searching catalog.',
+        text2: 'Unable to reach parts database. Please try again.',
       });
     }
   };
@@ -379,146 +398,147 @@ const PartsFinderScreen = () => {
         </View>
 
         {searchMode === 'vehicle' ? (
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollBody}
-          >
-            {/* Step 1: Vehicle Application Type Pills */}
-            <Text style={styles.inputSectionLabel}>APPLICATION TYPE</Text>
-            <View style={styles.appTypeRow}>
-              {applications.map((app) => {
-                const IconComponent = app.icon;
-                const isSelected = selectedApp === app.id;
-                return (
-                  <TouchableOpacity
-                    key={app.id}
-                    style={[
-                      styles.appTypePill,
-                      isSelected && styles.appTypePillSelected,
-                    ]}
-                    onPress={() => setSelectedApp(app.id)}
-                    activeOpacity={0.7}
-                  >
-                    <IconComponent
-                      size={16}
-                      color={isSelected ? '#FFFFFF' : '#4B5563'}
-                    />
-                    <Text
-                      style={[
-                        styles.appTypePillText,
-                        isSelected && styles.appTypePillTextSelected,
-                      ]}
-                    >
-                      {app.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Popular Vehicle Brands Quick Select (6-9 Cards) */}
-            {popularBrands.length > 0 && (
-              <View style={styles.popularSection}>
-                <View style={styles.popularHeaderRow}>
-                  <Text style={styles.inputSectionLabel}>POPULAR MAKES</Text>
-                  {popularBrands.length > 6 && (
+          <View style={styles.vehicleContainer}>
+            <View style={styles.vehicleTopSection}>
+              {/* Step 1: Vehicle Application Type Pills */}
+              <Text style={styles.inputSectionLabel}>APPLICATION TYPE</Text>
+              <View style={styles.appTypeRow}>
+                {applications.map((app) => {
+                  const IconComponent = app.icon;
+                  const isSelected = selectedApp === app.id;
+                  return (
                     <TouchableOpacity
-                      onPress={() => setBrandCount(brandCount === 6 ? 9 : 6)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      key={app.id}
+                      style={[
+                        styles.appTypePill,
+                        isSelected && styles.appTypePillSelected,
+                      ]}
+                      onPress={() => setSelectedApp(app.id)}
+                      activeOpacity={0.7}
                     >
-                      <Text style={styles.toggleText}>
-                        {brandCount === 6 ? '+ Show 9 Brands' : 'Show Top 6'}
+                      <IconComponent
+                        size={16}
+                        color={isSelected ? '#FFFFFF' : '#4B5563'}
+                      />
+                      <Text
+                        style={[
+                          styles.appTypePillText,
+                          isSelected && styles.appTypePillTextSelected,
+                        ]}
+                      >
+                        {app.label}
                       </Text>
                     </TouchableOpacity>
-                  )}
-                </View>
-                <View style={styles.brandsGrid}>
-                  {popularBrands.slice(0, brandCount).map((b) => {
-                    const isSelected =
-                      (selectedManufacturer?.manuId || selectedManufacturer?.id) ===
-                      (b.manuId || b.id);
-                    return (
-                      <BrandLogoCard
-                        key={b.id || b.manuId}
-                        item={b}
-                        isSelected={isSelected}
-                        onPress={handleSelectPopularBrand}
-                      />
-                    );
-                  })}
-                </View>
+                  );
+                })}
               </View>
-            )}
 
-            {/* Step 2: Make & Model Side-by-Side (Single Row) */}
-            <Text style={[styles.inputSectionLabel, { marginTop: 8 }]}>
-              VEHICLE SPECIFICATIONS
-            </Text>
-
-            <View style={styles.specsRow}>
-              {/* Manufacturer Selector */}
-              <TouchableOpacity
-                style={[styles.pickerField, styles.halfPicker]}
-                onPress={() => openPicker('manufacturer')}
-                activeOpacity={0.75}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.pickerFieldLabel}>Make</Text>
-                  <Text
-                    style={[
-                      styles.pickerFieldValue,
-                      !selectedManufacturer && styles.pickerFieldPlaceholder,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {selectedManufacturer?.manuName ||
-                      selectedManufacturer?.name ||
-                      'Select Make'}
-                  </Text>
+              {/* Popular Vehicle Brands Quick Select (6-9 Cards) */}
+              {popularBrands.length > 0 && (
+                <View style={styles.popularSection}>
+                  <View style={styles.popularHeaderRow}>
+                    <Text style={styles.inputSectionLabel}>POPULAR MAKES</Text>
+                    {popularBrands.length > 6 && (
+                      <TouchableOpacity
+                        onPress={() => setBrandCount(brandCount === 6 ? 9 : 6)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Text style={styles.toggleText}>
+                          {brandCount === 6 ? '+ Show 9 Brands' : 'Show Top 6'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <View style={styles.brandsGrid}>
+                    {popularBrands.slice(0, brandCount).map((b) => {
+                      const isSelected =
+                        (selectedManufacturer?.manuId || selectedManufacturer?.id) ===
+                        (b.manuId || b.id);
+                      return (
+                        <BrandLogoCard
+                          key={b.id || b.manuId}
+                          item={b}
+                          isSelected={isSelected}
+                          onPress={handleSelectPopularBrand}
+                        />
+                      );
+                    })}
+                  </View>
                 </View>
-                <ChevronDown size={14} color="#9CA3AF" />
-              </TouchableOpacity>
+              )}
 
-              {/* Series Selector */}
-              <TouchableOpacity
-                style={[
-                  styles.pickerField,
-                  styles.halfPicker,
-                  !selectedManufacturer && styles.pickerFieldDisabled,
-                ]}
-                onPress={() => selectedManufacturer && openPicker('series')}
-                disabled={!selectedManufacturer}
-                activeOpacity={0.75}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.pickerFieldLabel}>Model Series</Text>
-                  <Text
-                    style={[
-                      styles.pickerFieldValue,
-                      !selectedSeries && styles.pickerFieldPlaceholder,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {selectedSeries?.modelname ||
-                      selectedSeries?.name ||
-                      (selectedManufacturer ? 'Select Model' : 'Choose Make')}
-                  </Text>
-                </View>
-                <ChevronDown size={14} color="#9CA3AF" />
-              </TouchableOpacity>
+              {/* Step 2: Make & Model Side-by-Side (Single Row) */}
+              <Text style={[styles.inputSectionLabel, { marginTop: 12 }]}>
+                VEHICLE SPECIFICATIONS
+              </Text>
+
+              <View style={styles.specsRow}>
+                {/* Manufacturer Selector */}
+                <TouchableOpacity
+                  style={[styles.pickerField, styles.halfPicker]}
+                  onPress={() => openPicker('manufacturer')}
+                  activeOpacity={0.75}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pickerFieldLabel}>Make</Text>
+                    <Text
+                      style={[
+                        styles.pickerFieldValue,
+                        !selectedManufacturer && styles.pickerFieldPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {selectedManufacturer?.manuName ||
+                        selectedManufacturer?.name ||
+                        'Select Make'}
+                    </Text>
+                  </View>
+                  <ChevronDown size={14} color="#9CA3AF" />
+                </TouchableOpacity>
+
+                {/* Series Selector */}
+                <TouchableOpacity
+                  style={[
+                    styles.pickerField,
+                    styles.halfPicker,
+                    !selectedManufacturer && styles.pickerFieldDisabled,
+                  ]}
+                  onPress={() => selectedManufacturer && openPicker('series')}
+                  disabled={!selectedManufacturer}
+                  activeOpacity={0.75}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pickerFieldLabel}>Model Series</Text>
+                    <Text
+                      style={[
+                        styles.pickerFieldValue,
+                        !selectedSeries && styles.pickerFieldPlaceholder,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {selectedSeries?.modelname ||
+                        selectedSeries?.name ||
+                        (selectedManufacturer ? 'Select Model' : 'Choose Make')}
+                    </Text>
+                  </View>
+                  <ChevronDown size={14} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Proceed CTA */}
-            <AppButton
-              title="View Matching Engines & Trims"
-              rightIcon={<ArrowRight size={16} color="#FFFFFF" />}
-              onPress={handleProceedToVehicles}
-              disabled={!selectedManufacturer || !selectedSeries}
-              loading={loadingVehicles}
-              height={44}
-              style={styles.proceedBtn}
-            />
-          </ScrollView>
+            {/* Bottom CTA Button pinned at the bottom */}
+            <View style={styles.vehicleBottomSection}>
+              <AppButton
+                title="View Matching Engines & Trims"
+                rightIcon={<ArrowRight size={16} color="#FFFFFF" />}
+                onPress={handleProceedToVehicles}
+                disabled={!selectedManufacturer || !selectedSeries}
+                loading={loadingVehicles}
+                height={48}
+                style={styles.proceedBtn}
+              />
+            </View>
+          </View>
         ) : (
           <View style={styles.partSearchContainer}>
             <Text style={styles.inputSectionLabel}>DIRECT PART NUMBER LOOKUP</Text>
@@ -670,27 +690,38 @@ const styles = StyleSheet.create({
   scrollBody: {
     paddingBottom: 16,
   },
+  vehicleContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingBottom: 12,
+  },
+  vehicleTopSection: {
+    flex: 1,
+  },
+  vehicleBottomSection: {
+    paddingTop: 8,
+  },
   inputSectionLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     color: '#6B7280',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   appTypeRow: {
     flexDirection: 'row',
-    gap: 6,
-    marginBottom: 6,
+    gap: 8,
+    marginBottom: 8,
   },
   popularSection: {
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 8,
   },
   popularHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   popularHint: {
     fontSize: 10,
@@ -706,16 +737,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 6,
+    gap: 8,
   },
   appTypePill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    height: 32,
-    borderRadius: 8,
+    gap: 6,
+    height: 38,
+    borderRadius: 10,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -725,7 +756,7 @@ const styles = StyleSheet.create({
     borderColor: '#C6122E',
   },
   appTypePillText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: '#4B5563',
   },
@@ -739,9 +770,9 @@ const styles = StyleSheet.create({
   },
   halfPicker: {
     flex: 1,
-    height: 44,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    height: 50,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     marginBottom: 0,
   },
   pickerField: {
@@ -749,9 +780,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     marginBottom: 8,
@@ -766,14 +797,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   pickerFieldLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: '700',
     color: '#9CA3AF',
     textTransform: 'uppercase',
-    marginBottom: 1,
+    marginBottom: 2,
   },
   pickerFieldValue: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#111827',
   },
@@ -782,7 +813,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   proceedBtn: {
-    marginTop: 6,
+    marginTop: 4,
   },
   partSearchContainer: {
     flex: 1,
