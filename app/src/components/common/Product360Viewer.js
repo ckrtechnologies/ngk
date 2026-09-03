@@ -63,7 +63,7 @@ const Product360Viewer = ({
     }
   }, [zoomScale]);
 
-  // Fetch 360 frames from backend only if not in static mode
+  // Fetch 360 frames from backend in the background
   useEffect(() => {
     let isMounted = true;
     if (isStatic || !gifUrl) {
@@ -110,16 +110,12 @@ const Product360Viewer = ({
   }, [angle, isAutoSpinning, isStatic, frames.length]);
 
   // Auto-Spin animation loop (only for 360 mode)
+  // Cleanly updates internal frame without calling parent setState inside reducer
   useEffect(() => {
     let timer = null;
     if (!isStatic && isAutoSpinning && frames.length > 1) {
       timer = setInterval(() => {
-        setCurrentFrame((prev) => {
-          const next = (prev + 1) % frames.length;
-          const calcAngle = Math.round((next / frames.length) * 360) % 360;
-          if (onAngleChange) onAngleChange(calcAngle);
-          return next;
-        });
+        setCurrentFrame((prev) => (prev + 1) % frames.length);
       }, 50);
     }
     return () => {
@@ -237,12 +233,7 @@ const Product360Viewer = ({
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
-      {loading ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="small" color="#C6122E" />
-          <Text style={styles.loadingText}>Loading 360° Studio...</Text>
-        </View>
-      ) : displayUri ? (
+      {displayUri ? (
         <Animated.View
           style={[
             styles.imageWrap,
@@ -266,6 +257,13 @@ const Product360Viewer = ({
           <Text style={styles.loadingText}>No Image Available</Text>
         </View>
       )}
+
+      {/* Subtle non-blocking spinner overlay while frames load in background */}
+      {loading && !isStatic && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color="#C6122E" />
+        </View>
+      )}
     </View>
   );
 };
@@ -279,6 +277,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   centerBox: {
     justifyContent: 'center',
@@ -289,6 +288,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#94A3B8',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    padding: 6,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   imageWrap: {
     width: '100%',
