@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   PanResponder,
   Animated,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -52,6 +53,7 @@ const VerifiedPartsScreen = () => {
 
   const [parts, setParts] = useState(route.params?.articles || []);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedPart, setSelectedPart] = useState(null);
   const [specsModalVisible, setSpecsModalVisible] = useState(false);
   const [activeMediaTab, setActiveMediaTab] = useState('3d'); // '3d' | 'photo'
@@ -62,6 +64,46 @@ const VerifiedPartsScreen = () => {
 
   const vehicle = route.params?.vehicle;
   const searchQuery = route.params?.searchQuery;
+
+  const reloadParts = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      if (searchQuery) {
+        const restRes = await apiFunction(
+          `${articlesByPartApi}?searchQuery=${encodeURIComponent(searchQuery)}`,
+          [],
+          {},
+          'GET',
+          false
+        );
+        const list = restRes?.articles || restRes?.data?.array || restRes?.data || [];
+        if (list.length > 0) setParts(list);
+      } else if (vehicle) {
+        const targetId = Number(
+          vehicle.linkageTargetId || vehicle.carId || vehicle.id || vehicle.manuId
+        );
+        const payload = {
+          getArticles: {
+            articleCountry: 'ZA',
+            linkageTargetId: targetId,
+            linkageTargetType: 'P',
+            lang: 'en',
+            perPage: 40,
+            page: 1,
+            includeAll: true,
+          },
+        };
+        const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+        const list =
+          res?.articles || res?.data?.array || res?.getArticles?.array || res?.data || [];
+        if (list.length > 0) setParts(list);
+      }
+    } catch (err) {
+      console.warn('Failed to reload parts:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [searchQuery, vehicle]);
 
   // Reactively sync parts when route.params change
   useEffect(() => {
@@ -221,6 +263,14 @@ const VerifiedPartsScreen = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollBody}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={reloadParts}
+            colors={['#C6122E']}
+            tintColor="#C6122E"
+          />
+        }
       >
         {/* Verification Guarantee Banner */}
         <View style={styles.verifiedBanner}>

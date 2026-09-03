@@ -10,6 +10,7 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -43,10 +44,17 @@ const MyEnquiriesScreen = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const refreshEnquiries = async () => {
     const userId = await AsyncStorage.getItem('userId');
     if (userId) dispatch(getEnquiryRedux(userId));
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshEnquiries();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -172,6 +180,14 @@ const MyEnquiriesScreen = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollBody}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#C6122E']}
+            tintColor="#C6122E"
+          />
+        }
       >
         {filtered.length === 0 ? (
           <View style={styles.emptyContainer}>

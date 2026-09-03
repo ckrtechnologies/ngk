@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StatusBar,
   ScrollView,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -32,14 +33,23 @@ const ResellerHomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { enquiry, myself } = useSelector((state) => state.getData);
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDashboardData = async () => {
+    const userId = await AsyncStorage.getItem('userId');
+    if (userId) {
+      dispatch(getMyselfRedux(userId));
+      dispatch(getEnquiryRedux(userId));
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchDashboardData();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      const userId = await AsyncStorage.getItem('userId');
-      if (userId) {
-        dispatch(getMyselfRedux(userId));
-        dispatch(getEnquiryRedux(userId));
-      }
-    };
     fetchDashboardData();
   }, [dispatch]);
 
@@ -127,6 +137,14 @@ const ResellerHomeScreen = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#C6122E']}
+            tintColor="#C6122E"
+          />
+        }
       >
         {/* Workshop Header */}
         <View style={styles.greetingSection}>

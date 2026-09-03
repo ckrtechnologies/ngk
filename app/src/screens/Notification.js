@@ -8,6 +8,7 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,6 +26,7 @@ const Notification = () => {
   
   const { myself } = useSelector((state) => state.getData);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const getMyself = useCallback(async () => {
     try {
@@ -36,6 +38,12 @@ const Notification = () => {
       console.log('Error fetching user profile:', e);
     }
   }, [dispatch]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await getMyself();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     if (!myself) {
@@ -148,7 +156,18 @@ const Notification = () => {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#C6122E']}
+            tintColor="#C6122E"
+          />
+        }
+      >
         <Text style={styles.sectionTitle}>
           {unreadNotifications.length > 0 
             ? `${unreadNotifications.length} UNREAD UPDATE${unreadNotifications.length !== 1 ? 'S' : ''}` 

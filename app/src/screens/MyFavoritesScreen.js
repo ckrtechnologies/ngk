@@ -9,6 +9,7 @@ import {
   StatusBar,
   Modal,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { ChevronLeft, Home, Heart, Search, X, Info, Settings, ShoppingCart } from 'lucide-react-native';
@@ -27,11 +28,20 @@ const MyFavoritesScreen = () => {
   const [selectedPart, setSelectedPart] = useState(null);
   const dispatch = useDispatch();
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchMyself = async () => {
+    const userId = await AsyncStorage.getItem("userId");
+    if (userId) dispatch(getMyselfRedux(userId));
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchMyself();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
-    const fetchMyself = async () => {
-      const userId = await AsyncStorage.getItem("userId");
-      dispatch(getMyselfRedux(userId));
-    }
     if (!myself) {
       fetchMyself();
     }
@@ -109,7 +119,18 @@ const MyFavoritesScreen = () => {
           </TouchableOpacity> */}
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#C6122E']}
+              tintColor="#C6122E"
+            />
+          }
+        >
           {favorites.map((item) => (
             item.isFavorite && (
               <View key={item.id} style={styles.favoriteCard}>

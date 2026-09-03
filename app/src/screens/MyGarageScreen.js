@@ -8,6 +8,7 @@ import {
   StatusBar,
   Modal,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -50,9 +51,17 @@ const MyGarageScreen = () => {
   const [licensePlate, setLicensePlate] = useState('');
   const [vin, setVin] = useState('');
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const refreshUser = async () => {
     const userId = await AsyncStorage.getItem('userId');
     if (userId) dispatch(getMyselfRedux(userId));
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refreshUser();
+    setRefreshing(false);
   };
 
   useEffect(() => {
@@ -172,6 +181,14 @@ const MyGarageScreen = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollBody}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#C6122E']}
+            tintColor="#C6122E"
+          />
+        }
       >
         {garageVehicles.length === 0 ? (
           <View style={styles.emptyContainer}>

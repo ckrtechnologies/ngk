@@ -246,7 +246,12 @@ const DealerLocatorScreen = () => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#C6122E']} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={['#C6122E']}
+                tintColor="#C6122E"
+              />
             }
             renderItem={({ item }) => {
               const isDistributor = item.role === 'distributor';

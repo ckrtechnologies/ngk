@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -32,13 +33,22 @@ const OwnerHomeScreen = () => {
   const insets = useSafeAreaInsets();
   const { myself, vehicles } = useSelector((state) => state.getData);
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchInitialData = async () => {
+    const userId = await AsyncStorage.getItem('userId');
+    if (userId) {
+      dispatch(getMyselfRedux(userId));
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchInitialData();
+    setRefreshing(false);
+  };
+
   useEffect(() => {
-    const fetchInitialData = async () => {
-      const userId = await AsyncStorage.getItem('userId');
-      if (userId) {
-        dispatch(getMyselfRedux(userId));
-      }
-    };
     fetchInitialData();
   }, [dispatch]);
 
@@ -120,6 +130,14 @@ const OwnerHomeScreen = () => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#C6122E']}
+            tintColor="#C6122E"
+          />
+        }
       >
         {/* Welcome Greeting */}
         <View style={styles.greetingSection}>
