@@ -49,14 +49,16 @@ const VerifiedPartsScreen = () => {
     if ((!parts || parts.length === 0) && vehicle) {
       const fetchPartsForVehicle = async () => {
         setLoading(true);
+        const targetId = Number(
+          vehicle.linkageTargetId || vehicle.carId || vehicle.id || vehicle.manuId
+        );
         const payload = {
           getArticles: {
             articleCountry: 'ZA',
-            dataSupplierIds: ['5567', '7729'],
-            linkageTargetId: vehicle.linkageTargetId || vehicle.id || vehicle.manuId,
-            linkingTargetType: 'P',
+            linkageTargetId: targetId,
+            linkageTargetType: 'P',
             lang: 'en',
-            perPage: 30,
+            perPage: 40,
             page: 1,
             includeAll: true,
           },
@@ -65,7 +67,7 @@ const VerifiedPartsScreen = () => {
         try {
           const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
           const list =
-            res?.data?.array || res?.getArticles?.array || res?.data || [];
+            res?.articles || res?.data?.array || res?.getArticles?.array || res?.data || [];
           setParts(list);
         } catch (err) {
           console.warn('Failed to load parts for vehicle', err);
@@ -141,9 +143,25 @@ const VerifiedPartsScreen = () => {
         ) : (
           <View style={styles.partsList}>
             {parts.map((item, idx) => {
-              const partNo = item.articleNo || item.partNumber || item.number || 'NGK-PART';
-              const partName = item.articleName || item.name || 'Ignition / Sensor Component';
-              const brand = item.dataSupplierName || item.brand || 'NGK SPARK PLUGS';
+              const partNo =
+                item.tradeNumbers?.[0] ||
+                item.articleNumber ||
+                item.articleNo ||
+                item.partNumber ||
+                item.directArticle?.articleNo ||
+                'NGK-PART';
+              const partName =
+                item.genericArticles?.[0]?.genericArticleDescription ||
+                item.articleName ||
+                item.directArticle?.articleName ||
+                item.name ||
+                'Ignition / Sensor Component';
+              const brand =
+                item.mfrName ||
+                item.brandName ||
+                item.dataSupplierName ||
+                item.directArticle?.brandName ||
+                'NGK';
 
               return (
                 <View key={item.articleId || idx} style={styles.partCard}>
@@ -207,30 +225,43 @@ const VerifiedPartsScreen = () => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={styles.specsTable}>
                 <View style={styles.specRow}>
                   <Text style={styles.specKey}>Part Number</Text>
                   <Text style={styles.specVal}>
-                    {selectedPart?.articleNo || selectedPart?.partNumber || 'N/A'}
+                    {selectedPart?.tradeNumbers?.[0] ||
+                      selectedPart?.articleNumber ||
+                      selectedPart?.articleNo ||
+                      selectedPart?.partNumber ||
+                      'N/A'}
                   </Text>
                 </View>
                 <View style={styles.specRow}>
                   <Text style={styles.specKey}>Category</Text>
                   <Text style={styles.specVal}>
-                    {selectedPart?.articleName || selectedPart?.name || 'Standard'}
+                    {selectedPart?.genericArticles?.[0]?.genericArticleDescription ||
+                      selectedPart?.articleName ||
+                      selectedPart?.name ||
+                      'Standard Component'}
                   </Text>
                 </View>
                 <View style={styles.specRow}>
                   <Text style={styles.specKey}>Supplier</Text>
                   <Text style={styles.specVal}>
-                    {selectedPart?.dataSupplierName || 'NGK SPARK PLUG CO., LTD.'}
+                    {selectedPart?.mfrName || selectedPart?.dataSupplierName || 'NGK SPARK PLUG'}
                   </Text>
                 </View>
-                <View style={styles.specRow}>
-                  <Text style={styles.specKey}>Standard</Text>
-                  <Text style={styles.specVal}>ISO 9001 / IATF 16949</Text>
-                </View>
-              </View>
+
+                {/* Dynamic TecDoc Criteria & Specs */}
+                {(selectedPart?.articleCriteria || selectedPart?.specs || []).map((crit, cIdx) => (
+                  <View key={cIdx} style={styles.specRow}>
+                    <Text style={styles.specKey}>
+                      {crit.criteriaDescription || crit.label || crit.attrName}
+                    </Text>
+                    <Text style={styles.specVal}>
+                      {crit.formattedValue || crit.value || crit.attrValue}
+                    </Text>
+                  </View>
+                ))}
 
               <AppButton
                 title="Enquire About This Part"

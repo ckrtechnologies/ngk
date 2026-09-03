@@ -27,7 +27,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFunction } from '../apis/apiFunction';
-import { serviceJsonApi, addSearchHistoryApi } from '../apis/api';
+import { serviceJsonApi, addSearchHistoryApi, vehiclesApi } from '../apis/api';
 import { getMyselfRedux } from '../redux/getData';
 import Toast from 'react-native-toast-message';
 import AppHeader from '../components/common/AppHeader';
@@ -151,12 +151,14 @@ const PartsFinderScreen = () => {
     fetchSeriesForManufacturer(item);
   };
 
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
+
   const handleSelectSeries = (item) => {
     setSelectedSeries(item);
     setModalVisible(false);
   };
 
-  const handleProceedToVehicles = () => {
+  const handleProceedToVehicles = async () => {
     if (!selectedManufacturer || !selectedSeries) {
       Toast.show({
         type: 'error',
@@ -168,12 +170,50 @@ const PartsFinderScreen = () => {
 
     const appType =
       applications.find((a) => a.id === selectedApp)?.type || 'P';
-    navigation.navigate('vehiclesListScreen', {
-      selectedApp,
-      appType,
-      selectedManufacturer,
-      selectedSeries,
-    });
+
+    const mfrId = selectedManufacturer.manuId || selectedManufacturer.id;
+    const seriesId = selectedSeries.modelId || selectedSeries.id;
+
+    setLoadingVehicles(true);
+    let list = [];
+    try {
+      const payload = {
+        getLinkageTargets: {
+          linkageTargetCountry: 'ZA',
+          lang: 'en',
+          linkageTargetType: appType,
+          mfrIds: Number(mfrId),
+          vehicleModelSeriesIds: Number(seriesId),
+          perPage: 100,
+          page: 1,
+        },
+      };
+
+      const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+      list = res?.linkageTargets || res?.data?.array || res?.data || [];
+
+      if (!list || list.length === 0) {
+        const restRes = await apiFunction(
+          `${vehiclesApi}?mfrId=${mfrId}&seriesId=${seriesId}&type=${appType}`,
+          [],
+          {},
+          'GET',
+          false
+        );
+        list = restRes?.data?.array || restRes?.data || [];
+      }
+    } catch (err) {
+      console.warn('Failed to pre-fetch vehicles:', err);
+    } finally {
+      setLoadingVehicles(false);
+      navigation.navigate('vehiclesListScreen', {
+        selectedApp,
+        appType,
+        selectedManufacturer,
+        selectedSeries,
+        vehiclesList: list,
+      });
+    }
   };
 
   const handlePartSearch = async () => {
@@ -408,6 +448,7 @@ const PartsFinderScreen = () => {
               rightIcon={<ArrowRight size={16} color="#FFFFFF" />}
               onPress={handleProceedToVehicles}
               disabled={!selectedManufacturer || !selectedSeries}
+              loading={loadingVehicles}
               style={styles.proceedBtn}
             />
           </ScrollView>
