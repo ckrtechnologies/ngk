@@ -94,9 +94,18 @@ export const getVehiclesByVIN = async (req, res) => {
 
 export const getPopularBrands = async (req, res) => {
   try {
-    const { type = 'P' } = req.query;
-    const brands = tecdocService.getPopularBrands(type);
-    return sendSuccess(res, { data: { array: brands }, count: brands.length }, 'Popular brands fetched successfully');
+    const { type } = req.query;
+    if (type) {
+      const brands = tecdocService.getPopularBrands(type);
+      return sendSuccess(
+        res,
+        { data: { array: brands }, count: brands.length },
+        'Popular brands fetched successfully'
+      );
+    }
+    // Return all 3 categories in a single call for client-side instant caching
+    const all = tecdocService.getAllPopularBrands();
+    return sendSuccess(res, { ...all, data: all }, 'All popular brands fetched successfully');
   } catch (error) {
     return sendError(res, error.message, 500, error);
   }

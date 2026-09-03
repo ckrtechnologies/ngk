@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Car, Check } from 'lucide-react-native';
 
 const BrandLogoCard = ({ item, isSelected, onPress }) => {
   const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [item?.logoUrl]);
 
   const name = item.name || item.manuName || 'Brand';
   const logoUrl = item.logoUrl;

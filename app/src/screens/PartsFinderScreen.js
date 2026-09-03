@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -60,7 +60,12 @@ const PartsFinderScreen = () => {
   const [manufacturersData, setManufacturersData] = useState([]);
   const [seriesData, setSeriesData] = useState([]);
   const [loadingDropdown, setLoadingDropdown] = useState(false);
-  const [popularBrands, setPopularBrands] = useState([]);
+  // All popular brands pre-loaded once into local state
+  const [brandsByCategory, setBrandsByCategory] = useState({
+    passenger: [],
+    motorcycle: [],
+    commercial: [],
+  });
   const [brandCount, setBrandCount] = useState(9);
 
   // Modal selector state
@@ -82,22 +87,34 @@ const PartsFinderScreen = () => {
     if (!myself) fetchMyself();
   }, [dispatch]);
 
-  // Fetch popular brands whenever application type changes (Passenger, Motorcycle, Commercial)
+  // Single initial API call on screen mount - loads all 3 categories at once
   useEffect(() => {
-    const appType = applications.find((a) => a.id === selectedApp)?.type || 'P';
-    const fetchPopular = async () => {
+    const fetchAllBrands = async () => {
       try {
-        const res = await apiFunction(`${popularBrandsApi}?type=${appType}`, [], {}, 'GET', false);
-        const list = res?.data?.array || res?.popularBrands || [];
-        if (list.length > 0) {
-          setPopularBrands(list);
+        const res = await apiFunction(popularBrandsApi, [], {}, 'GET', false);
+        const data = res?.data || res;
+        if (data?.passenger || data?.motorcycle || data?.commercial) {
+          setBrandsByCategory({
+            passenger: data.passenger || [],
+            motorcycle: data.motorcycle || [],
+            commercial: data.commercial || [],
+          });
+        } else if (Array.isArray(data?.array)) {
+          setBrandsByCategory((prev) => ({ ...prev, passenger: data.array }));
         }
       } catch (err) {
-        console.warn('Failed to load popular brands for type:', appType, err);
+        console.warn('Failed to pre-load popular brands:', err);
       }
     };
-    fetchPopular();
-  }, [selectedApp]);
+    fetchAllBrands();
+  }, []);
+
+  // Synchronous in-memory lookup: ZERO network calls on tab toggle!
+  const popularBrands = useMemo(() => {
+    if (selectedApp === 'Motorcycle') return brandsByCategory.motorcycle || [];
+    if (selectedApp === 'Commercial') return brandsByCategory.commercial || [];
+    return brandsByCategory.passenger || [];
+  }, [selectedApp, brandsByCategory]);
 
   // Fetch manufacturers when application changes
   useEffect(() => {

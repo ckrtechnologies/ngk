@@ -445,10 +445,10 @@ class TecDocService {
         { id: 16, manuId: 16, name: 'BMW', manuName: 'BMW', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/bmw.png' },
         { id: 2760, manuId: 2760, name: 'KTM', manuName: 'KTM', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ktm.png' },
         { id: 112, manuId: 112, name: 'TRIUMPH', manuName: 'TRIUMPH', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/triumph.png' },
-        { id: 181, manuId: 181, name: 'PIAGGIO', manuName: 'PIAGGIO', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/piaggio.png' },
-        { id: 4552, manuId: 4552, name: 'BAJAJ', manuName: 'BAJAJ', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/bajaj.png' },
-        { id: 1164, manuId: 1164, name: 'YAMAHA', manuName: 'YAMAHA', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/yamaha.png' },
-        { id: 574, manuId: 574, name: 'KAWASAKI', manuName: 'KAWASAKI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/kawasaki.png' },
+        { id: 181, manuId: 181, name: 'PIAGGIO', manuName: 'PIAGGIO', logoUrl: 'https://ngkapi.ckrtechnologies.in/uploads/logos/piaggio.png' },
+        { id: 4552, manuId: 4552, name: 'BAJAJ', manuName: 'BAJAJ', logoUrl: 'https://ngkapi.ckrtechnologies.in/uploads/logos/bajaj.png' },
+        { id: 1164, manuId: 1164, name: 'YAMAHA', manuName: 'YAMAHA', logoUrl: 'https://ngkapi.ckrtechnologies.in/uploads/logos/yamaha.png' },
+        { id: 574, manuId: 574, name: 'KAWASAKI', manuName: 'KAWASAKI', logoUrl: 'https://ngkapi.ckrtechnologies.in/uploads/logos/kawasaki.png' },
       ];
     }
 
@@ -478,6 +478,17 @@ class TecDocService {
       { id: 52, manuId: 52, name: 'HYUNDAI', manuName: 'HYUNDAI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/hyundai.png' },
       { id: 56, manuId: 56, name: 'ISUZU', manuName: 'ISUZU', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/isuzu.png' },
     ];
+  }
+
+  /**
+   * 9. Get all popular brands in all 3 categories in a single call
+   */
+  getAllPopularBrands() {
+    return {
+      passenger: this.getPopularBrands('P'),
+      motorcycle: this.getPopularBrands('M'),
+      commercial: this.getPopularBrands('O'),
+    };
   }
 
   /**
