@@ -59,7 +59,7 @@ const EnquiriesManagement = () => {
   // Keep activeEnquiry synced with Redux store updates
   useEffect(() => {
     if (activeEnquiry && enquiries) {
-      const updated = enquiries.find((e) => e.id === activeEnquiry.id);
+      const updated = enquiries.find((e) => String(e.id) === String(activeEnquiry.id));
       if (updated) {
         setActiveEnquiry(updated);
       }
@@ -393,13 +393,17 @@ const EnquiriesManagement = () => {
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Status Switcher Dropdown */}
                 <select
-                  value={activeEnquiry.status || 'Pending'}
+                  value={
+                    (activeEnquiry.status || 'Pending').toLowerCase().replace(/[\s_-]+/g, '') === 'inprogress'
+                      ? 'InProgress'
+                      : activeEnquiry.status || 'Pending'
+                  }
                   onChange={(e) => handleStatusChange(e.target.value)}
                   disabled={actionLoading}
                   className="h-8 px-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:border-brand-red cursor-pointer"
                 >
                   <option value="Pending">Pending</option>
-                  <option value="In Progress">In Progress</option>
+                  <option value="InProgress">In Progress</option>
                   <option value="Resolved">Resolved</option>
                   <option value="Closed">Closed</option>
                 </select>

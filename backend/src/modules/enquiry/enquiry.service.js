@@ -167,9 +167,65 @@ class EnquiryService {
   }
 
   /**
+  /**
+   * Helper: Get formatted enquiry with all messages and relationships
+   */
+  async getEnquiryById(id) {
+    const { data, error } = await supabase
+      .from('enquiries')
+      .select('*, customer:users!enquiries_user_id_fkey(name, email, role), dealer:users!enquiries_dealer_id_fkey(name, email, role), messages:enquiry_messages(*)')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Enquiry not found');
+    }
+
+    const customerObj = data.customer || {};
+    const dealerObj = data.dealer || {};
+    const partRef = data.part_reference || {};
+    const messagesList = (data.messages || []).sort(
+      (a, b) => new Date(a.created_at) - new Date(b.created_at)
+    );
+
+    return {
+      ...data,
+      status: data.status || 'Pending',
+      title: data.title,
+      description: data.description,
+      quantity: data.quantity || 1,
+      enquiryDetails: data.description || '',
+      messages: messagesList.map((m) => ({
+        id: m.id,
+        sender: m.sender_role || 'user',
+        senderName: m.sender_name || 'User',
+        text: m.message_text,
+        timestamp: m.created_at,
+        isSystem: m.is_system,
+      })),
+      part: partRef.part || null,
+      vehicleData: partRef.vehicle || null,
+      imageurl: data.image_url || null,
+      userName: customerObj.name || 'Customer',
+      userEmail: customerObj.email || '',
+      dealerName: dealerObj.name || 'Reseller',
+    };
+  }
+
+  /**
    * 3. Update Enquiry Status
    */
   async updateStatus(id, { status, responderName, role }) {
+    // Normalize status to satisfy database constraint ('Pending', 'InProgress', 'Resolved', 'Closed')
+    let cleanStatus = status;
+    if (typeof status === 'string') {
+      const lower = status.toLowerCase().replace(/[\s_-]+/g, '');
+      if (lower === 'inprogress') cleanStatus = 'InProgress';
+      else if (lower === 'pending') cleanStatus = 'Pending';
+      else if (lower === 'resolved') cleanStatus = 'Resolved';
+      else if (lower === 'closed') cleanStatus = 'Closed';
+    }
+
     const { data: enquiry, error: fetchError } = await supabase
       .from('enquiries')
       .select('*')
@@ -181,23 +237,24 @@ class EnquiryService {
     }
 
     // Update status in enquiries table
-    const { data: updated, error: updateError } = await supabase
+    const { error: updateError } = await supabase
       .from('enquiries')
       .update({
-        status: status,
+        status: cleanStatus,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', id)
-      .select();
+      .eq('id', id);
 
     if (updateError) throw new Error(updateError.message || 'Failed to update status');
+
+    const displayStatusName = cleanStatus === 'InProgress' ? 'IN PROGRESS' : cleanStatus.toUpperCase();
 
     // Add status update audit message in enquiry_messages
     await supabase.from('enquiry_messages').insert({
       enquiry_id: id,
-      sender_name: responderName || (role === 'distributor' ? 'Distributor' : 'Reseller'),
+      sender_name: responderName || (role === 'distributor' ? 'Distributor' : role === 'admin' ? 'Administrator' : 'Reseller'),
       sender_role: role || 'system',
-      message_text: `Enquiry status updated to ${status.toUpperCase()}`,
+      message_text: `Enquiry status updated to ${displayStatusName}`,
       is_system: true,
     });
 
@@ -205,13 +262,15 @@ class EnquiryService {
     if (enquiry.user_id) {
       await supabase.from('notifications').insert({
         user_id: enquiry.user_id,
-        message: `Your enquiry status changed to ${status.toUpperCase()}`,
+        message: `Your enquiry status changed to ${displayStatusName}`,
         event_type: 'enquiry_status',
-        metadata: { enquiryId: id, status },
+        metadata: { enquiryId: id, status: cleanStatus },
       });
     }
 
-    return updated;
+    // Return full enquiry object with updated messages
+    const fullEnquiry = await this.getEnquiryById(id);
+    return [fullEnquiry];
   }
 
   /**
@@ -233,7 +292,7 @@ class EnquiryService {
     }
 
     // Insert message into normalized enquiry_messages
-    const { data: newMsg, error: insertError } = await supabase
+    const { error: insertError } = await supabase
       .from('enquiry_messages')
       .insert({
         enquiry_id: id,
@@ -242,9 +301,7 @@ class EnquiryService {
         sender_role: sender || 'user',
         message_text: text.trim(),
         is_system: false,
-      })
-      .select()
-      .single();
+      });
 
     if (insertError) throw new Error(insertError.message || 'Failed to add message');
 
@@ -262,7 +319,9 @@ class EnquiryService {
       });
     }
 
-    return [enquiry];
+    // Return full enquiry object with all messages
+    const fullEnquiry = await this.getEnquiryById(id);
+    return [fullEnquiry];
   }
 }
 

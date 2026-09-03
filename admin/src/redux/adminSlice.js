@@ -458,7 +458,8 @@ const adminSlice = createSlice({
       })
       .addCase(updateEnquiryStatus.fulfilled, (state, action) => {
         state.actionLoading = false;
-        const index = state.enquiries.findIndex((e) => e.id === action.payload.id);
+        const payloadId = String(action.payload?.id);
+        const index = state.enquiries.findIndex((e) => String(e.id) === payloadId);
         if (index !== -1) {
           state.enquiries[index] = {
             ...state.enquiries[index],
@@ -481,7 +482,8 @@ const adminSlice = createSlice({
       })
       .addCase(addEnquiryMessage.fulfilled, (state, action) => {
         state.actionLoading = false;
-        const index = state.enquiries.findIndex((e) => e.id === action.payload.id);
+        const payloadId = String(action.payload?.id);
+        const index = state.enquiries.findIndex((e) => String(e.id) === payloadId);
         if (index !== -1) {
           state.enquiries[index] = {
             ...state.enquiries[index],
