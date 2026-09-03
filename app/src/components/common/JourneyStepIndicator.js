@@ -83,7 +83,7 @@ const JourneyStepIndicator = ({ currentStep = 1, onStepPress }) => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
+    paddingVertical: 6,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
@@ -95,15 +95,15 @@ const styles = StyleSheet.create({
   },
   stepItem: {
     alignItems: 'center',
-    width: 80,
+    width: 75,
   },
   circle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   circleCompleted: {
     backgroundColor: '#059669', // Emerald Green
@@ -111,10 +111,10 @@ const styles = StyleSheet.create({
   circleActive: {
     backgroundColor: '#C6122E', // NGK Crimson Red
     shadowColor: '#C6122E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   circlePending: {
     backgroundColor: '#F3F4F6',
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   stepNumber: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
   },
   stepNumberActive: {
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   label: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -149,8 +149,8 @@ const styles = StyleSheet.create({
   connector: {
     flex: 1,
     height: 2,
-    marginTop: -16,
-    marginHorizontal: 4,
+    marginTop: -14,
+    marginHorizontal: 2,
     borderRadius: 1,
   },
   connectorActive: {

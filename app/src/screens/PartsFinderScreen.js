@@ -55,6 +55,7 @@ const PartsFinderScreen = () => {
   const [seriesData, setSeriesData] = useState([]);
   const [loadingDropdown, setLoadingDropdown] = useState(false);
   const [popularBrands, setPopularBrands] = useState([]);
+  const [brandCount, setBrandCount] = useState(6);
 
   // Modal selector state
   const [modalVisible, setModalVisible] = useState(false);
@@ -420,10 +421,19 @@ const PartsFinderScreen = () => {
               <View style={styles.popularSection}>
                 <View style={styles.popularHeaderRow}>
                   <Text style={styles.inputSectionLabel}>POPULAR MAKES</Text>
-                  <Text style={styles.popularHint}>Tap brand to quick select</Text>
+                  {popularBrands.length > 6 && (
+                    <TouchableOpacity
+                      onPress={() => setBrandCount(brandCount === 6 ? 9 : 6)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.toggleText}>
+                        {brandCount === 6 ? '+ Show 9 Brands' : 'Show Top 6'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
                 <View style={styles.brandsGrid}>
-                  {popularBrands.map((b) => {
+                  {popularBrands.slice(0, brandCount).map((b) => {
                     const isSelected =
                       (selectedManufacturer?.manuId || selectedManufacturer?.id) ===
                       (b.manuId || b.id);
@@ -440,60 +450,63 @@ const PartsFinderScreen = () => {
               </View>
             )}
 
-            {/* Step 2: Make & Model Cascade */}
-            <Text style={[styles.inputSectionLabel, { marginTop: 14 }]}>
+            {/* Step 2: Make & Model Side-by-Side (Single Row) */}
+            <Text style={[styles.inputSectionLabel, { marginTop: 8 }]}>
               VEHICLE SPECIFICATIONS
             </Text>
 
-            {/* Manufacturer Selector */}
-            <TouchableOpacity
-              style={styles.pickerField}
-              onPress={() => openPicker('manufacturer')}
-              activeOpacity={0.75}
-            >
-              <View>
-                <Text style={styles.pickerFieldLabel}>Make / Manufacturer</Text>
-                <Text
-                  style={[
-                    styles.pickerFieldValue,
-                    !selectedManufacturer && styles.pickerFieldPlaceholder,
-                  ]}
-                >
-                  {selectedManufacturer?.manuName ||
-                    selectedManufacturer?.name ||
-                    'Select Make (e.g. Toyota, BMW)'}
-                </Text>
-              </View>
-              <ChevronDown size={18} color="#9CA3AF" />
-            </TouchableOpacity>
+            <View style={styles.specsRow}>
+              {/* Manufacturer Selector */}
+              <TouchableOpacity
+                style={[styles.pickerField, styles.halfPicker]}
+                onPress={() => openPicker('manufacturer')}
+                activeOpacity={0.75}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pickerFieldLabel}>Make</Text>
+                  <Text
+                    style={[
+                      styles.pickerFieldValue,
+                      !selectedManufacturer && styles.pickerFieldPlaceholder,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {selectedManufacturer?.manuName ||
+                      selectedManufacturer?.name ||
+                      'Select Make'}
+                  </Text>
+                </View>
+                <ChevronDown size={14} color="#9CA3AF" />
+              </TouchableOpacity>
 
-            {/* Series Selector */}
-            <TouchableOpacity
-              style={[
-                styles.pickerField,
-                !selectedManufacturer && styles.pickerFieldDisabled,
-              ]}
-              onPress={() => selectedManufacturer && openPicker('series')}
-              disabled={!selectedManufacturer}
-              activeOpacity={0.75}
-            >
-              <View>
-                <Text style={styles.pickerFieldLabel}>Model Series</Text>
-                <Text
-                  style={[
-                    styles.pickerFieldValue,
-                    !selectedSeries && styles.pickerFieldPlaceholder,
-                  ]}
-                >
-                  {selectedSeries?.modelname ||
-                    selectedSeries?.name ||
-                    (selectedManufacturer
-                      ? 'Select Model (e.g. Hilux, 3 Series)'
-                      : 'Select Make first')}
-                </Text>
-              </View>
-              <ChevronDown size={18} color="#9CA3AF" />
-            </TouchableOpacity>
+              {/* Series Selector */}
+              <TouchableOpacity
+                style={[
+                  styles.pickerField,
+                  styles.halfPicker,
+                  !selectedManufacturer && styles.pickerFieldDisabled,
+                ]}
+                onPress={() => selectedManufacturer && openPicker('series')}
+                disabled={!selectedManufacturer}
+                activeOpacity={0.75}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pickerFieldLabel}>Model Series</Text>
+                  <Text
+                    style={[
+                      styles.pickerFieldValue,
+                      !selectedSeries && styles.pickerFieldPlaceholder,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {selectedSeries?.modelname ||
+                      selectedSeries?.name ||
+                      (selectedManufacturer ? 'Select Model' : 'Choose Make')}
+                  </Text>
+                </View>
+                <ChevronDown size={14} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
 
             {/* Proceed CTA */}
             <AppButton
@@ -502,6 +515,7 @@ const PartsFinderScreen = () => {
               onPress={handleProceedToVehicles}
               disabled={!selectedManufacturer || !selectedSeries}
               loading={loadingVehicles}
+              height={44}
               style={styles.proceedBtn}
             />
           </ScrollView>
@@ -617,15 +631,15 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 14,
+    paddingTop: 8,
   },
   segmentContainer: {
     flexDirection: 'row',
     backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 3,
-    marginBottom: 16,
+    borderRadius: 10,
+    padding: 2,
+    marginBottom: 8,
   },
   segmentBtn: {
     flex: 1,
@@ -633,8 +647,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 38,
-    borderRadius: 10,
+    height: 34,
+    borderRadius: 8,
   },
   segmentBtnActive: {
     backgroundColor: '#FFFFFF',
@@ -645,7 +659,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   segmentText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#6B7280',
   },
@@ -654,49 +668,54 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   scrollBody: {
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   inputSectionLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: '#6B7280',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   appTypeRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
+    gap: 6,
+    marginBottom: 6,
   },
   popularSection: {
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 4,
+    marginBottom: 4,
   },
   popularHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   popularHint: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#9CA3AF',
     fontWeight: '500',
+  },
+  toggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C6122E',
   },
   brandsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 6,
   },
   appTypePill: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 40,
-    borderRadius: 10,
+    gap: 4,
+    height: 32,
+    borderRadius: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -706,28 +725,40 @@ const styles = StyleSheet.create({
     borderColor: '#C6122E',
   },
   appTypePillText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#4B5563',
   },
   appTypePillTextSelected: {
     color: '#FFFFFF',
   },
+  specsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  halfPicker: {
+    flex: 1,
+    height: 44,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 0,
+  },
   pickerField: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    marginBottom: 12,
+    marginBottom: 8,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
-    shadowRadius: 3,
+    shadowRadius: 2,
     elevation: 1,
   },
   pickerFieldDisabled: {
@@ -735,14 +766,14 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   pickerFieldLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: '#9CA3AF',
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   pickerFieldValue: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     color: '#111827',
   },
@@ -751,7 +782,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   proceedBtn: {
-    marginTop: 10,
+    marginTop: 6,
   },
   partSearchContainer: {
     flex: 1,
