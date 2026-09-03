@@ -12,7 +12,7 @@ export const addEnquiry = async (req, res) => {
 
 export const getEnquiries = async (req, res) => {
   try {
-    const userId = req.params.userId || req.user?.id;
+    const userId = req.params.userId || req.query.userId || req.user?.id;
     const enquiries = await enquiryService.getEnquiries(userId);
     return sendSuccess(res, { enquiry: enquiries }, 'Enquiries fetched successfully', 200);
   } catch (error) {
