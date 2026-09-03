@@ -12,6 +12,7 @@ import { articles360FramesApi } from '../../apis/api';
 import { apiFunction } from '../../apis/apiFunction';
 
 const Product360Viewer = ({
+  isStatic = false,
   gifUrl,
   staticImageUrl,
   angle = 0,
@@ -22,25 +23,28 @@ const Product360Viewer = ({
   onScaleChange,
 }) => {
   const [frames, setFrames] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isStatic && !!gifUrl);
   const [currentFrame, setCurrentFrame] = useState(0);
 
   // Pan & Zoom animated values
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const panOffset = useRef({ x: 0, y: 0 });
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Track touch gesture state
+  // Track gesture state
   const lastTapRef = useRef(0);
   const startXRef = useRef(0);
   const currentFrameRef = useRef(0);
   const isAutoSpinningRef = useRef(isAutoSpinning);
   const zoomScaleRef = useRef(zoomScale);
   const framesCountRef = useRef(1);
+  const pinchStartDistanceRef = useRef(0);
+  const pinchStartScaleRef = useRef(1);
 
   currentFrameRef.current = currentFrame;
   isAutoSpinningRef.current = isAutoSpinning;
   zoomScaleRef.current = zoomScale;
-  framesCountRef.current = frames.length || 1;
+  framesCountRef.current = isStatic ? 1 : frames.length || 1;
 
   // Sync zoomScale prop to scaleAnim
   useEffect(() => {
@@ -49,7 +53,9 @@ const Product360Viewer = ({
       useNativeDriver: true,
       friction: 7,
     }).start();
+
     if (zoomScale <= 1.05) {
+      panOffset.current = { x: 0, y: 0 };
       Animated.spring(pan, {
         toValue: { x: 0, y: 0 },
         useNativeDriver: true,
@@ -57,20 +63,20 @@ const Product360Viewer = ({
     }
   }, [zoomScale]);
 
-  // Fetch 360 frames from backend
+  // Fetch 360 frames from backend only if not in static mode
   useEffect(() => {
     let isMounted = true;
-    const fetchFrames = async () => {
-      if (!gifUrl) {
-        if (isMounted) setLoading(false);
-        return;
-      }
+    if (isStatic || !gifUrl) {
+      setLoading(false);
+      return;
+    }
 
+    const fetchFrames = async () => {
       setLoading(true);
       try {
         const endpoint = `${articles360FramesApi}?gifUrl=${encodeURIComponent(gifUrl)}`;
         const res = await apiFunction(endpoint, [], {}, 'GET');
-        const framesList = res?.data?.frames || res?.data?.data?.frames || res?.frames;
+        const framesList = res?.frames || res?.data?.frames || res?.data?.data?.frames;
         if (isMounted && Array.isArray(framesList) && framesList.length > 0) {
           setFrames(framesList);
           setCurrentFrame(0);
@@ -78,7 +84,7 @@ const Product360Viewer = ({
           return;
         }
       } catch (err) {
-        console.warn('Could not fetch 360 frames from backend:', err);
+        console.warn('Backend 360 frames fetch error:', err);
       }
 
       if (isMounted) {
@@ -90,23 +96,23 @@ const Product360Viewer = ({
     return () => {
       isMounted = false;
     };
-  }, [gifUrl]);
+  }, [gifUrl, isStatic]);
 
-  // Handle angle prop change (e.g. when user clicks 0°, 90°, 180°, 270°)
+  // Handle angle prop change in 360 mode
   useEffect(() => {
-    if (isAutoSpinning) return; // Auto-spin interval controls frame during spin
+    if (isStatic || isAutoSpinning) return;
     const total = frames.length;
     if (total > 1) {
       const normalized = ((Math.round(angle) % 360) + 360) % 360;
       const targetFrame = Math.round((normalized / 360) * total) % total;
       setCurrentFrame(targetFrame);
     }
-  }, [angle, isAutoSpinning, frames.length]);
+  }, [angle, isAutoSpinning, isStatic, frames.length]);
 
-  // Auto-Spin animation loop
+  // Auto-Spin animation loop (only for 360 mode)
   useEffect(() => {
     let timer = null;
-    if (isAutoSpinning && frames.length > 1) {
+    if (!isStatic && isAutoSpinning && frames.length > 1) {
       timer = setInterval(() => {
         setCurrentFrame((prev) => {
           const next = (prev + 1) % frames.length;
@@ -119,7 +125,14 @@ const Product360Viewer = ({
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isAutoSpinning, frames.length]);
+  }, [isAutoSpinning, isStatic, frames.length]);
+
+  // Helper: calculate distance between two touches for pinch-to-zoom
+  const getTouchDistance = (touches) => {
+    const dx = touches[0].pageX - touches[1].pageX;
+    const dy = touches[0].pageY - touches[1].pageY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
 
   // Native touch & gesture responder
   const panResponder = useMemo(
@@ -127,23 +140,40 @@ const Product360Viewer = ({
       PanResponder.create({
         onStartShouldSetPanResponder: () => true,
         onMoveShouldSetPanResponder: (evt, gestureState) => {
-          // When zoomed in: capture all pan gestures
-          if (zoomScaleRef.current > 1.15) {
-            return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+          // If 2 touches: multi-touch pinch zoom
+          if (evt.nativeEvent.touches && evt.nativeEvent.touches.length === 2) {
+            return true;
           }
-          // Normal 1.0x scale: ONLY capture horizontal swipes!
-          // Vertical swipe is completely ignored so parent ScrollView scrolls natively!
-          return Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && Math.abs(gestureState.dx) > 6;
+          // When zoomed in: capture all 2D pan gestures (horizontal and vertical)
+          if (zoomScaleRef.current > 1.08) {
+            return Math.abs(gestureState.dx) > 1 || Math.abs(gestureState.dy) > 1;
+          }
+          // Normal 1.0x scale in 360 mode: ONLY capture horizontal swipe
+          if (!isStatic && framesCountRef.current > 1) {
+            return (
+              Math.abs(gestureState.dx) > Math.abs(gestureState.dy) &&
+              Math.abs(gestureState.dx) > 6
+            );
+          }
+          // Static photo at 1.0x: let parent ScrollView handle vertical scrolling
+          return false;
         },
         onPanResponderGrant: (evt) => {
-          // Pause auto-spin immediately when user touches
-          if (isAutoSpinningRef.current && onAutoSpinChange) {
+          // Pause auto-spin if active
+          if (!isStatic && isAutoSpinningRef.current && onAutoSpinChange) {
             onAutoSpinChange(false);
+          }
+
+          const touches = evt.nativeEvent.touches;
+          if (touches && touches.length === 2) {
+            pinchStartDistanceRef.current = getTouchDistance(touches);
+            pinchStartScaleRef.current = zoomScaleRef.current;
+            return;
           }
 
           startXRef.current = currentFrameRef.current;
 
-          // Double tap detection (toggles between 1.0x and 2.0x)
+          // Double tap to toggle zoom between 1.0x and 2.0x
           const now = Date.now();
           if (now - lastTapRef.current < 280) {
             const nextScale = zoomScaleRef.current > 1.2 ? 1.0 : 2.0;
@@ -154,16 +184,31 @@ const Product360Viewer = ({
           lastTapRef.current = now;
         },
         onPanResponderMove: (evt, gestureState) => {
-          // If zoomed in: pan the image
-          if (zoomScaleRef.current > 1.15) {
-            pan.setValue({ x: gestureState.dx, y: gestureState.dy });
+          const touches = evt.nativeEvent.touches;
+
+          // 2-Finger Pinch Zoom
+          if (touches && touches.length === 2) {
+            const currentDist = getTouchDistance(touches);
+            if (pinchStartDistanceRef.current > 0) {
+              const factor = currentDist / pinchStartDistanceRef.current;
+              const newScale = Math.max(0.7, Math.min(3.5, pinchStartScaleRef.current * factor));
+              if (onScaleChange) onScaleChange(newScale);
+            }
             return;
           }
 
-          // Horizontal 360 scrubbing: every 9 pixels changes 1 frame
-          const total = framesCountRef.current;
-          if (total > 1) {
-            const frameDiff = Math.round(gestureState.dx / 9);
+          // 1-Finger Pan when zoomed in: allows both horizontal and vertical panning
+          if (zoomScaleRef.current > 1.08) {
+            const newX = panOffset.current.x + gestureState.dx;
+            const newY = panOffset.current.y + gestureState.dy;
+            pan.setValue({ x: newX, y: newY });
+            return;
+          }
+
+          // 1-Finger 360 scrubbing (only when not static)
+          if (!isStatic && framesCountRef.current > 1) {
+            const total = framesCountRef.current;
+            const frameDiff = Math.round(gestureState.dx / 8);
             let nextIndex = (startXRef.current - frameDiff) % total;
             if (nextIndex < 0) nextIndex += total;
             setCurrentFrame(nextIndex);
@@ -172,17 +217,23 @@ const Product360Viewer = ({
             if (onAngleChange) onAngleChange(calculatedAngle);
           }
         },
-        onPanResponderRelease: () => {
-          pan.flattenOffset();
+        onPanResponderRelease: (evt, gestureState) => {
+          if (zoomScaleRef.current > 1.08) {
+            panOffset.current.x += gestureState.dx;
+            panOffset.current.y += gestureState.dy;
+          }
+          pinchStartDistanceRef.current = 0;
         },
       }),
-    [frames.length]
+    [frames.length, isStatic]
   );
 
-  const displayUri =
-    frames.length > 0 && frames[currentFrame]
-      ? frames[currentFrame]
-      : staticImageUrl || gifUrl;
+  // In static mode, ALWAYS show staticImageUrl; in 360 mode, show frames or fallback
+  const displayUri = isStatic
+    ? staticImageUrl || gifUrl
+    : frames.length > 0 && frames[currentFrame]
+    ? frames[currentFrame]
+    : staticImageUrl || gifUrl;
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
@@ -212,7 +263,7 @@ const Product360Viewer = ({
         </Animated.View>
       ) : (
         <View style={styles.centerBox}>
-          <Text style={styles.loadingText}>No 360 Image Available</Text>
+          <Text style={styles.loadingText}>No Image Available</Text>
         </View>
       )}
     </View>

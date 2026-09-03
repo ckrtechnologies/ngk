@@ -362,7 +362,10 @@ const VerifiedPartsScreen = () => {
                       styles.mediaToggleBtnLight,
                       activeMediaTab === '3d' && styles.mediaToggleBtnActiveLight,
                     ]}
-                    onPress={() => setActiveMediaTab('3d')}
+                    onPress={() => {
+                      setActiveMediaTab('3d');
+                      setIsAutoSpinning(true);
+                    }}
                     activeOpacity={0.8}
                   >
                     <RotateCw
@@ -384,7 +387,11 @@ const VerifiedPartsScreen = () => {
                       styles.mediaToggleBtnLight,
                       activeMediaTab === 'photo' && styles.mediaToggleBtnActiveLight,
                     ]}
-                    onPress={() => setActiveMediaTab('photo')}
+                    onPress={() => {
+                      setActiveMediaTab('photo');
+                      setIsAutoSpinning(false);
+                      setZoomScale(1);
+                    }}
                     activeOpacity={0.8}
                   >
                     <Eye
@@ -412,13 +419,14 @@ const VerifiedPartsScreen = () => {
                 )}
               </View>
 
-              {/* Touch-to-Rotate 360 Product Stage */}
+              {/* Touch-to-Rotate 360 Product Stage / HD Static Photo Stage */}
               <View style={styles.viewportCenterLight}>
                 <Product360Viewer
-                  gifUrl={gif360 ? gif360.imageURL800 || gif360.imageURL400 || gif360.imageURL200 : null}
+                  isStatic={activeMediaTab === 'photo'}
+                  gifUrl={activeMediaTab === '3d' && gif360 ? gif360.imageURL800 || gif360.imageURL400 || gif360.imageURL200 : null}
                   staticImageUrl={activeImageUrl}
-                  angle={rotationY}
-                  isAutoSpinning={isAutoSpinning}
+                  angle={activeMediaTab === '3d' ? rotationY : 0}
+                  isAutoSpinning={activeMediaTab === '3d' && isAutoSpinning}
                   zoomScale={zoomScale}
                   onAngleChange={(deg) => setRotationY(deg)}
                   onAutoSpinChange={(spinning) => setIsAutoSpinning(spinning)}
@@ -523,6 +531,44 @@ const VerifiedPartsScreen = () => {
                         </TouchableOpacity>
                       );
                     })}
+                  </View>
+                </View>
+              )}
+
+              {/* HD Photo Zoom Controls */}
+              {activeMediaTab === 'photo' && (
+                <View style={styles.interactive3DToolbar}>
+                  <View style={styles.dragHintBox}>
+                    <Text style={styles.dragHintText}>
+                      🔍 Pinch or double-tap to zoom • Drag in any direction to pan
+                    </Text>
+                  </View>
+
+                  <View style={styles.toolActionButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.toolBtn}
+                      onPress={() => setZoomScale(1)}
+                      activeOpacity={0.7}
+                    >
+                      <RotateCcw size={13} color="#374151" />
+                      <Text style={styles.toolBtnText}>Reset Zoom</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.toolBtnIcon}
+                      onPress={() => setZoomScale((s) => Math.min(2.5, s + 0.25))}
+                      activeOpacity={0.7}
+                    >
+                      <ZoomIn size={14} color="#374151" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.toolBtnIcon}
+                      onPress={() => setZoomScale((s) => Math.max(0.7, s - 0.25))}
+                      activeOpacity={0.7}
+                    >
+                      <ZoomOut size={14} color="#374151" />
+                    </TouchableOpacity>
                   </View>
                 </View>
               )}
