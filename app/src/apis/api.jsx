@@ -38,4 +38,5 @@ export const modelSeriesApi = `${BASE_URL}/tecdoc/series`
 export const vehiclesApi = `${BASE_URL}/tecdoc/vehicles`
 export const articlesByVehicleApi = `${BASE_URL}/tecdoc/articles/by-vehicle`
 export const articlesByPartApi = `${BASE_URL}/tecdoc/articles/by-part`
+export const articles360FramesApi = `${BASE_URL}/tecdoc/articles/360-frames`
 export const brandsApi = `${BASE_URL}/tecdoc/brands`

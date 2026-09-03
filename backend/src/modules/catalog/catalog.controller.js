@@ -123,3 +123,18 @@ export const proxyServiceJson = async (req, res) => {
     return sendError(res, error.message, 500, error);
   }
 };
+
+export const get360Frames = async (req, res) => {
+  try {
+    const { gifUrl } = req.query;
+    if (!gifUrl) {
+      return sendError(res, 'gifUrl query parameter is required', 400);
+    }
+    const { extract360Frames } = await import('../../services/gif360Service.js');
+    const data = await extract360Frames(gifUrl);
+    return sendSuccess(res, data, '360 frames extracted successfully');
+  } catch (error) {
+    return sendError(res, error.message, 500, error);
+  }
+};
+

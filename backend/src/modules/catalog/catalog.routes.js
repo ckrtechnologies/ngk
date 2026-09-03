@@ -9,6 +9,7 @@ import {
   getPopularBrands,
   getVehiclesByVIN,
   proxyServiceJson,
+  get360Frames,
 } from './catalog.controller.js';
 import { optionalAuth } from '../../common/middleware/auth.middleware.js';
 
@@ -21,6 +22,7 @@ catalogRouter.get('/series', optionalAuth, getModelSeries);
 catalogRouter.get('/vehicles', optionalAuth, getVehicles);
 catalogRouter.get('/articles/by-vehicle', optionalAuth, getArticlesByVehicle);
 catalogRouter.get('/articles/by-part', optionalAuth, getArticlesByPartNumber);
+catalogRouter.get('/articles/360-frames', optionalAuth, get360Frames);
 catalogRouter.get('/brands', optionalAuth, getBrands);
 catalogRouter.get('/vin/:vin', optionalAuth, getVehiclesByVIN);
 
