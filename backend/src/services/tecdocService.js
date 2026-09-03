@@ -530,7 +530,20 @@ class TecDocService {
         tradeNumbers: a.tradeNumbers || [partNumber],
         genericArticles: a.genericArticles || [{ genericArticleDescription: title }],
         specs: specs,
-        imageUrl: a.imageUrl || null,
+        articleCriteria: a.articleCriteria || [],
+        images: a.images || [],
+        images360: (a.images || []).filter(
+          (img) =>
+            img.fileName?.toLowerCase()?.includes('360') ||
+            img.headerDescription?.toLowerCase()?.includes('360')
+        ),
+        oenNumbers: a.oenNumbers || [],
+        imageUrl:
+          a.imageUrl ||
+          a.images?.[0]?.imageURL800 ||
+          a.images?.[0]?.imageURL400 ||
+          a.images?.[0]?.imageURL200 ||
+          null,
         raw: a,
       };
     });
