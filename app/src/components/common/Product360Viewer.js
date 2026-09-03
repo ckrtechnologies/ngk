@@ -69,9 +69,10 @@ const Product360Viewer = ({
       setLoading(true);
       try {
         const endpoint = `${articles360FramesApi}?gifUrl=${encodeURIComponent(gifUrl)}`;
-        const res = await apiFunction(endpoint, 'get');
-        if (isMounted && res?.data?.frames && res.data.frames.length > 0) {
-          setFrames(res.data.frames);
+        const res = await apiFunction(endpoint, [], {}, 'GET');
+        const framesList = res?.data?.frames || res?.data?.data?.frames || res?.frames;
+        if (isMounted && Array.isArray(framesList) && framesList.length > 0) {
+          setFrames(framesList);
           setCurrentFrame(0);
           setLoading(false);
           return;

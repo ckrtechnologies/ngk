@@ -8,6 +8,20 @@ export const apiFunction = async (api, params = [], data = {}, method = "GET", w
     }
     let response
 
+    // Gracefully handle flexible caller signatures (e.g. apiFunction(url, "GET"))
+    if (typeof params === 'string') {
+        method = params;
+        params = [];
+    } else if (!Array.isArray(params)) {
+        if (typeof params === 'object') {
+            data = params;
+        }
+        params = [];
+    }
+    if (typeof method !== 'string') {
+        method = 'GET';
+    }
+
     try {
         const token = await AsyncStorage.getItem("token")
         if (token) {
