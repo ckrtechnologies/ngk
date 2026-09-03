@@ -11,10 +11,10 @@ const __dirname = path.dirname(__filename);
 const framesCache = new Map();
 
 // Load omggif
-const omggifPath = path.resolve(__dirname, '../../../app/src/utils/omggif.js');
 let GifReaderClass = null;
 try {
-  const omggifContent = fs.readFileSync(omggifPath, 'utf8');
+  const localOmggif = path.resolve(__dirname, 'omggif.js');
+  const omggifContent = fs.readFileSync(localOmggif, 'utf8');
   const mod = { exports: {} };
   const fn = new Function('module', 'exports', omggifContent);
   fn(mod, mod.exports);

@@ -58,7 +58,7 @@ const VerifiedPartsScreen = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [rotationY, setRotationY] = useState(0);
   const [zoomScale, setZoomScale] = useState(1);
-  const [isAutoSpinning, setIsAutoSpinning] = useState(false);
+  const [isAutoSpinning, setIsAutoSpinning] = useState(true);
 
   const vehicle = route.params?.vehicle;
   const searchQuery = route.params?.searchQuery;
@@ -144,7 +144,7 @@ const VerifiedPartsScreen = () => {
     setSelectedImageIndex(0);
     setRotationY(0);
     setZoomScale(1);
-    setIsAutoSpinning(false);
+    setIsAutoSpinning(true);
     setSpecsModalVisible(true);
   };
 

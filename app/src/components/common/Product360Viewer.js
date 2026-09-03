@@ -94,13 +94,14 @@ const Product360Viewer = ({
 
   // Handle angle prop change (e.g. when user clicks 0°, 90°, 180°, 270°)
   useEffect(() => {
-    const total = framesCountRef.current;
+    if (isAutoSpinning) return; // Auto-spin interval controls frame during spin
+    const total = frames.length;
     if (total > 1) {
       const normalized = ((Math.round(angle) % 360) + 360) % 360;
       const targetFrame = Math.round((normalized / 360) * total) % total;
       setCurrentFrame(targetFrame);
     }
-  }, [angle]);
+  }, [angle, isAutoSpinning, frames.length]);
 
   // Auto-Spin animation loop
   useEffect(() => {
