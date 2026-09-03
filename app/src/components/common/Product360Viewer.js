@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text, Platform } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { OMGGIF_SCRIPT } from '../../utils/omggifCode';
 
@@ -15,8 +15,51 @@ const Product360Viewer = ({
 }) => {
   const webViewRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
+  const [base64Media, setBase64Media] = useState(null);
+  const [loadingMedia, setLoadingMedia] = useState(true);
 
   const activeMediaUrl = gifUrl || staticImageUrl;
+
+  // Fetch media in React Native natively to bypass browser CORS
+  useEffect(() => {
+    let isMounted = true;
+    if (!activeMediaUrl) {
+      setLoadingMedia(false);
+      return;
+    }
+
+    const fetchNativeMedia = async () => {
+      try {
+        setLoadingMedia(true);
+        if (activeMediaUrl.toLowerCase().includes('.gif')) {
+          const res = await fetch(activeMediaUrl);
+          const blob = await res.blob();
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            if (isMounted) {
+              setBase64Media(reader.result);
+              setLoadingMedia(false);
+            }
+          };
+          reader.readAsDataURL(blob);
+        } else {
+          setBase64Media(activeMediaUrl);
+          setLoadingMedia(false);
+        }
+      } catch (e) {
+        console.warn('Native 360 fetch fallback:', e);
+        if (isMounted) {
+          setBase64Media(activeMediaUrl);
+          setLoadingMedia(false);
+        }
+      }
+    };
+
+    fetchNativeMedia();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeMediaUrl]);
 
   // Generate HTML for the WebView
   const htmlContent = `
@@ -35,7 +78,7 @@ const Product360Viewer = ({
       display: flex;
       justify-content: center;
       align-items: center;
-      touch-action: pan-y; /* CRITICAL: Allows vertical scrolling in React Native ScrollView */
+      touch-action: pan-y; /* Allows vertical scrolling in React Native ScrollView */
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
@@ -54,14 +97,14 @@ const Product360Viewer = ({
       max-height: 92%;
       object-fit: contain;
       cursor: ew-resize;
-      transition: transform 0.15s ease-out;
+      transition: transform 0.12s ease-out;
       transform-origin: center center;
     }
     #staticImg {
       max-width: 90%;
       max-height: 90%;
       object-fit: contain;
-      transition: transform 0.2s ease-out;
+      transition: transform 0.18s ease-out;
       transform-origin: center center;
     }
     #loading {
@@ -76,7 +119,7 @@ const Product360Viewer = ({
 </head>
 <body>
   <div id="stage">
-    <div id="loading">Initializing 360° Studio...</div>
+    <div id="loading">Loading 360° frames...</div>
     <canvas id="canvas" style="display:none;"></canvas>
     <img id="staticImg" style="display:none;" />
   </div>
@@ -91,14 +134,21 @@ const Product360Viewer = ({
     const loading = document.getElementById('loading');
     const staticImg = document.getElementById('staticImg');
 
-    const mediaUrl = "${activeMediaUrl || ''}";
-    const isGif = mediaUrl.toLowerCase().includes('.gif');
+    const rawMedia = "${base64Media ? base64Media.replace(/"/g, '\\"') : ''}";
 
     let frames = [];
     let currentFrame = 0;
     let totalFrames = 1;
     let autoSpinInterval = null;
     let currentScale = 1;
+
+    // Pinch to zoom & Pan state
+    let isPinching = false;
+    let initialPinchDistance = 0;
+    let pinchStartScale = 1;
+    let panX = 0;
+    let panY = 0;
+    let lastTapTime = 0;
 
     function sendToRN(msg) {
       if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
@@ -126,14 +176,6 @@ const Product360Viewer = ({
       const targetFrame = Math.round((normalized / 360) * totalFrames) % totalFrames;
       setFrame(targetFrame);
     }
-
-    // Pinch to zoom & Pan state
-    let isPinching = false;
-    let initialPinchDistance = 0;
-    let pinchStartScale = 1;
-    let panX = 0;
-    let panY = 0;
-    let lastTapTime = 0;
 
     function getDistance(t1, t2) {
       const dx = t1.clientX - t2.clientX;
@@ -194,7 +236,6 @@ const Product360Viewer = ({
     stage.addEventListener('touchstart', (e) => {
       stopAutoSpin();
       if (e.touches.length === 2) {
-        // Multi-touch PINCH-TO-ZOOM
         isPinching = true;
         isDragging = false;
         initialPinchDistance = getDistance(e.touches[0], e.touches[1]);
@@ -240,7 +281,7 @@ const Product360Viewer = ({
       const diffX = curX - startX;
       const diffY = curY - startY;
 
-      // When zoomed in, 1-finger drags pan in both vertical & horizontal directions
+      // When zoomed in, 1-finger drags pan in all directions
       if (currentScale > 1.15) {
         panX += diffX * 0.75;
         panY += diffY * 0.75;
@@ -305,19 +346,31 @@ const Product360Viewer = ({
     window.addEventListener('message', handleIncomingMessage);
     document.addEventListener('message', handleIncomingMessage);
 
-    // Fetch and Decode GIF with omggif
-    async function loadMedia() {
-      if (!mediaUrl) {
+    function base64ToUint8Array(base64) {
+      const raw = window.atob(base64);
+      const rawLength = raw.length;
+      const array = new Uint8Array(new ArrayBuffer(rawLength));
+      for (let i = 0; i < rawLength; i++) {
+        array[i] = raw.charCodeAt(i);
+      }
+      return array;
+    }
+
+    // Decode and blit all frames in memory
+    function initViewer() {
+      if (!rawMedia) {
         loading.textContent = 'No 360 asset available';
         return;
       }
 
-      if (isGif && window.omggif && window.omggif.GifReader) {
+      const GifReaderClass = (window.omggif && window.omggif.GifReader) || window.GifReader;
+
+      if (rawMedia.startsWith('data:image/gif') && GifReaderClass) {
         try {
-          const resp = await fetch(mediaUrl);
-          const buffer = await resp.arrayBuffer();
-          const reader = new window.omggif.GifReader(new Uint8Array(buffer));
-          
+          const b64Part = rawMedia.split(',')[1];
+          const uint8 = base64ToUint8Array(b64Part);
+          const reader = new GifReaderClass(uint8);
+
           canvas.width = reader.width;
           canvas.height = reader.height;
           totalFrames = reader.numFrames();
@@ -330,19 +383,21 @@ const Product360Viewer = ({
           }
 
           loading.style.display = 'none';
+          staticImg.style.display = 'none';
           canvas.style.display = 'block';
           setFrame(0);
           sendToRN({ type: 'READY', totalFrames });
           return;
         } catch (e) {
-          console.warn('GIF decode fallback:', e);
+          console.warn('In-memory GIF decode fallback:', e);
         }
       }
 
-      // Fallback to image tag if GIF decode not possible or media is standard image
-      staticImg.src = mediaUrl;
+      // If standard static photo:
+      staticImg.src = rawMedia;
       staticImg.onload = () => {
         loading.style.display = 'none';
+        canvas.style.display = 'none';
         staticImg.style.display = 'block';
         sendToRN({ type: 'READY', totalFrames: 1 });
       };
@@ -351,12 +406,11 @@ const Product360Viewer = ({
       };
     }
 
-    // Initialize once omggif script loads
-    if (window.omggif) {
-      loadMedia();
+    if (document.readyState === 'complete') {
+      initViewer();
     } else {
-      window.onload = loadMedia;
-      setTimeout(loadMedia, 600);
+      window.onload = initViewer;
+      setTimeout(initViewer, 200);
     }
   </script>
 </body>
@@ -405,6 +459,15 @@ const Product360Viewer = ({
     } catch (e) {}
   };
 
+  if (loadingMedia) {
+    return (
+      <View style={[styles.container, styles.centerBox]}>
+        <ActivityIndicator size="small" color="#C6122E" />
+        <Text style={styles.loadingText}>Preparing 360° Studio...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <WebView
@@ -432,6 +495,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
     overflow: 'hidden',
+  },
+  centerBox: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#94A3B8',
   },
   webView: {
     flex: 1,
