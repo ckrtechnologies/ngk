@@ -4,15 +4,34 @@ class EnquiryService {
   /**
    * 1. Add Technical Enquiry
    */
-  async addEnquiry({ userId, enquiryDate, vehicle, dealer, imageurl }) {
+  async addEnquiry(payload) {
+    const userId = payload.userId || payload.user_id;
     if (!userId) {
       throw new Error('User ID is required to create an enquiry');
     }
 
-    const title = vehicle?.title || vehicle?.vehicle?.typeName || vehicle?.part?.title || 'Technical Enquiry';
-    const description = vehicle?.description || vehicle?.part?.subtitle || 'Technical enquiry regarding automotive parts';
-    const quantity = vehicle?.quantity || 1;
-    const finalImageUrl = imageurl || vehicle?.imageurl || null;
+    const dealer = payload.dealerId || payload.dealer_id || payload.dealer || null;
+    const title =
+      payload.title ||
+      (payload.partName ? `${payload.partName}${payload.partNumber ? ` (${payload.partNumber})` : ''}`.trim() : null) ||
+      payload.vehicle?.title ||
+      payload.vehicle?.vehicle?.typeName ||
+      payload.vehicle?.part?.title ||
+      'Technical Enquiry';
+    const description =
+      payload.enquiryDetails ||
+      payload.description ||
+      payload.vehicle?.description ||
+      payload.vehicle?.enquiryDetails ||
+      payload.vehicle?.part?.subtitle ||
+      'Technical enquiry regarding automotive parts';
+    const quantity = Number(payload.quantity || payload.vehicle?.quantity || 1);
+    const finalImageUrl =
+      payload.imageUrl ||
+      payload.imageurl ||
+      payload.image_url ||
+      payload.vehicle?.imageurl ||
+      null;
 
     // 1. Insert into normalized enquiries table
     const { data: newEnquiry, error: enquiryError } = await supabase
@@ -24,7 +43,7 @@ class EnquiryService {
         description: description,
         quantity: quantity,
         image_url: finalImageUrl,
-        part_reference: vehicle || {},
+        part_reference: payload.vehicle || payload,
         status: 'Pending',
       })
       .select()
