@@ -42,6 +42,7 @@ import Toast from 'react-native-toast-message';
 import AppHeader from '../components/common/AppHeader';
 import AppButton from '../components/common/AppButton';
 import JourneyStepIndicator from '../components/common/JourneyStepIndicator';
+import Product360Viewer from '../components/common/Product360Viewer';
 
 const VerifiedPartsScreen = () => {
   const navigation = useNavigation();
@@ -56,35 +57,8 @@ const VerifiedPartsScreen = () => {
   const [activeMediaTab, setActiveMediaTab] = useState('3d'); // '3d' | 'photo'
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [rotationY, setRotationY] = useState(0);
-  const [rotationX, setRotationX] = useState(0);
   const [zoomScale, setZoomScale] = useState(1);
   const [isAutoSpinning, setIsAutoSpinning] = useState(false);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        setIsAutoSpinning(false);
-      },
-      onPanResponderMove: (evt, gestureState) => {
-        setRotationY((prev) => Math.round((prev + gestureState.vx * 3 + gestureState.dx * 0.4) % 360));
-        setRotationX((prev) => Math.max(-25, Math.min(25, Math.round(prev - gestureState.dy * 0.15))));
-      },
-    })
-  ).current;
-
-  useEffect(() => {
-    let interval = null;
-    if (isAutoSpinning && specsModalVisible) {
-      interval = setInterval(() => {
-        setRotationY((prev) => (prev + 2) % 360);
-      }, 35);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isAutoSpinning, specsModalVisible]);
 
   const vehicle = route.params?.vehicle;
   const searchQuery = route.params?.searchQuery;
@@ -169,7 +143,6 @@ const VerifiedPartsScreen = () => {
     setActiveMediaTab('3d');
     setSelectedImageIndex(0);
     setRotationY(0);
-    setRotationX(0);
     setZoomScale(1);
     setIsAutoSpinning(false);
     setSpecsModalVisible(true);
@@ -439,38 +412,17 @@ const VerifiedPartsScreen = () => {
                 )}
               </View>
 
-              {/* Touch-to-Rotate 3D Canvas */}
-              <View
-                {...panResponder.panHandlers}
-                style={styles.viewportCenterLight}
-              >
-                {activeImageUrl ? (
-                  <Animated.View
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      transform: [
-                        { perspective: 900 },
-                        { rotateY: `${rotationY}deg` },
-                        { rotateX: `${rotationX}deg` },
-                        { scale: zoomScale },
-                      ],
-                    }}
-                  >
-                    <Image
-                      source={{ uri: activeImageUrl }}
-                      style={styles.product3DImage}
-                      resizeMode="contain"
-                    />
-                  </Animated.View>
-                ) : (
-                  <View style={styles.noImagePlaceholder}>
-                    <Box size={44} color="#9CA3AF" />
-                    <Text style={styles.noImageTextLight}>TecDoc Pegasus 3D Illustration</Text>
-                  </View>
-                )}
+              {/* Touch-to-Rotate 360 Product Stage */}
+              <View style={styles.viewportCenterLight}>
+                <Product360Viewer
+                  gifUrl={gif360 ? gif360.imageURL800 || gif360.imageURL400 || gif360.imageURL200 : null}
+                  staticImageUrl={activeImageUrl}
+                  angle={rotationY}
+                  isAutoSpinning={isAutoSpinning}
+                  zoomScale={zoomScale}
+                  onAngleChange={(deg) => setRotationY(deg)}
+                  onAutoSpinChange={(spinning) => setIsAutoSpinning(spinning)}
+                />
               </View>
 
               {/* Interactive 3D Control Strip */}
@@ -478,7 +430,7 @@ const VerifiedPartsScreen = () => {
                 <View style={styles.interactive3DToolbar}>
                   <View style={styles.dragHintBox}>
                     <Text style={styles.dragHintText}>
-                      👆 Swipe or drag left/right to rotate in 3D
+                      👆 Swipe or drag left/right to rotate 360°
                     </Text>
                   </View>
 
@@ -510,7 +462,6 @@ const VerifiedPartsScreen = () => {
                       style={styles.toolBtn}
                       onPress={() => {
                         setRotationY(0);
-                        setRotationX(0);
                         setZoomScale(1);
                         setIsAutoSpinning(false);
                       }}
@@ -557,7 +508,6 @@ const VerifiedPartsScreen = () => {
                           onPress={() => {
                             setIsAutoSpinning(false);
                             setRotationY(p.deg);
-                            setRotationX(0);
                           }}
                           activeOpacity={0.7}
                         >
@@ -968,10 +918,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   viewportCenterLight: {
-    height: 220,
+    height: 230,
+    width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 6,
+    marginVertical: 4,
   },
   product3DImage: {
     width: '100%',
