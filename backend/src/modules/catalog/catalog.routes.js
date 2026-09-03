@@ -6,6 +6,7 @@ import {
   getArticlesByVehicle,
   getArticlesByPartNumber,
   getBrands,
+  getPopularBrands,
   getVehiclesByVIN,
   proxyServiceJson,
 } from './catalog.controller.js';
@@ -14,6 +15,7 @@ import { optionalAuth } from '../../common/middleware/auth.middleware.js';
 const catalogRouter = Router();
 
 // Dedicated clean REST endpoints
+catalogRouter.get('/popular-brands', optionalAuth, getPopularBrands);
 catalogRouter.get('/manufacturers', optionalAuth, getManufacturers);
 catalogRouter.get('/series', optionalAuth, getModelSeries);
 catalogRouter.get('/vehicles', optionalAuth, getVehicles);

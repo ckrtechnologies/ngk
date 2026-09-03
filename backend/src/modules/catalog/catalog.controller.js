@@ -92,6 +92,15 @@ export const getVehiclesByVIN = async (req, res) => {
   }
 };
 
+export const getPopularBrands = async (req, res) => {
+  try {
+    const brands = tecdocService.getPopularBrands();
+    return sendSuccess(res, { data: { array: brands }, count: brands.length }, 'Popular brands fetched successfully');
+  } catch (error) {
+    return sendError(res, error.message, 500, error);
+  }
+};
+
 /**
  * Universal proxy endpoint for frontend components passing arbitrary TecDoc JSON payloads
  */

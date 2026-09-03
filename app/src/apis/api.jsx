@@ -31,7 +31,7 @@ export const dealersApi = `${BASE_URL}/dealers`
 // File Uploads
 export const uploadApi = `${BASE_URL}/upload`
 
-// TecDoc Pegasus 3.0 Backend Proxy (No client-side IP whitelisting needed)
+export const popularBrandsApi = `${BASE_URL}/tecdoc/popular-brands`
 export const serviceJsonApi = `${BASE_URL}/tecdoc/services/TecdocToCatDLB.jsonEndpoint`
 export const manufacturersApi = `${BASE_URL}/tecdoc/manufacturers`
 export const modelSeriesApi = `${BASE_URL}/tecdoc/series`

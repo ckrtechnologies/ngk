@@ -27,12 +27,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFunction } from '../apis/apiFunction';
-import { serviceJsonApi, addSearchHistoryApi, vehiclesApi } from '../apis/api';
+import { serviceJsonApi, addSearchHistoryApi, vehiclesApi, popularBrandsApi } from '../apis/api';
 import { getMyselfRedux } from '../redux/getData';
 import Toast from 'react-native-toast-message';
 import AppHeader from '../components/common/AppHeader';
 import AppButton from '../components/common/AppButton';
 import AppInput from '../components/common/AppInput';
+import JourneyStepIndicator from '../components/common/JourneyStepIndicator';
+import BrandLogoCard from '../components/parts/BrandLogoCard';
 
 const PartsFinderScreen = () => {
   const navigation = useNavigation();
@@ -52,6 +54,7 @@ const PartsFinderScreen = () => {
   const [manufacturersData, setManufacturersData] = useState([]);
   const [seriesData, setSeriesData] = useState([]);
   const [loadingDropdown, setLoadingDropdown] = useState(false);
+  const [popularBrands, setPopularBrands] = useState([]);
 
   // Modal selector state
   const [modalVisible, setModalVisible] = useState(false);
@@ -71,6 +74,22 @@ const PartsFinderScreen = () => {
     };
     if (!myself) fetchMyself();
   }, [dispatch]);
+
+  // Fetch popular brands on mount
+  useEffect(() => {
+    const fetchPopular = async () => {
+      try {
+        const res = await apiFunction(popularBrandsApi, [], {}, 'GET', false);
+        const list = res?.data?.array || res?.popularBrands || [];
+        if (list.length > 0) {
+          setPopularBrands(list);
+        }
+      } catch (err) {
+        console.warn('Failed to load popular brands:', err);
+      }
+    };
+    fetchPopular();
+  }, []);
 
   // Fetch manufacturers when application changes
   useEffect(() => {
@@ -152,6 +171,12 @@ const PartsFinderScreen = () => {
   };
 
   const [loadingVehicles, setLoadingVehicles] = useState(false);
+
+  const handleSelectPopularBrand = (item) => {
+    setSelectedManufacturer(item);
+    setSelectedSeries(null);
+    fetchSeriesForManufacturer(item);
+  };
 
   const handleSelectSeries = (item) => {
     setSelectedSeries(item);
@@ -301,6 +326,9 @@ const PartsFinderScreen = () => {
         onBack={() => navigation.goBack()}
       />
 
+      {/* 3-Step Journey Indicator */}
+      <JourneyStepIndicator currentStep={1} />
+
       <View style={styles.container}>
         {/* Segmented Mode Tabs */}
         <View style={styles.segmentContainer}>
@@ -386,6 +414,31 @@ const PartsFinderScreen = () => {
                 );
               })}
             </View>
+
+            {/* Popular Vehicle Brands Quick Select (6-9 Cards) */}
+            {popularBrands.length > 0 && (
+              <View style={styles.popularSection}>
+                <View style={styles.popularHeaderRow}>
+                  <Text style={styles.inputSectionLabel}>POPULAR MAKES</Text>
+                  <Text style={styles.popularHint}>Tap brand to quick select</Text>
+                </View>
+                <View style={styles.brandsGrid}>
+                  {popularBrands.map((b) => {
+                    const isSelected =
+                      (selectedManufacturer?.manuId || selectedManufacturer?.id) ===
+                      (b.manuId || b.id);
+                    return (
+                      <BrandLogoCard
+                        key={b.id || b.manuId}
+                        item={b}
+                        isSelected={isSelected}
+                        onPress={handleSelectPopularBrand}
+                      />
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             {/* Step 2: Make & Model Cascade */}
             <Text style={[styles.inputSectionLabel, { marginTop: 14 }]}>
@@ -614,6 +667,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 10,
+  },
+  popularSection: {
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  popularHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  popularHint: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  brandsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   appTypePill: {
     flex: 1,

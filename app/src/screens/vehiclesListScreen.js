@@ -26,6 +26,7 @@ import { useDispatch } from 'react-redux';
 import { apiFunction } from '../apis/apiFunction';
 import { serviceJsonApi, vehiclesApi } from '../apis/api';
 import AppHeader from '../components/common/AppHeader';
+import JourneyStepIndicator from '../components/common/JourneyStepIndicator';
 
 const VehiclesListScreen = () => {
   const navigation = useNavigation();
@@ -150,6 +151,14 @@ const VehiclesListScreen = () => {
         title={`${mfrName} ${seriesName}`}
         subtitle="Select exact engine & year trim"
         onBack={() => navigation.goBack()}
+      />
+
+      {/* 3-Step Journey Indicator */}
+      <JourneyStepIndicator
+        currentStep={2}
+        onStepPress={(step) => {
+          if (step === 1) navigation.goBack();
+        }}
       />
 
       <View style={styles.container}>

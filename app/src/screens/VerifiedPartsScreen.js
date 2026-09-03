@@ -30,6 +30,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import Toast from 'react-native-toast-message';
 import AppHeader from '../components/common/AppHeader';
 import AppButton from '../components/common/AppButton';
+import JourneyStepIndicator from '../components/common/JourneyStepIndicator';
 
 const VerifiedPartsScreen = () => {
   const navigation = useNavigation();
@@ -113,6 +114,15 @@ const VerifiedPartsScreen = () => {
             : `${parts.length} Matching Components`
         }
         onBack={() => navigation.goBack()}
+      />
+
+      {/* 3-Step Journey Indicator */}
+      <JourneyStepIndicator
+        currentStep={3}
+        onStepPress={(step) => {
+          if (step === 2) navigation.goBack();
+          else if (step === 1) navigation.navigate('PartsFinder');
+        }}
       />
 
       <ScrollView
