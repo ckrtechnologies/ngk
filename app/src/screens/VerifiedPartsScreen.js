@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Modal,
   Image,
   ActivityIndicator,
+  PanResponder,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -21,10 +23,14 @@ import {
   Layers,
   ChevronRight,
   RotateCw,
+  RotateCcw,
   Eye,
   Box,
   Sliders,
   CheckCircle2,
+  ZoomIn,
+  ZoomOut,
+  Sparkles,
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -49,6 +55,36 @@ const VerifiedPartsScreen = () => {
   const [specsModalVisible, setSpecsModalVisible] = useState(false);
   const [activeMediaTab, setActiveMediaTab] = useState('3d'); // '3d' | 'photo'
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [rotationY, setRotationY] = useState(0);
+  const [rotationX, setRotationX] = useState(0);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [isAutoSpinning, setIsAutoSpinning] = useState(false);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        setIsAutoSpinning(false);
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        setRotationY((prev) => Math.round((prev + gestureState.vx * 3 + gestureState.dx * 0.4) % 360));
+        setRotationX((prev) => Math.max(-25, Math.min(25, Math.round(prev - gestureState.dy * 0.15))));
+      },
+    })
+  ).current;
+
+  useEffect(() => {
+    let interval = null;
+    if (isAutoSpinning && specsModalVisible) {
+      interval = setInterval(() => {
+        setRotationY((prev) => (prev + 2) % 360);
+      }, 35);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isAutoSpinning, specsModalVisible]);
 
   const vehicle = route.params?.vehicle;
   const searchQuery = route.params?.searchQuery;
@@ -132,6 +168,10 @@ const VerifiedPartsScreen = () => {
     setSelectedPart(item);
     setActiveMediaTab('3d');
     setSelectedImageIndex(0);
+    setRotationY(0);
+    setRotationX(0);
+    setZoomScale(1);
+    setIsAutoSpinning(false);
     setSpecsModalVisible(true);
   };
 
@@ -306,60 +346,60 @@ const VerifiedPartsScreen = () => {
             },
           ]}
         >
-          <StatusBar barStyle="light-content" backgroundColor="#0B0F19" />
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-          {/* Top Modal Navigation Header */}
-          <View style={styles.modalHeaderDark}>
+          {/* Top Modal Navigation Header - Clean Light Theme */}
+          <View style={styles.modalHeaderLight}>
             <View style={styles.modalHeaderInfo}>
-              <View style={styles.modalBrandPill}>
-                <Text style={styles.modalBrandText}>
+              <View style={styles.modalBrandPillLight}>
+                <Text style={styles.modalBrandTextLight}>
                   {selectedPart?.mfrName || selectedPart?.brandName || 'NGK SPARK PLUG'}
                 </Text>
               </View>
-              <Text style={styles.modalPartNumber}>
+              <Text style={styles.modalPartNumberLight}>
                 {selectedPart?.tradeNumbers?.[0] ||
                   selectedPart?.articleNumber ||
                   selectedPart?.articleNo ||
                   selectedPart?.partNumber ||
                   'GENUINE NGK'}
               </Text>
-              <Text style={styles.modalPartSub}>
+              <Text style={styles.modalPartSubLight}>
                 {selectedPart?.genericArticles?.[0]?.genericArticleDescription ||
                   selectedPart?.articleName ||
                   'Ignition Component'}
               </Text>
             </View>
             <TouchableOpacity
-              style={styles.modalCloseBtn}
+              style={styles.modalCloseBtnLight}
               onPress={() => setSpecsModalVisible(false)}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <X size={20} color="#FFFFFF" />
+              <X size={20} color="#374151" />
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBodyDark}>
-            {/* 3D Interactive Showroom Stage */}
-            <View style={styles.showroomStage}>
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBodyLight}>
+            {/* 3D Interactive Showroom Stage (Light Theme) */}
+            <View style={styles.showroomStageLight}>
               {/* Media Mode Switcher (360° 3D vs HD Photo) */}
-              <View style={styles.showroomControls}>
-                <View style={styles.mediaToggleBox}>
+              <View style={styles.showroomControlsLight}>
+                <View style={styles.mediaToggleBoxLight}>
                   <TouchableOpacity
                     style={[
-                      styles.mediaToggleBtn,
-                      activeMediaTab === '3d' && styles.mediaToggleBtnActive,
+                      styles.mediaToggleBtnLight,
+                      activeMediaTab === '3d' && styles.mediaToggleBtnActiveLight,
                     ]}
                     onPress={() => setActiveMediaTab('3d')}
                     activeOpacity={0.8}
                   >
                     <RotateCw
                       size={13}
-                      color={activeMediaTab === '3d' ? '#FFFFFF' : '#94A3B8'}
+                      color={activeMediaTab === '3d' ? '#FFFFFF' : '#4B5563'}
                     />
                     <Text
                       style={[
-                        styles.mediaToggleText,
-                        activeMediaTab === '3d' && styles.mediaToggleTextActive,
+                        styles.mediaToggleTextLight,
+                        activeMediaTab === '3d' && styles.mediaToggleTextActiveLight,
                       ]}
                     >
                       360° 3D Model
@@ -368,20 +408,20 @@ const VerifiedPartsScreen = () => {
 
                   <TouchableOpacity
                     style={[
-                      styles.mediaToggleBtn,
-                      activeMediaTab === 'photo' && styles.mediaToggleBtnActive,
+                      styles.mediaToggleBtnLight,
+                      activeMediaTab === 'photo' && styles.mediaToggleBtnActiveLight,
                     ]}
                     onPress={() => setActiveMediaTab('photo')}
                     activeOpacity={0.8}
                   >
                     <Eye
                       size={13}
-                      color={activeMediaTab === 'photo' ? '#FFFFFF' : '#94A3B8'}
+                      color={activeMediaTab === 'photo' ? '#FFFFFF' : '#4B5563'}
                     />
                     <Text
                       style={[
-                        styles.mediaToggleText,
-                        activeMediaTab === 'photo' && styles.mediaToggleTextActive,
+                        styles.mediaToggleTextLight,
+                        activeMediaTab === 'photo' && styles.mediaToggleTextActiveLight,
                       ]}
                     >
                       HD Photo
@@ -390,42 +430,165 @@ const VerifiedPartsScreen = () => {
                 </View>
 
                 {activeMediaTab === '3d' && (
-                  <View style={styles.active3DBadge}>
-                    <RotateCw size={11} color="#10B981" />
-                    <Text style={styles.active3DBadgeText}>360° MODEL ACTIVE</Text>
+                  <View style={styles.active3DBadgeLight}>
+                    <RotateCw size={11} color="#059669" />
+                    <Text style={styles.active3DBadgeTextLight}>
+                      {isAutoSpinning ? 'AUTO-SPINNING' : `${((rotationY % 360) + 360) % 360}° ORBIT`}
+                    </Text>
                   </View>
                 )}
               </View>
 
-              {/* Viewport Center with 3D product asset */}
-              <View style={styles.viewportCenter}>
+              {/* Touch-to-Rotate 3D Canvas */}
+              <View
+                {...panResponder.panHandlers}
+                style={styles.viewportCenterLight}
+              >
                 {activeImageUrl ? (
-                  <Image
-                    source={{ uri: activeImageUrl }}
-                    style={styles.product3DImage}
-                    resizeMode="contain"
-                  />
+                  <Animated.View
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      transform: [
+                        { perspective: 900 },
+                        { rotateY: `${rotationY}deg` },
+                        { rotateX: `${rotationX}deg` },
+                        { scale: zoomScale },
+                      ],
+                    }}
+                  >
+                    <Image
+                      source={{ uri: activeImageUrl }}
+                      style={styles.product3DImage}
+                      resizeMode="contain"
+                    />
+                  </Animated.View>
                 ) : (
                   <View style={styles.noImagePlaceholder}>
-                    <Box size={44} color="#475569" />
-                    <Text style={styles.noImageText}>TecDoc Pegasus 3D Illustration</Text>
+                    <Box size={44} color="#9CA3AF" />
+                    <Text style={styles.noImageTextLight}>TecDoc Pegasus 3D Illustration</Text>
                   </View>
                 )}
               </View>
+
+              {/* Interactive 3D Control Strip */}
+              {activeMediaTab === '3d' && (
+                <View style={styles.interactive3DToolbar}>
+                  <View style={styles.dragHintBox}>
+                    <Text style={styles.dragHintText}>
+                      👆 Swipe or drag left/right to rotate in 3D
+                    </Text>
+                  </View>
+
+                  {/* Actions: Auto-Spin, Reset, Zoom In, Zoom Out */}
+                  <View style={styles.toolActionButtonsRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.toolBtn,
+                        isAutoSpinning && styles.toolBtnActive,
+                      ]}
+                      onPress={() => setIsAutoSpinning((prev) => !prev)}
+                      activeOpacity={0.7}
+                    >
+                      <RotateCw
+                        size={13}
+                        color={isAutoSpinning ? '#FFFFFF' : '#374151'}
+                      />
+                      <Text
+                        style={[
+                          styles.toolBtnText,
+                          isAutoSpinning && styles.toolBtnTextActive,
+                        ]}
+                      >
+                        {isAutoSpinning ? 'Pause' : 'Auto-Spin'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.toolBtn}
+                      onPress={() => {
+                        setRotationY(0);
+                        setRotationX(0);
+                        setZoomScale(1);
+                        setIsAutoSpinning(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <RotateCcw size={13} color="#374151" />
+                      <Text style={styles.toolBtnText}>Reset</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.toolBtnIcon}
+                      onPress={() => setZoomScale((s) => Math.min(1.8, s + 0.2))}
+                      activeOpacity={0.7}
+                    >
+                      <ZoomIn size={14} color="#374151" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.toolBtnIcon}
+                      onPress={() => setZoomScale((s) => Math.max(0.7, s - 0.2))}
+                      activeOpacity={0.7}
+                    >
+                      <ZoomOut size={14} color="#374151" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Quick Preset Angles */}
+                  <View style={styles.anglePresetRow}>
+                    {[
+                      { label: '0° Front', deg: 0 },
+                      { label: '90° Side', deg: 90 },
+                      { label: '180° Back', deg: 180 },
+                      { label: '270° Side', deg: 270 },
+                    ].map((p) => {
+                      const currentNorm = ((rotationY % 360) + 360) % 360;
+                      const isNear = Math.abs(currentNorm - p.deg) < 15;
+                      return (
+                        <TouchableOpacity
+                          key={p.deg}
+                          style={[
+                            styles.anglePresetChip,
+                            isNear && styles.anglePresetChipActive,
+                          ]}
+                          onPress={() => {
+                            setIsAutoSpinning(false);
+                            setRotationY(p.deg);
+                            setRotationX(0);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.anglePresetChipText,
+                              isNear && styles.anglePresetChipTextActive,
+                            ]}
+                          >
+                            {p.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
 
               {/* Photo Thumbnails if multiple regular photos exist */}
               {activeMediaTab === 'photo' && regularImages.length > 1 && (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.thumbnailRow}
+                  contentContainerStyle={styles.thumbnailRowLight}
                 >
                   {regularImages.map((img, idx) => (
                     <TouchableOpacity
                       key={idx}
                       style={[
-                        styles.thumbBox,
-                        selectedImageIndex === idx && styles.thumbBoxActive,
+                        styles.thumbBoxLight,
+                        selectedImageIndex === idx && styles.thumbBoxActiveLight,
                       ]}
                       onPress={() => setSelectedImageIndex(idx)}
                     >
@@ -440,9 +603,9 @@ const VerifiedPartsScreen = () => {
               )}
 
               {/* Studio Fitment Guarantee Footer */}
-              <View style={styles.stageFooterRow}>
-                <ShieldCheck size={14} color="#10B981" />
-                <Text style={styles.stageFooterText}>
+              <View style={styles.stageFooterRowLight}>
+                <ShieldCheck size={14} color="#059669" />
+                <Text style={styles.stageFooterTextLight}>
                   TecAlliance Pegasus 3.0 • Genuine NGK Component
                 </Text>
               </View>
@@ -450,35 +613,35 @@ const VerifiedPartsScreen = () => {
 
             {/* Quick KPI Spec Highlights (4 Pillar Cards) */}
             <View style={styles.kpiGrid}>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>Spanner Size</Text>
-                <Text style={styles.kpiValue}>{spannerSize || '16 mm'}</Text>
+              <View style={styles.kpiCardLight}>
+                <Text style={styles.kpiLabelLight}>Spanner Size</Text>
+                <Text style={styles.kpiValueLight}>{spannerSize || '16 mm'}</Text>
               </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>Thread Size</Text>
-                <Text style={styles.kpiValue}>{threadSize || 'M14 x 1.25'}</Text>
+              <View style={styles.kpiCardLight}>
+                <Text style={styles.kpiLabelLight}>Thread Size</Text>
+                <Text style={styles.kpiValueLight}>{threadSize || 'M14 x 1.25'}</Text>
               </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>Thread Length</Text>
-                <Text style={styles.kpiValue}>{threadLength || '19 mm'}</Text>
+              <View style={styles.kpiCardLight}>
+                <Text style={styles.kpiLabelLight}>Thread Length</Text>
+                <Text style={styles.kpiValueLight}>{threadLength || '19 mm'}</Text>
               </View>
-              <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>Spark / Gap</Text>
-                <Text style={styles.kpiValue}>{sparkPosition || '3.0 mm'}</Text>
+              <View style={styles.kpiCardLight}>
+                <Text style={styles.kpiLabelLight}>Spark / Gap</Text>
+                <Text style={styles.kpiValueLight}>{sparkPosition || '3.0 mm'}</Text>
               </View>
             </View>
 
             {/* Complete Technical Specifications Table */}
-            <View style={styles.specsCardDark}>
+            <View style={styles.specsCardLight}>
               <View style={styles.specsSectionHeader}>
                 <Sliders size={15} color="#C6122E" />
-                <Text style={styles.specsSectionTitle}>Technical Specifications</Text>
+                <Text style={styles.specsSectionTitleLight}>Technical Specifications</Text>
               </View>
 
-              <View style={styles.specsTableDark}>
-                <View style={[styles.specTableRowDark, styles.specTableZebra]}>
-                  <Text style={styles.specTableKeyDark}>Part / Trade Number</Text>
-                  <Text style={styles.specTableValDark}>
+              <View style={styles.specsTableLight}>
+                <View style={[styles.specTableRowLight, styles.specTableZebraLight]}>
+                  <Text style={styles.specTableKeyLight}>Part / Trade Number</Text>
+                  <Text style={styles.specTableValLight}>
                     {selectedPart?.tradeNumbers?.[0] ||
                       selectedPart?.articleNumber ||
                       selectedPart?.articleNo ||
@@ -487,18 +650,18 @@ const VerifiedPartsScreen = () => {
                   </Text>
                 </View>
 
-                <View style={styles.specTableRowDark}>
-                  <Text style={styles.specTableKeyDark}>Category</Text>
-                  <Text style={styles.specTableValDark}>
+                <View style={styles.specTableRowLight}>
+                  <Text style={styles.specTableKeyLight}>Category</Text>
+                  <Text style={styles.specTableValLight}>
                     {selectedPart?.genericArticles?.[0]?.genericArticleDescription ||
                       selectedPart?.articleName ||
                       'Automotive Ignition'}
                   </Text>
                 </View>
 
-                <View style={[styles.specTableRowDark, styles.specTableZebra]}>
-                  <Text style={styles.specTableKeyDark}>Brand / Manufacturer</Text>
-                  <Text style={styles.specTableValDark}>
+                <View style={[styles.specTableRowLight, styles.specTableZebraLight]}>
+                  <Text style={styles.specTableKeyLight}>Brand / Manufacturer</Text>
+                  <Text style={styles.specTableValLight}>
                     {selectedPart?.mfrName || selectedPart?.brandName || 'NGK SPARK PLUG'}
                   </Text>
                 </View>
@@ -507,14 +670,14 @@ const VerifiedPartsScreen = () => {
                   <View
                     key={cIdx}
                     style={[
-                      styles.specTableRowDark,
-                      cIdx % 2 === 1 ? styles.specTableZebra : null,
+                      styles.specTableRowLight,
+                      cIdx % 2 === 1 ? styles.specTableZebraLight : null,
                     ]}
                   >
-                    <Text style={styles.specTableKeyDark}>
+                    <Text style={styles.specTableKeyLight}>
                       {crit.criteriaDescription || crit.label || crit.attrName}
                     </Text>
-                    <Text style={styles.specTableValDark}>
+                    <Text style={styles.specTableValLight}>
                       {crit.formattedValue || crit.value || crit.attrValue || crit.rawValue}
                     </Text>
                   </View>
@@ -524,13 +687,13 @@ const VerifiedPartsScreen = () => {
 
             {/* OE Cross Reference Numbers */}
             {oeNumbers.length > 0 && (
-              <View style={styles.oeCardDark}>
-                <Text style={styles.oeTitle}>Original Equipment (OE) Cross-References</Text>
+              <View style={styles.oeCardLight}>
+                <Text style={styles.oeTitleLight}>Original Equipment (OE) Cross-References</Text>
                 <View style={styles.oePillWrap}>
                   {oeNumbers.slice(0, 16).map((oe, oIdx) => (
-                    <View key={oIdx} style={styles.oePill}>
-                      <Text style={styles.oeMfrName}>{oe.mfrName || 'OEM'}:</Text>
-                      <Text style={styles.oeArticleNo}>{oe.articleNumber || oe.oeNumber}</Text>
+                    <View key={oIdx} style={styles.oePillLight}>
+                      <Text style={styles.oeMfrNameLight}>{oe.mfrName || 'OEM'}:</Text>
+                      <Text style={styles.oeArticleNoLight}>{oe.articleNumber || oe.oeNumber}</Text>
                     </View>
                   ))}
                 </View>
@@ -541,7 +704,7 @@ const VerifiedPartsScreen = () => {
           </ScrollView>
 
           {/* Sticky Bottom Action Bar */}
-          <View style={styles.modalBottomBar}>
+          <View style={styles.modalBottomBarLight}>
             <AppButton
               title="Request Support / Quote from Dealer"
               onPress={() => {
@@ -685,90 +848,90 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  // Full-Screen 3D Showroom Modal Styles
+  // Full-Screen 3D Showroom Modal Styles - Clean Light OEM Theme
   fullScreenModal: {
     flex: 1,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#FFFFFF',
   },
-  modalHeaderDark: {
+  modalHeaderLight: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 18,
     paddingVertical: 14,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E5E7EB',
   },
   modalHeaderInfo: {
     flex: 1,
     marginRight: 12,
   },
-  modalBrandPill: {
+  modalBrandPillLight: {
     alignSelf: 'flex-start',
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FEF2F2',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
     marginBottom: 4,
   },
-  modalBrandText: {
+  modalBrandTextLight: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#F87171',
+    color: '#C6122E',
     letterSpacing: 0.5,
   },
-  modalPartNumber: {
+  modalPartNumberLight: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#111827',
     letterSpacing: 0.5,
   },
-  modalPartSub: {
+  modalPartSubLight: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#6B7280',
     marginTop: 2,
   },
-  modalCloseBtn: {
+  modalCloseBtnLight: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalBodyDark: {
+  modalBodyLight: {
     flex: 1,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#FFFFFF',
   },
-  showroomStage: {
-    backgroundColor: '#111827',
+  showroomStageLight: {
+    backgroundColor: '#F8FAFC',
     margin: 16,
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E2E8F0',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  showroomControls: {
+  showroomControlsLight: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  mediaToggleBox: {
+  mediaToggleBoxLight: {
     flexDirection: 'row',
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     padding: 3,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E2E8F0',
   },
-  mediaToggleBtn: {
+  mediaToggleBtnLight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -776,37 +939,39 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 6,
   },
-  mediaToggleBtnActive: {
+  mediaToggleBtnActiveLight: {
     backgroundColor: '#C6122E',
   },
-  mediaToggleText: {
+  mediaToggleTextLight: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#4B5563',
   },
-  mediaToggleTextActive: {
+  mediaToggleTextActiveLight: {
     color: '#FFFFFF',
   },
-  active3DBadge: {
+  active3DBadgeLight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#064E3B',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
   },
-  active3DBadgeText: {
+  active3DBadgeTextLight: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#34D399',
+    color: '#059669',
     letterSpacing: 0.4,
   },
-  viewportCenter: {
+  viewportCenterLight: {
     height: 220,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 6,
   },
   product3DImage: {
     width: '100%',
@@ -817,26 +982,106 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  noImageText: {
+  noImageTextLight: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#9CA3AF',
     fontWeight: '600',
   },
-  thumbnailRow: {
+  interactive3DToolbar: {
+    marginTop: 6,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  dragHintBox: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  dragHintText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  toolActionButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  toolBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  toolBtnActive: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  toolBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  toolBtnTextActive: {
+    color: '#FFFFFF',
+  },
+  toolBtnIcon: {
+    backgroundColor: '#FFFFFF',
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  anglePresetRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  anglePresetChip: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  anglePresetChipActive: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
+  anglePresetChipText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  anglePresetChipTextActive: {
+    color: '#C6122E',
+  },
+  thumbnailRowLight: {
     flexDirection: 'row',
     gap: 8,
     marginVertical: 8,
   },
-  thumbBox: {
+  thumbBoxLight: {
     width: 52,
     height: 52,
     borderRadius: 8,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#CBD5E1',
     padding: 4,
   },
-  thumbBoxActive: {
+  thumbBoxActiveLight: {
     borderColor: '#C6122E',
     borderWidth: 2,
   },
@@ -844,20 +1089,20 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  stageFooterRow: {
+  stageFooterRowLight: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 6,
+    marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#1E293B',
+    borderTopColor: '#E2E8F0',
   },
-  stageFooterText: {
+  stageFooterTextLight: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: '#64748B',
   },
   kpiGrid: {
     flexDirection: 'row',
@@ -866,36 +1111,46 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
   },
-  kpiCard: {
+  kpiCardLight: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#111827',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  kpiLabel: {
+  kpiLabelLight: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#6B7280',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
-  kpiValue: {
+  kpiValueLight: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#111827',
   },
-  specsCardDark: {
+  specsCardLight: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: '#111827',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
   specsSectionHeader: {
     flexDirection: 'row',
@@ -903,57 +1158,62 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  specsSectionTitle: {
+  specsSectionTitleLight: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#111827',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  specsTableDark: {
+  specsTableLight: {
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E5E7EB',
   },
-  specTableRowDark: {
+  specTableRowLight: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 11,
-    backgroundColor: '#111827',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#1E293B',
+    borderBottomColor: '#F3F4F6',
   },
-  specTableZebra: {
-    backgroundColor: '#0F172A',
+  specTableZebraLight: {
+    backgroundColor: '#F9FAFB',
   },
-  specTableKeyDark: {
+  specTableKeyLight: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#4B5563',
     fontWeight: '500',
     flex: 1,
   },
-  specTableValDark: {
+  specTableValLight: {
     fontSize: 12,
-    color: '#F1F5F9',
+    color: '#111827',
     fontWeight: '700',
     textAlign: 'right',
     flex: 1,
   },
-  oeCardDark: {
+  oeCardLight: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: '#111827',
+    backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  oeTitle: {
+  oeTitleLight: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#374151',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 10,
@@ -963,37 +1223,37 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  oePill: {
+  oePillLight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#F3F4F6',
     paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E5E7EB',
   },
-  oeMfrName: {
+  oeMfrNameLight: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: '#4B5563',
   },
-  oeArticleNo: {
+  oeArticleNoLight: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#38BDF8',
+    color: '#2563EB',
   },
-  modalBottomBar: {
+  modalBottomBarLight: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: '#E5E7EB',
   },
 });
 
