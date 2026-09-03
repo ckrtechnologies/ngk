@@ -2,6 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Car, Check } from 'lucide-react-native';
 
+const LOCAL_LOGOS = {
+  yamaha: require('../../assets/images/logos/yamaha.png'),
+  kawasaki: require('../../assets/images/logos/kawasaki.png'),
+  ducati: require('../../assets/images/logos/ducati.png'),
+  'harley-davidson': require('../../assets/images/logos/harley-davidson.png'),
+  piaggio: require('../../assets/images/logos/piaggio.png'),
+  bajaj: require('../../assets/images/logos/bajaj.png'),
+};
+
 const BrandLogoCard = ({ item, isSelected, onPress }) => {
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -10,7 +19,17 @@ const BrandLogoCard = ({ item, isSelected, onPress }) => {
   }, [item?.logoUrl]);
 
   const name = item.name || item.manuName || 'Brand';
-  const logoUrl = item.logoUrl;
+  const brandKey = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  let localAsset = null;
+  if (brandKey.includes('yamaha')) localAsset = LOCAL_LOGOS.yamaha;
+  else if (brandKey.includes('kawasaki')) localAsset = LOCAL_LOGOS.kawasaki;
+  else if (brandKey.includes('bajaj')) localAsset = LOCAL_LOGOS.bajaj;
+  else if (brandKey.includes('piaggio')) localAsset = LOCAL_LOGOS.piaggio;
+  else if (brandKey.includes('ducati')) localAsset = LOCAL_LOGOS.ducati;
+  else if (brandKey.includes('harley')) localAsset = LOCAL_LOGOS['harley-davidson'];
+
+  const imageSource = localAsset || (item?.logoUrl ? { uri: item.logoUrl } : null);
 
   return (
     <TouchableOpacity
@@ -28,9 +47,9 @@ const BrandLogoCard = ({ item, isSelected, onPress }) => {
       )}
 
       <View style={styles.logoContainer}>
-        {logoUrl && !imageFailed ? (
+        {imageSource && !imageFailed ? (
           <Image
-            source={{ uri: logoUrl }}
+            source={imageSource}
             style={styles.logoImage}
             resizeMode="contain"
             onError={() => setImageFailed(true)}

@@ -41,6 +41,41 @@ import AppButton from '../components/common/AppButton';
 import AppInput from '../components/common/AppInput';
 import JourneyStepIndicator from '../components/common/JourneyStepIndicator';
 import BrandLogoCard from '../components/parts/BrandLogoCard';
+const DEFAULT_POPULAR_BRANDS = {
+  passenger: [
+    { id: 111, manuId: 111, name: 'TOYOTA', manuName: 'TOYOTA', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/toyota.png' },
+    { id: 121, manuId: 121, name: 'VOLKSWAGEN', manuName: 'VOLKSWAGEN', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/volkswagen.png' },
+    { id: 16, manuId: 16, name: 'BMW', manuName: 'BMW', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/bmw.png' },
+    { id: 74, manuId: 74, name: 'MERCEDES-BENZ', manuName: 'MERCEDES-BENZ', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/mercedes-benz.png' },
+    { id: 45, manuId: 45, name: 'FORD', manuName: 'FORD', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ford.png' },
+    { id: 5, manuId: 5, name: 'AUDI', manuName: 'AUDI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/audi.png' },
+    { id: 80, manuId: 80, name: 'NISSAN', manuName: 'NISSAN', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/nissan.png' },
+    { id: 52, manuId: 52, name: 'HYUNDAI', manuName: 'HYUNDAI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/hyundai.png' },
+    { id: 56, manuId: 56, name: 'ISUZU', manuName: 'ISUZU', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/isuzu.png' },
+  ],
+  motorcycle: [
+    { id: 45, manuId: 45, name: 'HONDA', manuName: 'HONDA', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/honda.png' },
+    { id: 109, manuId: 109, name: 'SUZUKI', manuName: 'SUZUKI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/suzuki.png' },
+    { id: 16, manuId: 16, name: 'BMW', manuName: 'BMW', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/bmw.png' },
+    { id: 2760, manuId: 2760, name: 'KTM', manuName: 'KTM', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ktm.png' },
+    { id: 112, manuId: 112, name: 'TRIUMPH', manuName: 'TRIUMPH', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/triumph.png' },
+    { id: 181, manuId: 181, name: 'PIAGGIO', manuName: 'PIAGGIO' },
+    { id: 4552, manuId: 4552, name: 'BAJAJ', manuName: 'BAJAJ' },
+    { id: 1164, manuId: 1164, name: 'YAMAHA', manuName: 'YAMAHA' },
+    { id: 574, manuId: 574, name: 'KAWASAKI', manuName: 'KAWASAKI' },
+  ],
+  commercial: [
+    { id: 54, manuId: 54, name: 'ISUZU', manuName: 'ISUZU', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/isuzu.png' },
+    { id: 74, manuId: 74, name: 'MERCEDES-BENZ', manuName: 'MERCEDES-BENZ', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/mercedes-benz.png' },
+    { id: 120, manuId: 120, name: 'VOLVO', manuName: 'VOLVO', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/volvo.png' },
+    { id: 103, manuId: 103, name: 'SCANIA', manuName: 'SCANIA', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/scania.png' },
+    { id: 69, manuId: 69, name: 'MAN', manuName: 'MAN', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/man.png' },
+    { id: 151, manuId: 151, name: 'HINO', manuName: 'HINO', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/hino.png' },
+    { id: 24, manuId: 24, name: 'DAF', manuName: 'DAF', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/daf.png' },
+    { id: 55, manuId: 55, name: 'IVECO', manuName: 'IVECO', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/iveco.png' },
+    { id: 36, manuId: 36, name: 'FORD', manuName: 'FORD', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ford.png' },
+  ],
+};
 
 const PartsFinderScreen = () => {
   const navigation = useNavigation();
@@ -60,12 +95,8 @@ const PartsFinderScreen = () => {
   const [manufacturersData, setManufacturersData] = useState([]);
   const [seriesData, setSeriesData] = useState([]);
   const [loadingDropdown, setLoadingDropdown] = useState(false);
-  // All popular brands pre-loaded once into local state
-  const [brandsByCategory, setBrandsByCategory] = useState({
-    passenger: [],
-    motorcycle: [],
-    commercial: [],
-  });
+  // All popular brands pre-loaded into local state
+  const [brandsByCategory, setBrandsByCategory] = useState(DEFAULT_POPULAR_BRANDS);
   const [brandCount, setBrandCount] = useState(9);
 
   // Modal selector state
@@ -94,12 +125,12 @@ const PartsFinderScreen = () => {
         const res = await apiFunction(popularBrandsApi, [], {}, 'GET', false);
         const data = res?.data || res;
         if (data?.passenger || data?.motorcycle || data?.commercial) {
-          setBrandsByCategory({
-            passenger: data.passenger || [],
-            motorcycle: data.motorcycle || [],
-            commercial: data.commercial || [],
-          });
-        } else if (Array.isArray(data?.array)) {
+          setBrandsByCategory((prev) => ({
+            passenger: data.passenger?.length ? data.passenger : prev.passenger,
+            motorcycle: data.motorcycle?.length ? data.motorcycle : prev.motorcycle,
+            commercial: data.commercial?.length ? data.commercial : prev.commercial,
+          }));
+        } else if (Array.isArray(data?.array) && data.array.length > 0) {
           setBrandsByCategory((prev) => ({ ...prev, passenger: data.array }));
         }
       } catch (err) {
