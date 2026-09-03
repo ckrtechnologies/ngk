@@ -61,7 +61,7 @@ const PartsFinderScreen = () => {
   const [seriesData, setSeriesData] = useState([]);
   const [loadingDropdown, setLoadingDropdown] = useState(false);
   const [popularBrands, setPopularBrands] = useState([]);
-  const [brandCount, setBrandCount] = useState(6);
+  const [brandCount, setBrandCount] = useState(9);
 
   // Modal selector state
   const [modalVisible, setModalVisible] = useState(false);
@@ -82,21 +82,22 @@ const PartsFinderScreen = () => {
     if (!myself) fetchMyself();
   }, [dispatch]);
 
-  // Fetch popular brands on mount
+  // Fetch popular brands whenever application type changes (Passenger, Motorcycle, Commercial)
   useEffect(() => {
+    const appType = applications.find((a) => a.id === selectedApp)?.type || 'P';
     const fetchPopular = async () => {
       try {
-        const res = await apiFunction(popularBrandsApi, [], {}, 'GET', false);
+        const res = await apiFunction(`${popularBrandsApi}?type=${appType}`, [], {}, 'GET', false);
         const list = res?.data?.array || res?.popularBrands || [];
         if (list.length > 0) {
           setPopularBrands(list);
         }
       } catch (err) {
-        console.warn('Failed to load popular brands:', err);
+        console.warn('Failed to load popular brands for type:', appType, err);
       }
     };
     fetchPopular();
-  }, []);
+  }, [selectedApp]);
 
   // Fetch manufacturers when application changes
   useEffect(() => {
@@ -413,7 +414,13 @@ const PartsFinderScreen = () => {
                         styles.appTypePill,
                         isSelected && styles.appTypePillSelected,
                       ]}
-                      onPress={() => setSelectedApp(app.id)}
+                      onPress={() => {
+                        if (selectedApp !== app.id) {
+                          setSelectedApp(app.id);
+                          setSelectedManufacturer(null);
+                          setSelectedSeries(null);
+                        }
+                      }}
                       activeOpacity={0.7}
                     >
                       <IconComponent
@@ -437,17 +444,9 @@ const PartsFinderScreen = () => {
               {popularBrands.length > 0 && (
                 <View style={styles.popularSection}>
                   <View style={styles.popularHeaderRow}>
-                    <Text style={styles.inputSectionLabel}>POPULAR MAKES</Text>
-                    {popularBrands.length > 6 && (
-                      <TouchableOpacity
-                        onPress={() => setBrandCount(brandCount === 6 ? 9 : 6)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Text style={styles.toggleText}>
-                          {brandCount === 6 ? '+ Show 9 Brands' : 'Show Top 6'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
+                    <Text style={styles.inputSectionLabel}>
+                      TOP 9 {selectedApp.toUpperCase()} BRANDS
+                    </Text>
                   </View>
                   <View style={styles.brandsGrid}>
                     {popularBrands.slice(0, brandCount).map((b) => {

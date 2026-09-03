@@ -94,7 +94,8 @@ export const getVehiclesByVIN = async (req, res) => {
 
 export const getPopularBrands = async (req, res) => {
   try {
-    const brands = tecdocService.getPopularBrands();
+    const { type = 'P' } = req.query;
+    const brands = tecdocService.getPopularBrands(type);
     return sendSuccess(res, { data: { array: brands }, count: brands.length }, 'Popular brands fetched successfully');
   } catch (error) {
     return sendError(res, error.message, 500, error);
