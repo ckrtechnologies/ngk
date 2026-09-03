@@ -297,36 +297,25 @@ const PartsFinderScreen = () => {
     }
   };
 
-  const handlePartSearch = async () => {
-    if (!partNumber.trim()) {
+  const handlePartSearch = async (overrideQuery) => {
+    const rawQuery = typeof overrideQuery === 'string' ? overrideQuery : partNumber;
+    const trimmed = (rawQuery || '').trim();
+
+    if (!trimmed) {
       Toast.show({
         type: 'error',
         text1: 'Part Number Required',
-        text2: 'Please enter an NGK or OE part number.',
+        text2: 'Please enter or tap an NGK part number below.',
       });
       return;
     }
 
     setPartSearching(true);
-    const trimmed = partNumber.trim();
-    const payload = {
-      getArticles: {
-        articleCountry: 'ZA',
-        searchQuery: trimmed,
-        searchType: 10,
-        lang: 'en',
-        perPage: 30,
-        page: 1,
-        includeAll: true,
-      },
-    };
 
     try {
-      const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
-      let results = res?.articles || res?.data?.array || res?.data || [];
-
-      // Fallback to backend REST endpoint if needed
-      if (!results || results.length === 0) {
+      // 1. Prioritize dedicated backend REST articlesByPartApi endpoint
+      let results = [];
+      try {
         const restRes = await apiFunction(
           `${articlesByPartApi}?searchQuery=${encodeURIComponent(trimmed)}`,
           [],
@@ -335,9 +324,37 @@ const PartsFinderScreen = () => {
           false
         );
         results = restRes?.articles || restRes?.data?.array || restRes?.data || [];
+      } catch (e) {
+        console.warn('REST articles/by-part attempt failed:', e);
+      }
+
+      // 2. Fallback to serviceJsonApi with searchType: 10 if needed
+      if (!results || results.length === 0) {
+        const payload = {
+          getArticles: {
+            articleCountry: 'ZA',
+            searchQuery: trimmed,
+            searchType: 10,
+            lang: 'en',
+            perPage: 30,
+            page: 1,
+            includeAll: true,
+          },
+        };
+        const rawRes = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+        results = rawRes?.articles || rawRes?.data?.array || rawRes?.data || [];
       }
 
       setPartSearching(false);
+
+      if (!results || results.length === 0) {
+        Toast.show({
+          type: 'info',
+          text1: 'No Parts Found',
+          text2: `No components matched "${trimmed}". Try searching by trade or stock number.`,
+        });
+        return;
+      }
 
       // Record Search History if user logged in
       const userId = await AsyncStorage.getItem('userId');
@@ -590,17 +607,35 @@ const PartsFinderScreen = () => {
           <View style={styles.partSearchContainer}>
             <Text style={styles.inputSectionLabel}>DIRECT PART NUMBER LOOKUP</Text>
             <AppInput
-              placeholder="e.g. BKR6E-11, ILKAR7C10, 93501"
+              placeholder="e.g. BKR6E-11, ILKAR7C10, 4856"
               value={partNumber}
               onChangeText={setPartNumber}
               autoCapitalize="characters"
               leftIcon={<Search size={18} color="#9CA3AF" />}
-              containerStyle={{ marginBottom: 12 }}
+              containerStyle={{ marginBottom: 10 }}
             />
+
+            {/* Quick Part Suggestions Chips */}
+            <View style={styles.quickSearchRow}>
+              <Text style={styles.quickSearchLabel}>Popular:</Text>
+              {['BKR6E-11', 'BKR6E', 'ILKAR7C10', '4856', '6962'].map((q) => (
+                <TouchableOpacity
+                  key={q}
+                  style={styles.quickSearchChip}
+                  onPress={() => {
+                    setPartNumber(q);
+                    handlePartSearch(q);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.quickSearchChipText}>{q}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             <AppButton
               title="Search NGK & OE Catalog"
-              onPress={handlePartSearch}
+              onPress={() => handlePartSearch()}
               loading={partSearching}
               style={styles.proceedBtn}
             />
@@ -864,6 +899,32 @@ const styles = StyleSheet.create({
   },
   partSearchContainer: {
     flex: 1,
+  },
+  quickSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 14,
+  },
+  quickSearchLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    marginRight: 2,
+  },
+  quickSearchChip: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  quickSearchChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#374151',
   },
   infoHintCard: {
     flexDirection: 'row',

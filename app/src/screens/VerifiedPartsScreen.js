@@ -24,7 +24,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFunction } from '../apis/apiFunction';
-import { serviceJsonApi, addVehicleToWatchlistApi } from '../apis/api';
+import { serviceJsonApi, addVehicleToWatchlistApi, articlesByPartApi } from '../apis/api';
 import { setPart, setSelectedVehicle, getMyselfRedux } from '../redux/getData';
 import { useDispatch, useSelector } from 'react-redux';
 import Toast from 'react-native-toast-message';
@@ -45,6 +45,40 @@ const VerifiedPartsScreen = () => {
 
   const vehicle = route.params?.vehicle;
   const searchQuery = route.params?.searchQuery;
+
+  // Reactively sync parts when route.params change
+  useEffect(() => {
+    if (route.params?.articles) {
+      setParts(route.params.articles);
+    }
+  }, [route.params?.articles]);
+
+  // If navigated with searchQuery and parts is empty, auto-fetch
+  useEffect(() => {
+    if ((!parts || parts.length === 0) && searchQuery) {
+      const fetchByQuery = async () => {
+        setLoading(true);
+        try {
+          const restRes = await apiFunction(
+            `${articlesByPartApi}?searchQuery=${encodeURIComponent(searchQuery)}`,
+            [],
+            {},
+            'GET',
+            false
+          );
+          const list = restRes?.articles || restRes?.data?.array || restRes?.data || [];
+          if (list.length > 0) {
+            setParts(list);
+          }
+        } catch (err) {
+          console.warn('Failed to fetch articles by searchQuery:', err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchByQuery();
+    }
+  }, [searchQuery]);
 
   useEffect(() => {
     if ((!parts || parts.length === 0) && vehicle) {
