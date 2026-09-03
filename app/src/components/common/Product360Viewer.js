@@ -11,6 +11,7 @@ const Product360Viewer = ({
   zoomScale = 1,
   onAngleChange,
   onAutoSpinChange,
+  onScaleChange,
 }) => {
   const webViewRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
@@ -126,14 +127,46 @@ const Product360Viewer = ({
       setFrame(targetFrame);
     }
 
-    function setScale(s) {
-      currentScale = s;
+    // Pinch to zoom & Pan state
+    let isPinching = false;
+    let initialPinchDistance = 0;
+    let pinchStartScale = 1;
+    let panX = 0;
+    let panY = 0;
+    let lastTapTime = 0;
+
+    function getDistance(t1, t2) {
+      const dx = t1.clientX - t2.clientX;
+      const dy = t1.clientY - t2.clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function applyTransform() {
+      const transformStr = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + currentScale + ')';
       if (canvas.style.display !== 'none') {
-        canvas.style.transform = 'scale(' + s + ')';
+        canvas.style.transform = transformStr;
       }
       if (staticImg.style.display !== 'none') {
-        staticImg.style.transform = 'scale(' + s + ')';
+        staticImg.style.transform = transformStr;
       }
+    }
+
+    function setScale(s) {
+      currentScale = Math.max(0.6, Math.min(3.5, s));
+      if (currentScale <= 1.05) {
+        panX = 0;
+        panY = 0;
+      }
+      applyTransform();
+      sendToRN({ type: 'SCALE_CHANGE', scale: currentScale });
+    }
+
+    function resetView() {
+      stopAutoSpin();
+      setFrame(0);
+      panX = 0;
+      panY = 0;
+      setScale(1);
     }
 
     function startAutoSpin() {
@@ -152,53 +185,104 @@ const Product360Viewer = ({
       sendToRN({ type: 'AUTOSPIN_STATE', isSpinning: false });
     }
 
-    // Touch & Swipe Event Handling for 360 Frame Scrubbing
+    // Touch & Swipe Event Handling: 360 Rotation + Multi-touch Pinch Zoom + Panning
     let isDragging = false;
     let startX = 0;
     let startY = 0;
     let isHorizontalGesture = false;
 
     stage.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
+      stopAutoSpin();
+      if (e.touches.length === 2) {
+        // Multi-touch PINCH-TO-ZOOM
+        isPinching = true;
+        isDragging = false;
+        initialPinchDistance = getDistance(e.touches[0], e.touches[1]);
+        pinchStartScale = currentScale;
+        if (e.cancelable) e.preventDefault();
+      } else if (e.touches.length === 1) {
+        // Double-tap to toggle zoom (1x <-> 2x)
+        const now = Date.now();
+        if (now - lastTapTime < 300) {
+          if (currentScale > 1.2) {
+            resetView();
+          } else {
+            setScale(2.0);
+          }
+          lastTapTime = 0;
+          return;
+        }
+        lastTapTime = now;
+
         isDragging = true;
+        isPinching = false;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         isHorizontalGesture = false;
-        stopAutoSpin();
       }
-    }, { passive: true });
+    }, { passive: false });
 
     stage.addEventListener('touchmove', (e) => {
+      // 2-Finger Pinch Zoom
+      if (e.touches.length === 2 && isPinching) {
+        const currentDistance = getDistance(e.touches[0], e.touches[1]);
+        if (initialPinchDistance > 0) {
+          const ratio = currentDistance / initialPinchDistance;
+          setScale(pinchStartScale * ratio);
+        }
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
+
       if (!isDragging || e.touches.length !== 1) return;
       const curX = e.touches[0].clientX;
       const curY = e.touches[0].clientY;
       const diffX = curX - startX;
       const diffY = curY - startY;
 
-      // Determine gesture direction
+      // When zoomed in, 1-finger drags pan in both vertical & horizontal directions
+      if (currentScale > 1.15) {
+        panX += diffX * 0.75;
+        panY += diffY * 0.75;
+        applyTransform();
+        startX = curX;
+        startY = curY;
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
+
+      // Normal 1.0x scale:
       if (!isHorizontalGesture) {
         if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 8) {
           isHorizontalGesture = true;
         } else if (Math.abs(diffY) > 8) {
-          // Vertical swipe: let the parent ScrollView handle it!
+          // Vertical swipe: let parent ScrollView scroll smoothly!
           isDragging = false;
           return;
         }
       }
 
       if (isHorizontalGesture && totalFrames > 1) {
-        // Sensitivity: 7 pixels = 1 frame
         const frameDiff = Math.round(diffX / 7);
         if (frameDiff !== 0) {
           setFrame(currentFrame - frameDiff);
           startX = curX;
         }
+        if (e.cancelable) e.preventDefault();
       }
-    }, { passive: true });
+    }, { passive: false });
 
-    stage.addEventListener('touchend', () => {
-      isDragging = false;
-      isHorizontalGesture = false;
+    stage.addEventListener('touchend', (e) => {
+      if (e.touches.length === 0) {
+        isDragging = false;
+        isPinching = false;
+        isHorizontalGesture = false;
+      } else if (e.touches.length === 1) {
+        isPinching = false;
+        isDragging = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      }
     }, { passive: true });
 
     // Handle React Native postMessages
@@ -213,9 +297,7 @@ const Product360Viewer = ({
           if (data.enabled) startAutoSpin();
           else stopAutoSpin();
         } else if (data.type === 'RESET') {
-          stopAutoSpin();
-          setFrame(0);
-          setScale(1);
+          resetView();
         }
       } catch (err) {}
     }
@@ -315,6 +397,8 @@ const Product360Viewer = ({
         setIsReady(true);
       } else if (data.type === 'ANGLE_CHANGE') {
         if (onAngleChange) onAngleChange(data.angle);
+      } else if (data.type === 'SCALE_CHANGE') {
+        if (onScaleChange) onScaleChange(data.scale);
       } else if (data.type === 'AUTOSPIN_STATE') {
         if (onAutoSpinChange) onAutoSpinChange(data.isSpinning);
       }

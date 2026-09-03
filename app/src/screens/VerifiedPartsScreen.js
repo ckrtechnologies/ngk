@@ -422,6 +422,7 @@ const VerifiedPartsScreen = () => {
                   zoomScale={zoomScale}
                   onAngleChange={(deg) => setRotationY(deg)}
                   onAutoSpinChange={(spinning) => setIsAutoSpinning(spinning)}
+                  onScaleChange={(scale) => setZoomScale(scale)}
                 />
               </View>
 
@@ -430,7 +431,7 @@ const VerifiedPartsScreen = () => {
                 <View style={styles.interactive3DToolbar}>
                   <View style={styles.dragHintBox}>
                     <Text style={styles.dragHintText}>
-                      👆 Swipe or drag left/right to rotate 360°
+                      👆 Swipe to rotate • Pinch or double-tap to zoom • Drag to pan
                     </Text>
                   </View>
 
