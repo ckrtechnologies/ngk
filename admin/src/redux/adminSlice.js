@@ -241,12 +241,14 @@ export const searchArticlesCatalog = createAsyncThunk(
           },
         };
       } else if (searchType === 'vehicle') {
+        const vType = query.linkageTargetType || 'P';
+        const effectiveType = (vType === 'O' || vType === 'C') ? 'P' : vType;
         payload = {
           getArticles: {
             articleCountry: 'ZA',
             lang: 'en',
             linkageTargetId: query.linkageTargetId || query.carId || query,
-            linkageTargetType: query.linkageTargetType || 'P',
+            linkageTargetType: effectiveType,
             includeAll: true,
           },
         };
@@ -256,7 +258,7 @@ export const searchArticlesCatalog = createAsyncThunk(
             articleCountry: 'ZA',
             lang: 'en',
             searchQuery: query,
-            searchType: 1,
+            searchType: 10,
             perPage: 50,
             page: 1,
             includeAll: true,

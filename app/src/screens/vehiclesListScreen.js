@@ -50,6 +50,7 @@ const VehiclesListScreen = () => {
   const seriesId = selectedSeries?.modelId || selectedSeries?.id;
   const mfrName = selectedManufacturer?.manuName || selectedManufacturer?.name || 'Manufacturer';
   const seriesName = selectedSeries?.modelname || selectedSeries?.name || 'Model Series';
+  const seriesType = selectedSeries?.linkingTargetType || appType || 'P';
 
   const fetchVehicles = useCallback(async () => {
     if (!mfrId || !seriesId) {
@@ -64,7 +65,7 @@ const VehiclesListScreen = () => {
         getLinkageTargets: {
           linkageTargetCountry: 'ZA',
           lang: 'en',
-          linkageTargetType: appType || 'P',
+          linkageTargetType: seriesType,
           mfrIds: Number(mfrId),
           vehicleModelSeriesIds: Number(seriesId),
           perPage: 100,
@@ -78,7 +79,7 @@ const VehiclesListScreen = () => {
       // Fallback: REST endpoint if array is empty
       if (!list || list.length === 0) {
         const restRes = await apiFunction(
-          `${vehiclesApi}?mfrId=${mfrId}&seriesId=${seriesId}&type=${appType}`,
+          `${vehiclesApi}?mfrId=${mfrId}&seriesId=${seriesId}&type=${seriesType}`,
           [],
           {},
           'GET',
@@ -87,14 +88,19 @@ const VehiclesListScreen = () => {
         list = restRes?.data?.array || restRes?.data || [];
       }
 
-      setVehicles(list);
+      const formatted = (list || []).map((v) => ({
+        ...v,
+        linkageTargetType: v.linkageTargetType || seriesType,
+      }));
+
+      setVehicles(formatted);
     } catch (err) {
       console.warn('Failed to fetch vehicles for series:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [mfrId, seriesId, appType]);
+  }, [mfrId, seriesId, seriesType]);
 
   useEffect(() => {
     if (!passedList || passedList.length === 0) {
@@ -132,6 +138,7 @@ const VehiclesListScreen = () => {
       vehicle: item,
       selectedManufacturer,
       selectedSeries,
+      appType: item.linkageTargetType || seriesType || 'P',
     });
   };
 

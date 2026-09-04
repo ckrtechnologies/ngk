@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -24,53 +24,47 @@ const ModalsScreen = () => {
     const route = useRoute();
     const dispatch = useDispatch();
     const [modelsList, setModalList] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const { manuId, mfrName } = route.params || {};
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filteredModels, setFilteredModels] = useState([]);
+    const appType = route.params?.linkingTargetType || route.params?.appType || 'P';
 
     useEffect(() => {
-
         const getVehicleModels = async () => {
+            if (!manuId) return;
             setLoading(true);
-            const userId = await AsyncStorage.getItem("userId");
             const payload = {
-                "getModelSeries": {
+                "getModelSeries2": {
                     "country": "ZA",
                     "lang": "en",
-                    "manuId": manuId,
-                    "linkingTargetType": "P"
+                    "manuId": Number(manuId),
+                    "linkingTargetType": appType,
+                    "includeAll": true,
                 }
             };
-            const res = await apiFunction(serviceJsonApi, [], payload, "POST", true)
-
-            if (res?.status == 200) {
-              
-                setModalList(res?.data?.array)
+            try {
+                const res = await apiFunction(serviceJsonApi, [], payload, "POST", false);
+                const list = res?.data?.array || res?.getModelSeries2?.array || res?.data || [];
+                setModalList(Array.isArray(list) ? list : []);
+            } catch (e) {
+                console.warn("Failed to load vehicle models:", e);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        }
+        };
         getVehicleModels();
-    }, [dispatch, manuId]);
+    }, [manuId, appType]);
 
-
-    useEffect(() => {
-        if (Array.isArray(modelsList)) {
-            if (searchQuery) {
-                const lowerCaseQuery = searchQuery.toLowerCase();
-                const filtered = modelsList.filter(item => {
-                    const name = (item.modelname || item.name || '').toLowerCase();
-                    return name.includes(lowerCaseQuery);
-                });
-                setFilteredModels(filtered);
-            } else {
-                setFilteredModels(modelsList);
-            }
-        } else {
-            setFilteredModels([]);
-        }
-    }, [searchQuery]);
+    const filteredModels = useMemo(() => {
+        if (!Array.isArray(modelsList)) return [];
+        if (!searchQuery.trim()) return modelsList;
+        const q = searchQuery.toLowerCase();
+        return modelsList.filter(item => {
+            const name = (item.modelname || item.name || '').toLowerCase();
+            return name.includes(q);
+        });
+    }, [modelsList, searchQuery]);
 
     const handleSelect = async (model) => {
         console.log("Model selected:", model);

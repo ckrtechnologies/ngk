@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,6 @@ import {
   Modal,
   Image,
   ActivityIndicator,
-  PanResponder,
-  Animated,
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,28 +16,27 @@ import {
   Tag,
   ShieldCheck,
   MessageSquare,
-  Bookmark,
   X,
   Info,
-  Layers,
-  ChevronRight,
   RotateCw,
   RotateCcw,
   Eye,
-  Box,
   Sliders,
-  CheckCircle2,
   ZoomIn,
   ZoomOut,
-  Sparkles,
+  LayoutGrid,
+  List,
+  Zap,
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFunction } from '../apis/apiFunction';
-import { serviceJsonApi, addVehicleToWatchlistApi, articlesByPartApi } from '../apis/api';
-import { setPart, setSelectedVehicle, getMyselfRedux } from '../redux/getData';
-import { useDispatch, useSelector } from 'react-redux';
-import Toast from 'react-native-toast-message';
+import {
+  serviceJsonApi,
+  articlesByPartApi,
+  articlesByVehicleApi,
+} from '../apis/api';
+import { setPart, setSelectedVehicle } from '../redux/getData';
+import { useDispatch } from 'react-redux';
 import AppHeader from '../components/common/AppHeader';
 import AppButton from '../components/common/AppButton';
 import JourneyStepIndicator from '../components/common/JourneyStepIndicator';
@@ -62,8 +59,18 @@ const VerifiedPartsScreen = () => {
   const [zoomScale, setZoomScale] = useState(1);
   const [isAutoSpinning, setIsAutoSpinning] = useState(true);
 
+  // Cards layout & Peek View States
+  const [layoutMode, setLayoutMode] = useState('cards'); // 'cards' | 'compact'
+  const [peekPart, setPeekPart] = useState(null);
+  const [peekModalVisible, setPeekModalVisible] = useState(false);
+
   const vehicle = route.params?.vehicle;
   const searchQuery = route.params?.searchQuery;
+  const appType = route.params?.appType || 'P';
+  const selectedManufacturer = route.params?.selectedManufacturer;
+  const selectedSeries = route.params?.selectedSeries;
+  const [fallbackSiblingName, setFallbackSiblingName] = useState(null);
+  const fetchedTargetRef = useRef(null);
 
   const reloadParts = useCallback(async () => {
     setRefreshing(true);
@@ -77,33 +84,107 @@ const VerifiedPartsScreen = () => {
           false
         );
         const list = restRes?.articles || restRes?.data?.array || restRes?.data || [];
-        if (list.length > 0) setParts(list);
+        setParts(Array.isArray(list) ? list : []);
       } else if (vehicle) {
         const targetId = Number(
-          vehicle.linkageTargetId || vehicle.carId || vehicle.id || vehicle.manuId
+          vehicle.linkageTargetId ||
+          vehicle.linkageTargetID ||
+          vehicle.carId ||
+          vehicle.carID ||
+          vehicle.id ||
+          vehicle.targetId
         );
-        const payload = {
-          getArticles: {
-            articleCountry: 'ZA',
-            linkageTargetId: targetId,
-            linkageTargetType: 'P',
-            lang: 'en',
-            perPage: 40,
-            page: 1,
-            includeAll: true,
-          },
+        const incomingType = vehicle.linkageTargetType || appType || 'P';
+        // In TecDoc Pegasus ZA catalog (NGK/NTK/KYB), articles are indexed under 'P' (and 'V').
+        // Queries with 'O' or 'C' return 0 articles.
+        const primaryType = (incomingType === 'O' || incomingType === 'C') ? 'P' : incomingType;
+
+        const fetchWithPegasus = async (tType, id = targetId) => {
+          const payload = {
+            getArticles: {
+              articleCountry: 'ZA',
+              linkageTargetId: id,
+              linkageTargetType: tType,
+              lang: 'en',
+              perPage: 40,
+              page: 1,
+              includeAll: true,
+            },
+          };
+          const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+          const arr = res?.articles || res?.data?.array || res?.getArticles?.array || res?.data || [];
+          return Array.isArray(arr) ? arr : [];
         };
-        const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
-        const list =
-          res?.articles || res?.data?.array || res?.getArticles?.array || res?.data || [];
-        if (list.length > 0) setParts(list);
+
+        let list = await fetchWithPegasus(primaryType);
+
+        if (!list || list.length === 0) {
+          for (const altType of ['P', 'V', incomingType]) {
+            if (altType === primaryType) continue;
+            list = await fetchWithPegasus(altType);
+            if (list && list.length > 0) break;
+          }
+        }
+
+        if (!list || list.length === 0) {
+          try {
+            const restRes = await apiFunction(
+              `${articlesByVehicleApi}?vehicleId=${targetId}&type=${primaryType}`,
+              [],
+              {},
+              'GET',
+              false
+            );
+            list = restRes?.articles || restRes?.data?.array || restRes?.data || [];
+          } catch (e) {
+            // Ignore REST fallback error
+          }
+        }
+
+        // Fallback: Sibling platform fallback in the same series
+        if (!list || list.length === 0) {
+          const mfrId = selectedManufacturer?.id || selectedManufacturer?.manuId || vehicle.mfrId;
+          const seriesId = selectedSeries?.modelId || selectedSeries?.id || vehicle.vehicleModelSeriesId;
+          if (mfrId && seriesId) {
+            try {
+              const siblingPayload = {
+                getLinkageTargets: {
+                  linkageTargetCountry: 'ZA',
+                  lang: 'en',
+                  linkageTargetType: incomingType || 'O',
+                  mfrIds: [Number(mfrId)],
+                  vehicleModelSeriesIds: [Number(seriesId)],
+                  perPage: 15,
+                  page: 1,
+                },
+              };
+              const sibRes = await apiFunction(serviceJsonApi, [], siblingPayload, 'POST', false);
+              const siblings = sibRes?.linkageTargets || sibRes?.data?.array || [];
+              for (const sib of siblings) {
+                const sibId = Number(sib.linkageTargetId || sib.id);
+                if (sibId && sibId !== targetId) {
+                  const sibParts = await fetchWithPegasus(primaryType, sibId);
+                  if (sibParts && sibParts.length > 0) {
+                    list = sibParts;
+                    setFallbackSiblingName(sib.description || sib.typeName || 'Compatible Trim');
+                    break;
+                  }
+                }
+              }
+            } catch (sibErr) {
+              console.warn('Sibling fallback error:', sibErr);
+            }
+          }
+        }
+
+        setParts(Array.isArray(list) ? list : []);
       }
     } catch (err) {
       console.warn('Failed to reload parts:', err);
     } finally {
       setRefreshing(false);
     }
-  }, [searchQuery, vehicle]);
+  }, [searchQuery, vehicle, appType, selectedManufacturer, selectedSeries]);
 
   // Reactively sync parts when route.params change
   useEffect(() => {
@@ -126,9 +207,7 @@ const VerifiedPartsScreen = () => {
             false
           );
           const list = restRes?.articles || restRes?.data?.array || restRes?.data || [];
-          if (list.length > 0) {
-            setParts(list);
-          }
+          setParts(Array.isArray(list) ? list : []);
         } catch (err) {
           console.warn('Failed to fetch articles by searchQuery:', err);
         } finally {
@@ -137,42 +216,122 @@ const VerifiedPartsScreen = () => {
       };
       fetchByQuery();
     }
-  }, [searchQuery]);
+  }, [searchQuery, parts]);
 
   useEffect(() => {
-    if ((!parts || parts.length === 0) && vehicle) {
-      const fetchPartsForVehicle = async () => {
-        setLoading(true);
-        const targetId = Number(
-          vehicle.linkageTargetId || vehicle.carId || vehicle.id || vehicle.manuId
-        );
+    if (!vehicle) return;
+
+    const targetId = Number(
+      vehicle.linkageTargetId ||
+      vehicle.linkageTargetID ||
+      vehicle.carId ||
+      vehicle.carID ||
+      vehicle.id ||
+      vehicle.targetId
+    );
+
+    if (fetchedTargetRef.current === targetId) return;
+    fetchedTargetRef.current = targetId;
+
+    const fetchPartsForVehicle = async () => {
+      setLoading(true);
+      const incomingType = vehicle.linkageTargetType || appType || 'P';
+      // In TecDoc Pegasus ZA catalog (NGK/NTK/KYB), articles are indexed under 'P' (and 'V').
+      // Queries with 'O' or 'C' return 0 articles.
+      const primaryType = (incomingType === 'O' || incomingType === 'C') ? 'P' : incomingType;
+
+      const fetchWithPegasus = async (tType, id = targetId) => {
         const payload = {
           getArticles: {
             articleCountry: 'ZA',
-            linkageTargetId: targetId,
-            linkageTargetType: 'P',
+            linkageTargetId: id,
+            linkageTargetType: tType,
             lang: 'en',
             perPage: 40,
             page: 1,
             includeAll: true,
           },
         };
-
-        try {
-          const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
-          const list =
-            res?.articles || res?.data?.array || res?.getArticles?.array || res?.data || [];
-          setParts(list);
-        } catch (err) {
-          console.warn('Failed to load parts for vehicle', err);
-        } finally {
-          setLoading(false);
-        }
+        const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+        const arr = res?.articles || res?.data?.array || res?.getArticles?.array || res?.data || [];
+        return Array.isArray(arr) ? arr : [];
       };
 
-      fetchPartsForVehicle();
-    }
-  }, [vehicle, parts]);
+      try {
+        let list = await fetchWithPegasus(primaryType);
+
+        // Fallback: If primary target type returned empty, try alternatives
+        if (!list || list.length === 0) {
+          for (const altType of ['P', 'V', incomingType]) {
+            if (altType === primaryType) continue;
+            list = await fetchWithPegasus(altType);
+            if (list && list.length > 0) break;
+          }
+        }
+
+        // Fallback: If direct Pegasus returns empty, attempt REST endpoint
+        if (!list || list.length === 0) {
+          try {
+            const restRes = await apiFunction(
+              `${articlesByVehicleApi}?vehicleId=${targetId}&type=${primaryType}`,
+              [],
+              {},
+              'GET',
+              false
+            );
+            list = restRes?.articles || restRes?.data?.array || restRes?.data || [];
+          } catch (e) {
+            // Ignore REST fallback error
+          }
+        }
+
+        // Fallback: Sibling platform fallback in the same series
+        if (!list || list.length === 0) {
+          const mfrId = selectedManufacturer?.id || selectedManufacturer?.manuId || vehicle.mfrId;
+          const seriesId = selectedSeries?.modelId || selectedSeries?.id || vehicle.vehicleModelSeriesId;
+          if (mfrId && seriesId) {
+            try {
+              const siblingPayload = {
+                getLinkageTargets: {
+                  linkageTargetCountry: 'ZA',
+                  lang: 'en',
+                  linkageTargetType: incomingType || 'O',
+                  mfrIds: [Number(mfrId)],
+                  vehicleModelSeriesIds: [Number(seriesId)],
+                  perPage: 15,
+                  page: 1,
+                },
+              };
+              const sibRes = await apiFunction(serviceJsonApi, [], siblingPayload, 'POST', false);
+              const siblings = sibRes?.linkageTargets || sibRes?.data?.array || [];
+              for (const sib of siblings) {
+                const sibId = Number(sib.linkageTargetId || sib.id);
+                if (sibId && sibId !== targetId) {
+                  const sibParts = await fetchWithPegasus(primaryType, sibId);
+                  if (sibParts && sibParts.length > 0) {
+                    list = sibParts;
+                    setFallbackSiblingName(sib.description || sib.typeName || 'Compatible Trim');
+                    break;
+                  }
+                }
+              }
+            } catch (sibErr) {
+              console.warn('Sibling fallback error:', sibErr);
+            }
+          }
+        }
+
+        setParts(Array.isArray(list) ? list : []);
+      } catch (err) {
+        console.warn('Failed to load parts for vehicle', err);
+        setParts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPartsForVehicle();
+  }, [vehicle, appType, selectedManufacturer, selectedSeries]);
 
   const handleEnquirePart = (item) => {
     dispatch(setPart(item));
@@ -188,6 +347,61 @@ const VerifiedPartsScreen = () => {
     setZoomScale(1);
     setIsAutoSpinning(true);
     setSpecsModalVisible(true);
+  };
+
+  const handleOpenPeek = (item) => {
+    setPeekPart(item);
+    setPeekModalVisible(true);
+  };
+
+  const getPartImage = (item) => {
+    if (!item) return null;
+    const images = item.images || item.raw?.images || item.articleMedia || [];
+    const staticImg = images.find(
+      (img) =>
+        !img.fileName?.toLowerCase()?.includes('360') &&
+        !img.headerDescription?.toLowerCase()?.includes('360')
+    );
+    if (staticImg) {
+      return staticImg.imageURL400 || staticImg.imageURL200 || staticImg.imageURL800;
+    }
+    if (images[0]) {
+      return images[0].imageURL400 || images[0].imageURL200 || images[0].imageURL800;
+    }
+    return item.imageUrl || null;
+  };
+
+  const getBriefSpecs = (item) => {
+    if (!item) return [];
+    const raw = item.articleCriteria || item.specs || [];
+    const priorityTerms = [
+      'connector', 'pin', 'spanner', 'thread', 'electrode', 'gap', 'inlet',
+      'cable', 'length', 'fitting position', 'torque', 'mount', 'resistance',
+      'circuits', 'system', 'voltage'
+    ];
+    const list = [];
+    for (const crit of raw) {
+      const desc = (crit.criteriaDescription || crit.label || crit.attrName || '').trim();
+      const val = (crit.formattedValue || crit.value || crit.rawValue || crit.attrValue || '').trim();
+      if (!desc || !val || val === '-') continue;
+      const lower = desc.toLowerCase();
+      if (priorityTerms.some((term) => lower.includes(term))) {
+        list.push({ label: desc, value: val });
+        if (list.length >= 3) break;
+      }
+    }
+    if (list.length < 2) {
+      for (const crit of raw) {
+        const desc = (crit.criteriaDescription || crit.label || crit.attrName || '').trim();
+        const val = (crit.formattedValue || crit.value || crit.rawValue || crit.attrValue || '').trim();
+        if (!desc || !val || val === '-') continue;
+        if (!list.some((l) => l.label === desc)) {
+          list.push({ label: desc, value: val });
+          if (list.length >= 3) break;
+        }
+      }
+    }
+    return list.slice(0, 3);
   };
 
   const allImages = selectedPart?.images || selectedPart?.raw?.images || [];
@@ -213,19 +427,68 @@ const VerifiedPartsScreen = () => {
         null;
 
   const criteriaList = selectedPart?.articleCriteria || selectedPart?.specs || [];
-  const findCriterion = (keywords) => {
-    const item = criteriaList.find((c) => {
-      const desc = (c.criteriaDescription || c.label || c.attrName || '').toLowerCase();
-      return keywords.some((kw) => desc.includes(kw));
-    });
-    return item ? item.formattedValue || item.value || item.rawValue || item.attrValue : null;
-  };
 
-  const spannerSize = findCriterion(['spanner', 'wrench', 'hex']);
-  const threadSize = findCriterion(['thread size']);
-  const threadLength = findCriterion(['thread length']);
-  const sparkPosition = findCriterion(['spark position', 'gap', 'electrode']);
+  // Dynamically extract up to 4 meaningful highlight specifications for the selected part.
+  // Never show hardcoded spark plug values on Ignition Coils, Sensors, or Shock Absorbers!
+  const highlightKpis = useMemo(() => {
+    if (!selectedPart) return [];
+    const raw = selectedPart?.articleCriteria || selectedPart?.specs || [];
+    const formatted = raw
+      .map((c) => ({
+        label: c.criteriaDescription || c.label || c.attrName || '',
+        value: c.formattedValue || c.value || c.rawValue || c.attrValue || '',
+      }))
+      .filter((c) => c.label && c.value && c.value !== '-');
+
+    if (formatted.length > 0) {
+      return formatted.slice(0, 4);
+    }
+
+    // Dynamic fallbacks from actual part metadata if criteria list is empty
+    const items = [];
+    const brand = selectedPart.mfrName || selectedPart.brandName || selectedPart.dataSupplierName;
+    if (brand) items.push({ label: 'Brand', value: brand });
+    const category =
+      selectedPart.genericArticles?.[0]?.genericArticleDescription ||
+      selectedPart.articleName ||
+      selectedPart.directArticle?.articleName;
+    if (category) items.push({ label: 'Category', value: category });
+    if (selectedPart.misc?.quantityPerPackage) {
+      items.push({ label: 'Package Qty', value: `${selectedPart.misc.quantityPerPackage} pc` });
+    }
+    const tradeNo = selectedPart.tradeNumbers?.[0] || selectedPart.articleNumber || selectedPart.articleNo;
+    if (tradeNo) {
+      items.push({ label: 'Part / Trade No.', value: tradeNo });
+    }
+    return items.slice(0, 4);
+  }, [selectedPart]);
+
   const oeNumbers = selectedPart?.oenNumbers || selectedPart?.raw?.oenNumbers || [];
+
+  // Peek computed properties
+  const peekPhotoUrl = peekPart ? getPartImage(peekPart) : null;
+  const peekBrand =
+    peekPart?.mfrName ||
+    peekPart?.brandName ||
+    peekPart?.dataSupplierName ||
+    peekPart?.directArticle?.brandName ||
+    'NGK';
+  const isPeekKyb = String(peekBrand).toUpperCase().includes('KYB');
+  const peekPartNo =
+    peekPart?.tradeNumbers?.[0] ||
+    peekPart?.articleNumber ||
+    peekPart?.articleNo ||
+    peekPart?.partNumber ||
+    peekPart?.directArticle?.articleNo ||
+    'GENUINE-PART';
+  const peekPartName =
+    peekPart?.genericArticles?.[0]?.genericArticleDescription ||
+    peekPart?.articleName ||
+    peekPart?.directArticle?.articleName ||
+    peekPart?.name ||
+    'Ignition / Sensor Component';
+  const peekSpecs = peekPart ? getBriefSpecs(peekPart) : [];
+  const peekOeNumbers = peekPart?.oenNumbers || peekPart?.raw?.oenNumbers || [];
 
   return (
     <View
@@ -276,7 +539,9 @@ const VerifiedPartsScreen = () => {
         <View style={styles.verifiedBanner}>
           <ShieldCheck size={18} color="#059669" />
           <Text style={styles.verifiedBannerText}>
-            100% Genuine NGK Components • OEM Fitment Guaranteed
+            {fallbackSiblingName
+              ? `OEM Series Verified • Shared fitment across ${selectedSeries?.modelname || selectedSeries?.name || 'Platform'} (${fallbackSiblingName})`
+              : '100% Genuine NGK Components • OEM Fitment Guaranteed'}
           </Text>
         </View>
 
@@ -288,13 +553,109 @@ const VerifiedPartsScreen = () => {
         ) : parts.length === 0 ? (
           <View style={styles.emptyBox}>
             <Tag size={36} color="#9CA3AF" />
-            <Text style={styles.emptyTitle}>No Matching Parts Found</Text>
+            <Text style={styles.emptyTitle}>No Direct Catalog Matches</Text>
             <Text style={styles.emptySub}>
-              Please check your part number or try searching with a different vehicle trim.
+              {vehicle?.description || vehicle?.typeName || vehicle?.modelName
+                ? `No standard retail NGK/NTK/KYB parts are directly cataloged for ${vehicle.manuName || ''} ${vehicle.description || vehicle.typeName || vehicle.modelName} in South Africa.`
+                : 'No verified components found for this vehicle in the catalog. You can request a manual part lookup or quote from an authorized distributor.'}
             </Text>
+            <Text style={[styles.emptySub, { marginTop: 6, fontSize: 12, color: '#6B7280' }]}>
+              {appType === 'O' && (vehicle?.manuName || '').toUpperCase().includes('VOLVO')
+                ? 'Tip: High-coverage Volvo Commercial models include FH (16 parts), FM (12 parts), FL (15 parts), B9 (13 parts), and B12 (8 parts).'
+                : 'Heavy commercial vehicles with specialized 24V industrial engines can be quoted via technical enquiry.'}
+            </Text>
+            {vehicle && (
+              <View style={{ width: '100%', alignItems: 'center', marginTop: 16 }}>
+                <TouchableOpacity
+                  style={[styles.enquireBtn, { paddingHorizontal: 20, width: '100%' }]}
+                  onPress={() => {
+                    dispatch(setSelectedVehicle(vehicle));
+                    navigation.navigate('TechnicalEnquiry', { vehicle });
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <MessageSquare size={16} color="#FFFFFF" />
+                  <Text style={styles.enquireBtnText}>Request Support / Quote for this Vehicle</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    marginTop: 10,
+                    width: '100%',
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: '#E5E7EB',
+                    alignItems: 'center',
+                    backgroundColor: '#F9FAFB',
+                  }}
+                  onPress={() => navigation.navigate('PartsFinder')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>
+                    Select Another Series / Trim
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ) : (
           <View style={styles.partsList}>
+            {/* Layout Mode Switcher & Counter */}
+            <View style={styles.listToolbar}>
+              <View style={styles.toolbarCountBox}>
+                <ShieldCheck size={14} color="#059669" />
+                <Text style={styles.toolbarCountText}>
+                  {parts.length} {parts.length === 1 ? 'Component' : 'Components'} Verified
+                </Text>
+              </View>
+              <View style={styles.layoutToggleGroup}>
+                <TouchableOpacity
+                  style={[
+                    styles.layoutToggleBtn,
+                    layoutMode === 'cards' && styles.layoutToggleBtnActive,
+                  ]}
+                  onPress={() => setLayoutMode('cards')}
+                  activeOpacity={0.7}
+                >
+                  <LayoutGrid
+                    size={13}
+                    color={layoutMode === 'cards' ? '#C6122E' : '#6B7280'}
+                  />
+                  <Text
+                    style={[
+                      styles.layoutToggleText,
+                      layoutMode === 'cards' && styles.layoutToggleTextActive,
+                    ]}
+                  >
+                    Cards
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.layoutToggleBtn,
+                    layoutMode === 'compact' && styles.layoutToggleBtnActive,
+                  ]}
+                  onPress={() => setLayoutMode('compact')}
+                  activeOpacity={0.7}
+                >
+                  <List
+                    size={13}
+                    color={layoutMode === 'compact' ? '#C6122E' : '#6B7280'}
+                  />
+                  <Text
+                    style={[
+                      styles.layoutToggleText,
+                      layoutMode === 'compact' && styles.layoutToggleTextActive,
+                    ]}
+                  >
+                    Compact
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {parts.map((item, idx) => {
               const partNo =
                 item.tradeNumbers?.[0] ||
@@ -315,21 +676,149 @@ const VerifiedPartsScreen = () => {
                 item.dataSupplierName ||
                 item.directArticle?.brandName ||
                 'NGK';
+              const isKyb = String(brand).toUpperCase().includes('KYB');
+              const fitPos = (item.articleCriteria || item.specs || []).find((c) =>
+                (c.criteriaDescription || c.label || c.attrName || '').toLowerCase().includes('fitting position')
+              );
+              const fitPosVal = fitPos?.formattedValue || fitPos?.value || fitPos?.rawValue;
+              const photoUrl = getPartImage(item);
+              const briefSpecs = getBriefSpecs(item);
 
+              if (layoutMode === 'cards') {
+                return (
+                  <View key={item.articleId || idx} style={styles.richCard}>
+                    {/* Card Top: Brand Badge, Fitment, Peek Trigger */}
+                    <View style={styles.cardHeader}>
+                      <View style={styles.cardHeaderBadges}>
+                        <View style={[styles.brandBadge, isKyb && styles.kybBadge]}>
+                          <Text style={[styles.brandBadgeText, isKyb && styles.kybBadgeText]}>{brand}</Text>
+                        </View>
+                        {fitPosVal && (
+                          <View style={styles.fitPosPill}>
+                            <Text style={styles.fitPosPillText} numberOfLines={1}>{fitPosVal}</Text>
+                          </View>
+                        )}
+                        <View style={styles.verifiedMicroPill}>
+                          <ShieldCheck size={11} color="#059669" />
+                          <Text style={styles.verifiedMicroText}>OEM Fit</Text>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.peekHeaderBtn}
+                        onPress={() => handleOpenPeek(item)}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Eye size={13} color="#C6122E" />
+                        <Text style={styles.peekHeaderBtnText}>Peek View</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Card Middle: Product Photo & Identity */}
+                    <View style={styles.cardMiddleRow}>
+                      <TouchableOpacity
+                        style={styles.productThumbContainer}
+                        onPress={() => handleOpenPeek(item)}
+                        activeOpacity={0.8}
+                      >
+                        {photoUrl ? (
+                          <Image
+                            source={{ uri: photoUrl }}
+                            style={styles.productThumbImage}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <View style={styles.thumbPlaceholder}>
+                            <Zap size={26} color="#C6122E" />
+                            <Text style={styles.thumbPlaceholderText}>{brand}</Text>
+                          </View>
+                        )}
+                        <View style={styles.thumbPeekOverlay}>
+                          <Eye size={10} color="#FFFFFF" />
+                          <Text style={styles.thumbPeekOverlayText}>Peek</Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <View style={styles.cardDetailsCol}>
+                        <Text style={styles.cardPartNumber} numberOfLines={1}>{partNo}</Text>
+                        <Text style={styles.cardPartName} numberOfLines={2}>{partName}</Text>
+                        {item.tradeNumbers?.[0] && item.tradeNumbers[0] !== partNo && (
+                          <Text style={styles.cardTradeNo}>Stock No: {item.tradeNumbers[0]}</Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Brief Info Specs Chips */}
+                    {briefSpecs.length > 0 && (
+                      <View style={styles.briefSpecsContainer}>
+                        {briefSpecs.map((spec, sIdx) => (
+                          <View key={sIdx} style={styles.specChip}>
+                            <Text style={styles.specChipLabel} numberOfLines={1}>{spec.label}:</Text>
+                            <Text style={styles.specChipValue} numberOfLines={1}>{spec.value}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Action Buttons Row */}
+                    <View style={styles.cardActionButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.cardSpecsBtn}
+                        onPress={() => handleOpenSpecs(item)}
+                        activeOpacity={0.75}
+                      >
+                        <Sliders size={13} color="#374151" />
+                        <Text style={styles.cardSpecsBtnText}>Full Specs & 360°</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.cardEnquireBtn}
+                        onPress={() => handleEnquirePart(item)}
+                        activeOpacity={0.8}
+                      >
+                        <MessageSquare size={13} color="#FFFFFF" />
+                        <Text style={styles.cardEnquireBtnText}>Request Quote</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              }
+
+              // Compact Layout
               return (
                 <View key={item.articleId || idx} style={styles.partCard}>
                   <View style={styles.partCardTop}>
-                    <View style={styles.partBadge}>
-                      <Text style={styles.partBadgeText}>{brand}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+                      <View style={[styles.partBadge, isKyb && styles.kybBadge]}>
+                        <Text style={[styles.partBadgeText, isKyb && styles.kybBadgeText]}>{brand}</Text>
+                      </View>
+                      {fitPosVal && (
+                        <View style={styles.fitPosPill}>
+                          <Text style={styles.fitPosPillText} numberOfLines={1}>
+                            {fitPosVal}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                    <TouchableOpacity
-                      style={styles.specsBtn}
-                      onPress={() => handleOpenSpecs(item)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Info size={14} color="#6B7280" />
-                      <Text style={styles.specsBtnText}>Specs</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <TouchableOpacity
+                        style={styles.specsBtn}
+                        onPress={() => handleOpenPeek(item)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Eye size={13} color="#C6122E" />
+                        <Text style={[styles.specsBtnText, { color: '#C6122E' }]}>Peek</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.specsBtn}
+                        onPress={() => handleOpenSpecs(item)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Info size={14} color="#6B7280" />
+                        <Text style={styles.specsBtnText}>Specs</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   <Text style={styles.partNumberText}>{partNo}</Text>
@@ -352,6 +841,130 @@ const VerifiedPartsScreen = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* Quick Peek Modal */}
+      <Modal
+        visible={peekModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setPeekModalVisible(false)}
+      >
+        <View style={styles.peekModalOverlay}>
+          <TouchableOpacity
+            style={styles.peekModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setPeekModalVisible(false)}
+          />
+          <View style={styles.peekModalCard}>
+            {/* Header */}
+            <View style={styles.peekModalHeader}>
+              <View style={styles.peekModalTitleWrap}>
+                <View style={[styles.brandBadge, isPeekKyb && styles.kybBadge]}>
+                  <Text style={[styles.brandBadgeText, isPeekKyb && styles.kybBadgeText]}>
+                    {peekBrand}
+                  </Text>
+                </View>
+                <Text style={styles.peekModalPartNo} numberOfLines={1}>
+                  {peekPartNo}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.peekModalCloseBtn}
+                onPress={() => setPeekModalVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={18} color="#4B5563" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.peekModalBody}>
+              {/* Photo Stage */}
+              <View style={styles.peekPhotoStage}>
+                {peekPhotoUrl ? (
+                  <Image
+                    source={{ uri: peekPhotoUrl }}
+                    style={styles.peekLargeImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={styles.peekLargePlaceholder}>
+                    <Zap size={44} color="#C6122E" />
+                    <Text style={styles.peekPlaceholderTitle}>Genuine {peekBrand} Component</Text>
+                  </View>
+                )}
+                <View style={styles.peekFitmentBadge}>
+                  <ShieldCheck size={12} color="#059669" />
+                  <Text style={styles.peekFitmentText}>OEM Verified Fitment</Text>
+                </View>
+              </View>
+
+              {/* Product Identity */}
+              <Text style={styles.peekCategoryTitle}>{peekPartName}</Text>
+
+              {/* Quick Technical Specs Grid */}
+              {peekSpecs.length > 0 && (
+                <View style={styles.peekSpecsCard}>
+                  <Text style={styles.peekSpecsHeading}>Key Technical Specifications</Text>
+                  <View style={styles.peekSpecsGrid}>
+                    {peekSpecs.map((spec, pIdx) => (
+                      <View key={pIdx} style={styles.peekSpecItem}>
+                        <Text style={styles.peekSpecItemLabel} numberOfLines={1}>
+                          {spec.label}
+                        </Text>
+                        <Text style={styles.peekSpecItemVal} numberOfLines={1}>
+                          {spec.value}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* OE Cross References Preview */}
+              {peekOeNumbers.length > 0 && (
+                <View style={styles.peekOeBox}>
+                  <Text style={styles.peekOeHeading}>OE Cross References</Text>
+                  <View style={styles.peekOeWrap}>
+                    {peekOeNumbers.slice(0, 6).map((oe, oIdx) => (
+                      <View key={oIdx} style={styles.peekOeChip}>
+                        <Text style={styles.peekOeMfr}>{oe.mfrName || 'OEM'}:</Text>
+                        <Text style={styles.peekOeVal}>{oe.articleNumber || oe.oeNumber}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Action Footer */}
+            <View style={styles.peekFooter}>
+              <TouchableOpacity
+                style={styles.peek360Btn}
+                onPress={() => {
+                  setPeekModalVisible(false);
+                  if (peekPart) handleOpenSpecs(peekPart);
+                }}
+                activeOpacity={0.8}
+              >
+                <RotateCw size={14} color="#C6122E" />
+                <Text style={styles.peek360BtnText}>360° & Specs</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.peekEnquireBtn}
+                onPress={() => {
+                  setPeekModalVisible(false);
+                  if (peekPart) handleEnquirePart(peekPart);
+                }}
+                activeOpacity={0.8}
+              >
+                <MessageSquare size={14} color="#FFFFFF" />
+                <Text style={styles.peekEnquireBtnText}>Request Quote</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Full-Screen Technical Specifications & 3D Interactive Model Modal */}
       <Modal
@@ -653,30 +1266,22 @@ const VerifiedPartsScreen = () => {
               <View style={styles.stageFooterRowLight}>
                 <ShieldCheck size={14} color="#059669" />
                 <Text style={styles.stageFooterTextLight}>
-                  TecAlliance Pegasus 3.0 • Genuine NGK Component
+                  {`TecAlliance Pegasus 3.0 • Genuine ${selectedPart?.mfrName || selectedPart?.brandName || 'Automotive'} Component`}
                 </Text>
               </View>
             </View>
 
-            {/* Quick KPI Spec Highlights (4 Pillar Cards) */}
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiCardLight}>
-                <Text style={styles.kpiLabelLight}>Spanner Size</Text>
-                <Text style={styles.kpiValueLight}>{spannerSize || '16 mm'}</Text>
+            {/* Quick KPI Spec Highlights (Dynamic criteria - no fake fallbacks) */}
+            {highlightKpis.length > 0 && (
+              <View style={styles.kpiGrid}>
+                {highlightKpis.map((kpi, kIdx) => (
+                  <View key={kIdx} style={styles.kpiCardLight}>
+                    <Text style={styles.kpiLabelLight} numberOfLines={1}>{kpi.label}</Text>
+                    <Text style={styles.kpiValueLight} numberOfLines={1}>{kpi.value}</Text>
+                  </View>
+                ))}
               </View>
-              <View style={styles.kpiCardLight}>
-                <Text style={styles.kpiLabelLight}>Thread Size</Text>
-                <Text style={styles.kpiValueLight}>{threadSize || 'M14 x 1.25'}</Text>
-              </View>
-              <View style={styles.kpiCardLight}>
-                <Text style={styles.kpiLabelLight}>Thread Length</Text>
-                <Text style={styles.kpiValueLight}>{threadLength || '19 mm'}</Text>
-              </View>
-              <View style={styles.kpiCardLight}>
-                <Text style={styles.kpiLabelLight}>Spark / Gap</Text>
-                <Text style={styles.kpiValueLight}>{sparkPosition || '3.0 mm'}</Text>
-              </View>
-            </View>
+            )}
 
             {/* Complete Technical Specifications Table */}
             <View style={styles.specsCardLight}>
@@ -852,6 +1457,26 @@ const styles = StyleSheet.create({
     color: '#C6122E',
     letterSpacing: 0.4,
   },
+  kybBadge: {
+    backgroundColor: '#EFF6FF',
+  },
+  kybBadgeText: {
+    color: '#1D4ED8',
+  },
+  fitPosPill: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    maxWidth: 160,
+  },
+  fitPosPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#374151',
+  },
   specsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -881,17 +1506,481 @@ const styles = StyleSheet.create({
     borderTopColor: '#F3F4F6',
     paddingTop: 10,
   },
-  enquireBtn: {
+  listToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 2,
+  },
+  toolbarCountBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  toolbarCountText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  layoutToggleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 2,
+  },
+  layoutToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  layoutToggleBtnActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  layoutToggleText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  layoutToggleTextActive: {
+    color: '#C6122E',
+    fontWeight: '700',
+  },
+  // Rich Visual Card Styles
+  richCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  cardHeaderBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  brandBadge: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  brandBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C6122E',
+    letterSpacing: 0.4,
+  },
+  verifiedMicroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  verifiedMicroText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  peekHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF1F2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  peekHeaderBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C6122E',
+  },
+  cardMiddleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 12,
+  },
+  productThumbContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  productThumbImage: {
+    width: 80,
+    height: 80,
+  },
+  thumbPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  thumbPlaceholderText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+  },
+  thumbPeekOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(17, 24, 39, 0.7)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 2,
+  },
+  thumbPeekOverlayText: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cardDetailsCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  cardPartNumber: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.4,
+  },
+  cardPartName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4B5563',
+    marginTop: 2,
+  },
+  cardTradeNo: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  briefSpecsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  specChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  specChipLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  specChipValue: {
+    fontSize: 11,
+    color: '#111827',
+    fontWeight: '700',
+  },
+  cardActionButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 10,
+  },
+  cardSpecsBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  cardSpecsBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  cardEnquireBtn: {
+    flex: 1.2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#C6122E',
     height: 38,
     borderRadius: 10,
+    backgroundColor: '#C6122E',
   },
-  enquireBtnText: {
+  cardEnquireBtnText: {
     fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  // Quick Peek Modal Styles
+  peekModalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  peekModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  peekModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  peekModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  peekModalTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  peekModalPartNo: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  peekModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  peekModalBody: {
+    paddingHorizontal: 20,
+    paddingTop: 14,
+  },
+  peekPhotoStage: {
+    height: 190,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  peekLargeImage: {
+    width: '85%',
+    height: '85%',
+  },
+  peekLargePlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  peekPlaceholderTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  peekFitmentBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  peekFitmentText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  peekCategoryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  peekSpecsCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 14,
+  },
+  peekSpecsHeading: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  peekSpecsGrid: {
+    gap: 6,
+  },
+  peekSpecItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  peekSpecItemLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    flex: 1,
+  },
+  peekSpecItemVal: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  peekOeBox: {
+    marginBottom: 16,
+  },
+  peekOeHeading: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  peekOeWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  peekOeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  peekOeMfr: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  peekOeVal: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  peekFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  peek360Btn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  peek360BtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#C6122E',
+  },
+  peekEnquireBtn: {
+    flex: 1.4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#C6122E',
+  },
+  peekEnquireBtnText: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
   },

@@ -10,10 +10,10 @@ const FALLBACK_MANUFACTURERS = [
   { id: 121, manuId: 121, name: 'VOLKSWAGEN', manuName: 'VOLKSWAGEN', count: 2100 },
   { id: 74, manuId: 74, name: 'MERCEDES-BENZ', manuName: 'MERCEDES-BENZ', count: 1680 },
   { id: 80, manuId: 80, name: 'NISSAN', manuName: 'NISSAN', count: 980 },
-  { id: 45, manuId: 45, name: 'FORD', manuName: 'FORD', count: 1150 },
-  { id: 52, manuId: 52, name: 'HYUNDAI', manuName: 'HYUNDAI', count: 870 },
+  { id: 36, manuId: 36, name: 'FORD', manuName: 'FORD', count: 1150 },
+  { id: 183, manuId: 183, name: 'HYUNDAI', manuName: 'HYUNDAI', count: 870 },
   { id: 63, manuId: 63, name: 'MARUTI SUZUKI', manuName: 'MARUTI SUZUKI', count: 640 },
-  { id: 56, manuId: 56, name: 'ISUZU', manuName: 'ISUZU', count: 520 },
+  { id: 54, manuId: 54, name: 'ISUZU', manuName: 'ISUZU', count: 520 },
 ];
 
 const FALLBACK_SERIES = {
@@ -23,6 +23,22 @@ const FALLBACK_SERIES = {
     { id: 503, modelId: 503, name: 'COROLLA Sedan', modelname: 'COROLLA Sedan', count: 64 },
     { id: 504, modelId: 504, name: 'LAND CRUISER PRADO', modelname: 'LAND CRUISER PRADO', count: 28 },
     { id: 505, modelId: 505, name: 'RAV 4 V', modelname: 'RAV 4 V', count: 36 },
+  ],
+  183: [
+    { id: 9145, modelId: 9145, name: 'ACCENT IV (RB)', modelname: 'ACCENT IV (RB)', count: 24 },
+    { id: 11984, modelId: 11984, name: 'i20 II (GB, IB)', modelname: 'i20 II (GB, IB)', count: 30 },
+    { id: 11050, modelId: 11050, name: 'i10 I (PA)', modelname: 'i10 I (PA)', count: 18 },
+    { id: 14758, modelId: 14758, name: 'TUCSON (TL, TLE)', modelname: 'TUCSON (TL, TLE)', count: 36 },
+    { id: 16024, modelId: 16024, name: 'CRETA', modelname: 'CRETA', count: 22 },
+  ],
+  36: [
+    { id: 10450, modelId: 10450, name: 'RANGER (TKE)', modelname: 'RANGER (TKE)', count: 44 },
+    { id: 11620, modelId: 11620, name: 'ECOSPORT', modelname: 'ECOSPORT', count: 26 },
+    { id: 14500, modelId: 14500, name: 'EVEREST', modelname: 'EVEREST', count: 28 },
+  ],
+  54: [
+    { id: 10252, modelId: 10252, name: 'D-MAX I (TFR, TFS)', modelname: 'D-MAX I (TFR, TFS)', count: 38 },
+    { id: 40683, modelId: 40683, name: 'D-MAX II (TFR, TFS)', modelname: 'D-MAX II (TFR, TFS)', count: 32 },
   ],
   16: [
     { id: 601, modelId: 601, name: '3 Series (G20)', modelname: '3 Series (G20)', count: 42 },
@@ -37,6 +53,14 @@ const FALLBACK_SERIES = {
   63: [
     { id: 801, modelId: 801, name: 'ALTO (HA12, HA23)', modelname: 'ALTO (HA12, HA23)', count: 18 },
     { id: 802, modelId: 802, name: 'SWIFT IV', modelname: 'SWIFT IV', count: 24 },
+  ],
+  74: [
+    { id: 2039, modelId: 2039, name: 'SPRINTER 2-t Van (B901, B902)', modelname: 'SPRINTER 2-t Van (B901, B902)', count: 24 },
+    { id: 2041, modelId: 2041, name: 'SPRINTER 3-t Bus (B903)', modelname: 'SPRINTER 3-t Bus (B903)', count: 30 },
+    { id: 1587, modelId: 1587, name: 'ACTROS', modelname: 'ACTROS', count: 29 },
+    { id: 3431, modelId: 3431, name: 'ATEGO', modelname: 'ATEGO', count: 23 },
+    { id: 124, modelId: 124, name: 'C-CLASS (W205)', modelname: 'C-CLASS (W205)', count: 45 },
+    { id: 125, modelId: 125, name: 'E-CLASS (W213)', modelname: 'E-CLASS (W213)', count: 38 },
   ],
 };
 
@@ -242,29 +266,99 @@ class TecDocService {
     const cached = memoryCache.get(cacheKey);
     if (cached) return cached;
 
-    const payloadPegasus = {
-      getLinkageTargets: {
-        provider: this.providerId,
-        linkageTargetCountry: country,
-        lang: lang,
-        linkageTargetType: type,
-        mfrIds: [parseInt(mfrId, 10)],
-        includeVehicleModelSeriesFacets: true,
-        perPage: 0,
-        page: 1,
-      },
-    };
+    const isCommercial = type === 'O' || type === 'COMMERCIAL';
+    let seriesCounts = [];
 
-    const data = await this.execute(payloadPegasus);
-    const seriesCounts = data?.vehicleModelSeriesFacets?.counts || data?.data?.array || (FALLBACK_SERIES[mfrId] || FALLBACK_SERIES[111]);
+    if (isCommercial) {
+      // Query heavy commercial trucks (O) and light commercial vans/bakkies (P)
+      const [resO, resP] = await Promise.all([
+        this.execute({
+          getLinkageTargets: {
+            provider: this.providerId,
+            linkageTargetCountry: country,
+            lang: lang,
+            linkageTargetType: 'O',
+            mfrIds: [parseInt(mfrId, 10)],
+            includeVehicleModelSeriesFacets: true,
+            perPage: 0,
+            page: 1,
+          },
+        }),
+        this.execute({
+          getLinkageTargets: {
+            provider: this.providerId,
+            linkageTargetCountry: country,
+            lang: lang,
+            linkageTargetType: 'P',
+            mfrIds: [parseInt(mfrId, 10)],
+            includeVehicleModelSeriesFacets: true,
+            perPage: 0,
+            page: 1,
+          },
+        }),
+      ]);
 
-    const formatted = seriesCounts.map((s) => ({
+      const listO = (resO?.vehicleModelSeriesFacets?.counts || resO?.data?.array || []).map((s) => ({
+        ...s,
+        linkingTargetType: 'O',
+      }));
+
+      const commRegex =
+        /\b(SPRINTER|VITO|VIANO|CITAN|VARIO|HILUX|HIACE|QUANTUM|DYNA|PROBOX|D-MAX|KB|RANGER|TRANSIT|BANTAM|COURIER|AMAROK|CADDY|TRANSPORTER|CRAFTER|CARAVELLE|MULTIVAN|H-100|H-1|PORTER|STAREX|NAVARA|HARDBODY|NP200|NP300|1400 BAKKIE|NV200|NV350|CABSTAR)\b/i;
+
+      const listP = (resP?.vehicleModelSeriesFacets?.counts || resP?.data?.array || [])
+        .filter((s) => commRegex.test(s.name || s.modelname || ''))
+        .map((s) => ({ ...s, linkingTargetType: 'P' }));
+
+      const seen = new Set();
+      for (const s of [...listP, ...listO]) {
+        const sId = s.id || s.modelId;
+        if (sId && !seen.has(sId)) {
+          seen.add(sId);
+          seriesCounts.push(s);
+        }
+      }
+    } else {
+      const payloadPegasus = {
+        getLinkageTargets: {
+          provider: this.providerId,
+          linkageTargetCountry: country,
+          lang: lang,
+          linkageTargetType: type,
+          mfrIds: [parseInt(mfrId, 10)],
+          includeVehicleModelSeriesFacets: true,
+          perPage: 0,
+          page: 1,
+        },
+      };
+      const data = await this.execute(payloadPegasus);
+      seriesCounts =
+        data?.vehicleModelSeriesFacets?.counts ||
+        data?.data?.array ||
+        FALLBACK_SERIES[mfrId] ||
+        FALLBACK_SERIES[111];
+    }
+
+    const popPrefix =
+      /^(FH|FM|FL|FE|FMX|9400|B12|B9|B7|ACTROS|ATEGO|AXOR|AROCS|SPRINTER|VITO|VIANO|CITAN|D-MAX|KB|N-SERIES|F-SERIES|NPR|NQR|NHR|NMR|FRR|FTR|FVR|R|G|P|S|TGX|TGS|TGM|TGL|CLA|TGE|XF|CF|LF|300|500|700|DAILY|EUROCARGO|STRALIS|TRAKKER|S-WAY|HILUX|QUANTUM|HIACE|DYNA|LAND CRUISER|HINO|RANGER|TRANSIT|CUSTOM|CARGO|AMAROK|CADDY|TRANSPORTER|CRAFTER)/i;
+
+    const formatted = (seriesCounts || []).map((s) => ({
       id: s.id || s.modelId,
       modelId: s.id || s.modelId,
       name: s.name || s.modelname,
       modelname: s.name || s.modelname,
+      linkingTargetType: s.linkingTargetType || type,
       count: s.count || 20,
     }));
+
+    if (isCommercial) {
+      formatted.sort((a, b) => {
+        const aPop = popPrefix.test(a.name || '') ? 0 : 1;
+        const bPop = popPrefix.test(b.name || '') ? 0 : 1;
+        if (aPop !== bPop) return aPop - bPop;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+    }
 
     memoryCache.set(cacheKey, formatted, 86400);
     return formatted;
@@ -300,6 +394,7 @@ class TecDocService {
         id: v.linkageTargetId || v.carId || v.id,
         carId: v.linkageTargetId || v.carId || v.id,
         linkageTargetId: v.linkageTargetId || v.carId,
+        linkageTargetType: v.linkageTargetType || type || 'P',
         typeName: v.description || v.typeName || v.linkageTargetType || 'Standard Engine',
         modelName: v.vehicleModelSeriesName || v.modelName || 'Model Variant',
         manuName: v.mfrName || v.manuName || 'Manufacturer',
@@ -320,6 +415,7 @@ class TecDocService {
         id: 1001,
         carId: 1001,
         linkageTargetId: 1001,
+        linkageTargetType: type || 'P',
         typeName: '2.8 GD-6 (GUN126) 150kW / 204HP',
         modelName: 'HILUX VIII',
         manuName: 'TOYOTA',
@@ -331,6 +427,7 @@ class TecDocService {
         id: 1002,
         carId: 1002,
         linkageTargetId: 1002,
+        linkageTargetType: type || 'P',
         typeName: '2.4 GD-6 (GUN125) 110kW / 150HP',
         modelName: 'HILUX VIII',
         manuName: 'TOYOTA',
@@ -345,24 +442,41 @@ class TecDocService {
    * 4. Get Verified Parts / Articles for a Vehicle
    */
   async getArticlesByVehicle(vehicleId, type = 'P', country = this.defaultCountry, lang = this.defaultLang) {
+    // In TecDoc supplier catalog for ZA (NGK/NTK/KYB), articles are linked to linkage targets
+    // as type 'P' (and 'V'). Type 'O' queries return 0 articles from TecDoc.
+    const primaryType = (type === 'O' || type === 'C') ? 'P' : (type || 'P');
     const payload = {
       getArticles: {
         provider: this.providerId,
         articleCountry: country,
         lang: lang,
         linkageTargetId: parseInt(vehicleId, 10),
-        linkageTargetType: type,
+        linkageTargetType: primaryType,
         includeAll: true,
         includeImages: true,
         includePDFs: true,
         includeGenericArticleFacets: true,
-        includeCriteriaFacets: true,
       },
     };
 
-    const data = await this.execute(payload);
-    const articles = data?.articles || data?.data?.array || FALLBACK_ARTICLES;
-    return this.sanitizeArticles(articles);
+    let data = await this.execute(payload);
+    let articles = data?.articles || data?.data?.array;
+
+    // If initial query returned empty, try fallback target types ('P', 'V', or original type)
+    if (!articles || articles.length === 0) {
+      for (const altType of ['P', 'V', type]) {
+        if (altType === primaryType) continue;
+        payload.getArticles.linkageTargetType = altType;
+        const altData = await this.execute(payload);
+        if (altData?.articles?.length > 0) {
+          articles = altData.articles;
+          break;
+        }
+      }
+    }
+
+    const finalArticles = articles || FALLBACK_ARTICLES;
+    return this.sanitizeArticles(finalArticles);
   }
 
   /**
@@ -472,11 +586,11 @@ class TecDocService {
       { id: 121, manuId: 121, name: 'VOLKSWAGEN', manuName: 'VOLKSWAGEN', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/volkswagen.png' },
       { id: 16, manuId: 16, name: 'BMW', manuName: 'BMW', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/bmw.png' },
       { id: 74, manuId: 74, name: 'MERCEDES-BENZ', manuName: 'MERCEDES-BENZ', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/mercedes-benz.png' },
-      { id: 45, manuId: 45, name: 'FORD', manuName: 'FORD', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ford.png' },
+      { id: 36, manuId: 36, name: 'FORD', manuName: 'FORD', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ford.png' },
       { id: 5, manuId: 5, name: 'AUDI', manuName: 'AUDI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/audi.png' },
       { id: 80, manuId: 80, name: 'NISSAN', manuName: 'NISSAN', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/nissan.png' },
-      { id: 52, manuId: 52, name: 'HYUNDAI', manuName: 'HYUNDAI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/hyundai.png' },
-      { id: 56, manuId: 56, name: 'ISUZU', manuName: 'ISUZU', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/isuzu.png' },
+      { id: 183, manuId: 183, name: 'HYUNDAI', manuName: 'HYUNDAI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/hyundai.png' },
+      { id: 54, manuId: 54, name: 'ISUZU', manuName: 'ISUZU', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/isuzu.png' },
     ];
   }
 

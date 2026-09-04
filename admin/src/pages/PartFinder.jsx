@@ -3,7 +3,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   Search,
   Car,
-  Bike,
   Truck,
   Wrench,
   CheckCircle2,
@@ -23,8 +22,7 @@ import { Modal } from '../components/common/Modal';
 import { DataTable } from '../components/common/DataTable';
 
 const applications = [
-  { id: 'Passenger', label: 'Passenger Car', icon: Car, type: 'P' },
-  { id: 'Motorcycle', label: 'Motorcycle', icon: Bike, type: 'M' },
+  { id: 'Passenger', label: 'Vehicle', icon: Car, type: 'P' },
   { id: 'Commercial', label: 'Commercial Vehicle', icon: Truck, type: 'O' },
 ];
 

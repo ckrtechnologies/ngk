@@ -56,19 +56,19 @@ class EnquiryService {
 
     const enquiryId = newEnquiry.id;
 
-    // 2. Insert initial system message into enquiry_messages
+    // 2. Fetch customer details for notifications and messages
+    const { data: customer } = await supabase.from('users').select('id, name').eq('id', userId);
+    const customerName = customer?.[0]?.name || 'Customer';
+
+    // 3. Insert initial system message into enquiry_messages
     await supabase.from('enquiry_messages').insert({
       enquiry_id: enquiryId,
       sender_id: userId,
-      sender_name: 'Customer',
+      sender_name: customerName,
       sender_role: 'owner',
-      message_text: vehicle?.enquiryDetails || 'Technical Enquiry Submitted',
+      message_text: payload.vehicle?.enquiryDetails || payload.enquiryDetails || description || 'Technical Enquiry Submitted',
       is_system: false,
     });
-
-    // 3. Fetch customer details for notifications
-    const { data: customer } = await supabase.from('users').select('id, name').eq('id', userId);
-    const customerName = customer?.[0]?.name || 'Customer';
 
     // 4. Notify assigned dealer if present
     if (dealer) {

@@ -14,7 +14,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Car,
-  Bike,
   Wrench,
   Search,
   ChevronDown,
@@ -22,6 +21,14 @@ import {
   X,
   Sparkles,
   ArrowRight,
+  Building2,
+  Layers,
+  Cpu,
+  Zap,
+  Calendar,
+  Gauge,
+  CheckCircle2,
+  ChevronRight,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -47,22 +54,11 @@ const DEFAULT_POPULAR_BRANDS = {
     { id: 121, manuId: 121, name: 'VOLKSWAGEN', manuName: 'VOLKSWAGEN', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/volkswagen.png' },
     { id: 16, manuId: 16, name: 'BMW', manuName: 'BMW', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/bmw.png' },
     { id: 74, manuId: 74, name: 'MERCEDES-BENZ', manuName: 'MERCEDES-BENZ', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/mercedes-benz.png' },
-    { id: 45, manuId: 45, name: 'FORD', manuName: 'FORD', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ford.png' },
+    { id: 36, manuId: 36, name: 'FORD', manuName: 'FORD', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ford.png' },
     { id: 5, manuId: 5, name: 'AUDI', manuName: 'AUDI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/audi.png' },
     { id: 80, manuId: 80, name: 'NISSAN', manuName: 'NISSAN', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/nissan.png' },
-    { id: 52, manuId: 52, name: 'HYUNDAI', manuName: 'HYUNDAI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/hyundai.png' },
-    { id: 56, manuId: 56, name: 'ISUZU', manuName: 'ISUZU', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/isuzu.png' },
-  ],
-  motorcycle: [
-    { id: 45, manuId: 45, name: 'HONDA', manuName: 'HONDA', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/honda.png' },
-    { id: 109, manuId: 109, name: 'SUZUKI', manuName: 'SUZUKI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/suzuki.png' },
-    { id: 16, manuId: 16, name: 'BMW', manuName: 'BMW', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/bmw.png' },
-    { id: 2760, manuId: 2760, name: 'KTM', manuName: 'KTM', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/ktm.png' },
-    { id: 112, manuId: 112, name: 'TRIUMPH', manuName: 'TRIUMPH', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/triumph.png' },
-    { id: 181, manuId: 181, name: 'PIAGGIO', manuName: 'PIAGGIO' },
-    { id: 4552, manuId: 4552, name: 'BAJAJ', manuName: 'BAJAJ' },
-    { id: 1164, manuId: 1164, name: 'YAMAHA', manuName: 'YAMAHA' },
-    { id: 574, manuId: 574, name: 'KAWASAKI', manuName: 'KAWASAKI' },
+    { id: 183, manuId: 183, name: 'HYUNDAI', manuName: 'HYUNDAI', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/hyundai.png' },
+    { id: 54, manuId: 54, name: 'ISUZU', manuName: 'ISUZU', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/isuzu.png' },
   ],
   commercial: [
     { id: 54, manuId: 54, name: 'ISUZU', manuName: 'ISUZU', logoUrl: 'https://raw.githubusercontent.com/filippofilip95/car-logos-dataset/master/logos/optimized/isuzu.png' },
@@ -86,6 +82,9 @@ const PartsFinderScreen = () => {
   const [selectedApp, setSelectedApp] = useState('Passenger');
   const [selectedManufacturer, setSelectedManufacturer] = useState(null);
   const [selectedSeries, setSelectedSeries] = useState(null);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [vehiclesData, setVehiclesData] = useState([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(false);
 
   // Direct Part Number state
   const [partNumber, setPartNumber] = useState('');
@@ -101,12 +100,11 @@ const PartsFinderScreen = () => {
 
   // Modal selector state
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalType, setModalType] = useState(''); // 'manufacturer' | 'series'
+  const [modalType, setModalType] = useState(''); // 'manufacturer' | 'series' | 'model'
   const [filterQuery, setFilterQuery] = useState('');
 
   const applications = [
-    { id: 'Passenger', label: 'Passenger', icon: Car, type: 'P' },
-    { id: 'Motorcycle', label: 'Motorcycle', icon: Bike, type: 'M' },
+    { id: 'Passenger', label: 'Vehicle', icon: Car, type: 'P' },
     { id: 'Commercial', label: 'Commercial', icon: Wrench, type: 'O' },
   ];
 
@@ -118,20 +116,35 @@ const PartsFinderScreen = () => {
     if (!myself) fetchMyself();
   }, [dispatch]);
 
-  // Single initial API call on screen mount - loads all 3 categories at once
+  // Canonical mapper for TecDoc South Africa (ZA) manufacturer IDs
+  const resolveManuId = (manu) => {
+    if (!manu) return null;
+    const name = (manu.manuName || manu.name || '').toUpperCase().trim();
+    const rawId = Number(manu.manuId || manu.id);
+    if (name.includes('HYUNDAI')) return 183;
+    if (name === 'FORD' && rawId === 45) return 36;
+    if (name === 'ISUZU' && (rawId === 56 || !rawId)) return 54;
+    return rawId;
+  };
+
+  const sanitizeBrand = (b) => {
+    const fixedId = resolveManuId(b);
+    return { ...b, id: fixedId, manuId: fixedId };
+  };
+
+  // Single initial API call on screen mount - loads categories
   useEffect(() => {
     const fetchAllBrands = async () => {
       try {
         const res = await apiFunction(popularBrandsApi, [], {}, 'GET', false);
         const data = res?.data || res;
-        if (data?.passenger || data?.motorcycle || data?.commercial) {
+        if (data?.passenger || data?.commercial) {
           setBrandsByCategory((prev) => ({
-            passenger: data.passenger?.length ? data.passenger : prev.passenger,
-            motorcycle: data.motorcycle?.length ? data.motorcycle : prev.motorcycle,
-            commercial: data.commercial?.length ? data.commercial : prev.commercial,
+            passenger: (data.passenger?.length ? data.passenger : prev.passenger).map(sanitizeBrand),
+            commercial: (data.commercial?.length ? data.commercial : prev.commercial).map(sanitizeBrand),
           }));
         } else if (Array.isArray(data?.array) && data.array.length > 0) {
-          setBrandsByCategory((prev) => ({ ...prev, passenger: data.array }));
+          setBrandsByCategory((prev) => ({ ...prev, passenger: data.array.map(sanitizeBrand) }));
         }
       } catch (err) {
         console.warn('Failed to pre-load popular brands:', err);
@@ -142,7 +155,6 @@ const PartsFinderScreen = () => {
 
   // Synchronous in-memory lookup: ZERO network calls on tab toggle!
   const popularBrands = useMemo(() => {
-    if (selectedApp === 'Motorcycle') return brandsByCategory.motorcycle || [];
     if (selectedApp === 'Commercial') return brandsByCategory.commercial || [];
     return brandsByCategory.passenger || [];
   }, [selectedApp, brandsByCategory]);
@@ -169,7 +181,7 @@ const PartsFinderScreen = () => {
           res?.getManufacturers2?.array ||
           res?.data ||
           [];
-        setManufacturersData(list);
+        setManufacturersData(list.map(sanitizeBrand));
       } catch (err) {
         console.warn('Failed to load manufacturers', err);
       } finally {
@@ -180,32 +192,120 @@ const PartsFinderScreen = () => {
     fetchManufacturers();
     setSelectedManufacturer(null);
     setSelectedSeries(null);
+    setSelectedVehicle(null);
     setSeriesData([]);
+    setVehiclesData([]);
   }, [selectedApp]);
 
   // Fetch series when manufacturer is selected
   const fetchSeriesForManufacturer = async (manu) => {
     setLoadingDropdown(true);
+    const mfrId = resolveManuId(manu);
     const appType =
       applications.find((a) => a.id === selectedApp)?.type || 'P';
-    const payload = {
-      getModelSeries2: {
-        country: 'ZA',
-        lang: 'en',
-        linkingTargetType: appType,
-        manuId: manu.manuId || manu.id,
-        includeAll: true,
-      },
-    };
 
     try {
-      const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
-      const list =
-        res?.data?.array ||
-        res?.getModelSeries2?.array ||
-        res?.data ||
-        [];
-      setSeriesData(list);
+      if (selectedApp === 'Commercial') {
+        // In TecDoc Pegasus, Commercial vehicles are divided:
+        // 1. Heavy Commercial trucks (type: 'O')
+        // 2. Light Commercial vans/bakkies/pickups (type: 'P', e.g. Sprinter, Vito, Hilux, Ranger, D-Max, Amarok)
+        const [resO, resP] = await Promise.all([
+          apiFunction(
+            serviceJsonApi,
+            [],
+            {
+              getModelSeries2: {
+                country: 'ZA',
+                lang: 'en',
+                linkingTargetType: 'O',
+                manuId: mfrId,
+                includeAll: true,
+              },
+            },
+            'POST',
+            false
+          ),
+          apiFunction(
+            serviceJsonApi,
+            [],
+            {
+              getModelSeries2: {
+                country: 'ZA',
+                lang: 'en',
+                linkingTargetType: 'P',
+                manuId: mfrId,
+                includeAll: true,
+              },
+            },
+            'POST',
+            false
+          ),
+        ]);
+
+        const listO = (
+          resO?.data?.array ||
+          resO?.getModelSeries2?.array ||
+          resO?.data ||
+          []
+        ).map((s) => ({ ...s, linkingTargetType: 'O' }));
+
+        const commRegex =
+          /\b(SPRINTER|VITO|VIANO|CITAN|VARIO|HILUX|HIACE|QUANTUM|DYNA|PROBOX|D-MAX|KB|RANGER|TRANSIT|BANTAM|COURIER|AMAROK|CADDY|TRANSPORTER|CRAFTER|CARAVELLE|MULTIVAN|H-100|H-1|PORTER|STAREX|NAVARA|HARDBODY|NP200|NP300|1400 BAKKIE|NV200|NV350|CABSTAR)\b/i;
+
+        const rawListP =
+          resP?.data?.array ||
+          resP?.getModelSeries2?.array ||
+          resP?.data ||
+          [];
+
+        const listP = rawListP
+          .filter((s) => commRegex.test(s.name || s.modelname || ''))
+          .map((s) => ({ ...s, linkingTargetType: 'P' }));
+
+        // Deduplicate series by ID
+        const seen = new Set();
+        const combined = [];
+        for (const item of [...listP, ...listO]) {
+          const sId = item.modelId || item.id;
+          if (sId && !seen.has(sId)) {
+            seen.add(sId);
+            combined.push(item);
+          }
+        }
+
+        // Prioritize popular high-coverage commercial series (FH, FM, FL, Actros, Sprinter, D-Max, etc.)
+        const popPrefix =
+          /^(FH|FM|FL|FE|FMX|9400|B12|B9|B7|ACTROS|ATEGO|AXOR|AROCS|SPRINTER|VITO|VIANO|CITAN|D-MAX|KB|N-SERIES|F-SERIES|NPR|NQR|NHR|NMR|FRR|FTR|FVR|R|G|P|S|TGX|TGS|TGM|TGL|CLA|TGE|XF|CF|LF|300|500|700|DAILY|EUROCARGO|STRALIS|TRAKKER|S-WAY|HILUX|QUANTUM|HIACE|DYNA|LAND CRUISER|HINO|RANGER|TRANSIT|CUSTOM|CARGO|AMAROK|CADDY|TRANSPORTER|CRAFTER)/i;
+
+        combined.sort((a, b) => {
+          const aName = a.name || a.modelname || '';
+          const bName = b.name || b.modelname || '';
+          const aPop = popPrefix.test(aName) ? 0 : 1;
+          const bPop = popPrefix.test(bName) ? 0 : 1;
+          if (aPop !== bPop) return aPop - bPop;
+          return aName.localeCompare(bName);
+        });
+
+        setSeriesData(combined.length > 0 ? combined : listO);
+      } else {
+        const payload = {
+          getModelSeries2: {
+            country: 'ZA',
+            lang: 'en',
+            linkingTargetType: appType,
+            manuId: mfrId,
+            includeAll: true,
+          },
+        };
+        const res = await apiFunction(serviceJsonApi, [], payload, 'POST', false);
+        const list = (
+          res?.data?.array ||
+          res?.getModelSeries2?.array ||
+          res?.data ||
+          []
+        ).map((s) => ({ ...s, linkingTargetType: appType }));
+        setSeriesData(list);
+      }
     } catch (err) {
       console.warn('Failed to load model series', err);
     } finally {
@@ -213,56 +313,24 @@ const PartsFinderScreen = () => {
     }
   };
 
-  const openPicker = (type) => {
-    setModalType(type);
-    setFilterQuery('');
-    setModalVisible(true);
-  };
-
-  const handleSelectManufacturer = (item) => {
-    setSelectedManufacturer(item);
-    setSelectedSeries(null);
-    setModalVisible(false);
-    fetchSeriesForManufacturer(item);
-  };
-
-  const [loadingVehicles, setLoadingVehicles] = useState(false);
-
-  const handleSelectPopularBrand = (item) => {
-    setSelectedManufacturer(item);
-    setSelectedSeries(null);
-    fetchSeriesForManufacturer(item);
-  };
-
-  const handleSelectSeries = (item) => {
-    setSelectedSeries(item);
-    setModalVisible(false);
-  };
-
-  const handleProceedToVehicles = async () => {
-    if (!selectedManufacturer || !selectedSeries) {
-      Toast.show({
-        type: 'error',
-        text1: 'Selection Required',
-        text2: 'Please choose both Manufacturer and Model Series.',
-      });
-      return;
-    }
-
-    const appType =
-      applications.find((a) => a.id === selectedApp)?.type || 'P';
-
-    const mfrId = selectedManufacturer.manuId || selectedManufacturer.id;
-    const seriesId = selectedSeries.modelId || selectedSeries.id;
-
+  // Fetch models/engines when a series is selected
+  const fetchVehiclesForSeries = async (manu, series) => {
+    if (!manu || !series) return;
     setLoadingVehicles(true);
+    const mfrId = resolveManuId(manu);
+    const seriesId = series.modelId || series.id;
+    const seriesType =
+      series.linkingTargetType ||
+      applications.find((a) => a.id === selectedApp)?.type ||
+      'P';
+
     let list = [];
     try {
       const payload = {
         getLinkageTargets: {
           linkageTargetCountry: 'ZA',
           lang: 'en',
-          linkageTargetType: appType,
+          linkageTargetType: seriesType,
           mfrIds: Number(mfrId),
           vehicleModelSeriesIds: Number(seriesId),
           perPage: 100,
@@ -275,7 +343,7 @@ const PartsFinderScreen = () => {
 
       if (!list || list.length === 0) {
         const restRes = await apiFunction(
-          `${vehiclesApi}?mfrId=${mfrId}&seriesId=${seriesId}&type=${appType}`,
+          `${vehiclesApi}?mfrId=${mfrId}&seriesId=${seriesId}&type=${seriesType}`,
           [],
           {},
           'GET',
@@ -283,18 +351,91 @@ const PartsFinderScreen = () => {
         );
         list = restRes?.data?.array || restRes?.data || [];
       }
+
+      const formatted = (list || []).map((v) => ({
+        ...v,
+        linkageTargetType: v.linkageTargetType || seriesType,
+      }));
+
+      setVehiclesData(formatted);
     } catch (err) {
-      console.warn('Failed to pre-fetch vehicles:', err);
+      console.warn('Failed to fetch models for series:', err);
     } finally {
       setLoadingVehicles(false);
-      navigation.navigate('vehiclesListScreen', {
-        selectedApp,
-        appType,
+    }
+  };
+
+  const openPicker = (type) => {
+    setModalType(type);
+    setFilterQuery('');
+    setModalVisible(true);
+  };
+
+  const handleSelectManufacturer = (item) => {
+    const fixed = sanitizeBrand(item);
+    setSelectedManufacturer(fixed);
+    setSelectedSeries(null);
+    setSelectedVehicle(null);
+    setVehiclesData([]);
+    setModalVisible(false);
+    fetchSeriesForManufacturer(fixed);
+  };
+
+  const handleSelectPopularBrand = (item) => {
+    const fixed = sanitizeBrand(item);
+    setSelectedManufacturer(fixed);
+    setSelectedSeries(null);
+    setSelectedVehicle(null);
+    setVehiclesData([]);
+    fetchSeriesForManufacturer(fixed);
+  };
+
+  const handleSelectSeries = (item) => {
+    setSelectedSeries(item);
+    setSelectedVehicle(null);
+    setVehiclesData([]);
+    setModalVisible(false);
+    fetchVehiclesForSeries(selectedManufacturer, item);
+  };
+
+  const handleSelectModel = (item) => {
+    setSelectedVehicle(item);
+    setModalVisible(false);
+  };
+
+  const handleProceedToVehicles = async () => {
+    if (!selectedManufacturer || !selectedSeries) {
+      Toast.show({
+        type: 'error',
+        text1: 'Selection Required',
+        text2: 'Please choose both Manufacturer and Series.',
+      });
+      return;
+    }
+
+    const seriesType =
+      selectedSeries?.linkingTargetType ||
+      applications.find((a) => a.id === selectedApp)?.type ||
+      'P';
+
+    if (selectedVehicle) {
+      navigation.navigate('VerifiedParts', {
+        vehicle: selectedVehicle,
         selectedManufacturer,
         selectedSeries,
-        vehiclesList: list,
+        appType: selectedVehicle.linkageTargetType || seriesType,
       });
+      return;
     }
+
+    // If no specific model selected, navigate to list with pre-fetched vehicles
+    navigation.navigate('vehiclesListScreen', {
+      selectedApp,
+      appType: seriesType,
+      selectedManufacturer,
+      selectedSeries,
+      vehiclesList: vehiclesData,
+    });
   };
 
   const handlePartSearch = async (overrideQuery) => {
@@ -384,11 +525,23 @@ const PartsFinderScreen = () => {
   };
 
   const getFilteredModalList = () => {
-    const list = modalType === 'manufacturer' ? manufacturersData : seriesData;
+    let list = [];
+    if (modalType === 'manufacturer') list = manufacturersData;
+    else if (modalType === 'series') list = seriesData;
+    else if (modalType === 'model') list = vehiclesData;
+
     if (!filterQuery.trim()) return list;
+    const q = filterQuery.toLowerCase();
     return list.filter((item) => {
-      const name = item.manuName || item.modelname || item.name || '';
-      return name.toLowerCase().includes(filterQuery.toLowerCase());
+      const name =
+        item.manuName ||
+        item.modelname ||
+        item.description ||
+        item.typeName ||
+        item.name ||
+        '';
+      const engineCode = item.engines?.[0]?.code || item.engineCode || '';
+      return name.toLowerCase().includes(q) || engineCode.toLowerCase().includes(q);
     });
   };
 
@@ -510,7 +663,7 @@ const PartsFinderScreen = () => {
                 <View style={styles.popularSection}>
                   <View style={styles.popularHeaderRow}>
                     <Text style={styles.inputSectionLabel}>
-                      TOP 9 {selectedApp.toUpperCase()} BRANDS
+                      TOP 9 {selectedApp === 'Passenger' ? 'VEHICLE' : 'COMMERCIAL'} BRANDS
                     </Text>
                   </View>
                   <View style={styles.brandsGrid}>
@@ -531,13 +684,13 @@ const PartsFinderScreen = () => {
                 </View>
               )}
 
-              {/* Step 2: Make & Model Side-by-Side (Single Row) */}
+              {/* Step 2: Make, Series & Model Selectors */}
               <Text style={[styles.inputSectionLabel, { marginTop: 12 }]}>
                 VEHICLE SPECIFICATIONS
               </Text>
 
               <View style={styles.specsRow}>
-                {/* Manufacturer Selector */}
+                {/* 1. Make / Manufacturer Selector */}
                 <TouchableOpacity
                   style={[styles.pickerField, styles.halfPicker]}
                   onPress={() => openPicker('manufacturer')}
@@ -560,7 +713,7 @@ const PartsFinderScreen = () => {
                   <ChevronDown size={14} color="#9CA3AF" />
                 </TouchableOpacity>
 
-                {/* Series Selector */}
+                {/* 2. Series Selector */}
                 <TouchableOpacity
                   style={[
                     styles.pickerField,
@@ -572,7 +725,7 @@ const PartsFinderScreen = () => {
                   activeOpacity={0.75}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.pickerFieldLabel}>Model Series</Text>
+                    <Text style={styles.pickerFieldLabel}>Series</Text>
                     <Text
                       style={[
                         styles.pickerFieldValue,
@@ -582,18 +735,54 @@ const PartsFinderScreen = () => {
                     >
                       {selectedSeries?.modelname ||
                         selectedSeries?.name ||
-                        (selectedManufacturer ? 'Select Model' : 'Choose Make')}
+                        (selectedManufacturer ? 'Select Series' : 'Choose Make')}
                     </Text>
                   </View>
                   <ChevronDown size={14} color="#9CA3AF" />
                 </TouchableOpacity>
               </View>
+
+              {/* 3. Model / Engine Selector (Row 2, full width) */}
+              <TouchableOpacity
+                style={[
+                  styles.pickerField,
+                  { marginTop: 8 },
+                  (!selectedSeries || loadingVehicles) && styles.pickerFieldDisabled,
+                ]}
+                onPress={() => selectedSeries && openPicker('model')}
+                disabled={!selectedSeries || loadingVehicles}
+                activeOpacity={0.75}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pickerFieldLabel}>Model / Engine</Text>
+                  <Text
+                    style={[
+                      styles.pickerFieldValue,
+                      !selectedVehicle && styles.pickerFieldPlaceholder,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {selectedVehicle
+                      ? (selectedVehicle.description || selectedVehicle.typeName || selectedVehicle.modelName)
+                      : (loadingVehicles
+                          ? 'Loading Models & Engines...'
+                          : (selectedSeries
+                              ? (vehiclesData.length > 0 ? `Select Model (${vehiclesData.length} available)` : 'Select Model / Engine')
+                              : 'Choose Series First'))}
+                  </Text>
+                </View>
+                {loadingVehicles ? (
+                  <ActivityIndicator size="small" color="#C6122E" />
+                ) : (
+                  <ChevronDown size={14} color="#9CA3AF" />
+                )}
+              </TouchableOpacity>
             </View>
 
             {/* Bottom CTA Button pinned at the bottom */}
             <View style={styles.vehicleBottomSection}>
               <AppButton
-                title="View Matching Engines & Trims"
+                title={selectedVehicle ? "Search Parts for this Vehicle" : "View Matching Engines & Trims"}
                 rightIcon={<ArrowRight size={16} color="#FFFFFF" />}
                 onPress={handleProceedToVehicles}
                 disabled={!selectedManufacturer || !selectedSeries}
@@ -659,64 +848,220 @@ const PartsFinderScreen = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
+            {/* Top Drag Pill Handle */}
+            <View style={styles.modalHandle} />
+
+            {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {modalType === 'manufacturer'
-                  ? 'Select Manufacturer'
-                  : 'Select Model Series'}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>
+                  {modalType === 'manufacturer'
+                    ? 'Select Make'
+                    : modalType === 'series'
+                    ? 'Select Series'
+                    : 'Select Model / Engine'}
+                </Text>
+                <Text style={styles.modalSubtitle} numberOfLines={1}>
+                  {modalType === 'manufacturer'
+                    ? 'Choose vehicle manufacturer'
+                    : modalType === 'series'
+                    ? (selectedManufacturer?.manuName || selectedManufacturer?.name || 'Choose series family')
+                    : (selectedSeries?.modelname || selectedSeries?.name || 'Choose matching engine trim')}
+                </Text>
+              </View>
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
+                style={styles.modalCloseCircle}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <X size={20} color="#6B7280" />
+                <X size={18} color="#4B5563" />
               </TouchableOpacity>
             </View>
 
             {/* Filter Search Input */}
             <View style={styles.modalSearchBox}>
-              <Search size={16} color="#9CA3AF" />
+              <Search size={16} color="#C6122E" />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Type to filter..."
+                placeholder={
+                  modalType === 'manufacturer'
+                    ? 'Search make (e.g. Toyota, BMW)...'
+                    : modalType === 'series'
+                    ? 'Search series (e.g. Corolla, Hilux)...'
+                    : 'Search trim or engine (e.g. 2.0, N47)...'
+                }
                 placeholderTextColor="#9CA3AF"
                 value={filterQuery}
                 onChangeText={setFilterQuery}
                 autoCapitalize="none"
               />
+              {filterQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setFilterQuery('')}
+                  style={styles.modalSearchClear}
+                >
+                  <X size={14} color="#6B7280" />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* List */}
-            {loadingDropdown ? (
+            {loadingDropdown || (modalType === 'model' && loadingVehicles) ? (
               <View style={styles.modalLoading}>
                 <ActivityIndicator color="#C6122E" size="small" />
-                <Text style={styles.modalLoadingText}>Loading options...</Text>
+                <Text style={styles.modalLoadingText}>Loading automotive catalog...</Text>
               </View>
             ) : (
               <FlatList
                 data={getFilteredModalList()}
                 keyExtractor={(item, idx) =>
-                  String(item.manuId || item.modelId || idx)
+                  String(item.linkageTargetId || item.carId || item.manuId || item.modelId || idx)
                 }
                 keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 16 }}
                 renderItem={({ item }) => {
-                  const label =
-                    item.manuName || item.modelname || item.name || '';
+                  if (modalType === 'model') {
+                    const trimTitle =
+                      (item.description && item.description.trim()) ||
+                      (item.typeName && item.typeName.trim()) ||
+                      (item.vehicleSalesDescription && item.vehicleSalesDescription.trim()) ||
+                      (item.modelName && item.modelName.trim()) ||
+                      (item.vehicleModelSeriesName && item.vehicleModelSeriesName.trim()) ||
+                      (item.engines?.[0]?.code ? `Model ${item.engines[0].code}` : 'Standard Trim');
+
+                    const kw = item.kiloWattsFrom || item.powerKwFrom || item.kw;
+                    const hp = item.horsePowerFrom || item.powerHpFrom || item.hp;
+                    const powerStr = kw && hp ? `${kw} kW / ${hp} HP` : hp ? `${hp} HP` : kw ? `${kw} kW` : null;
+                    const begin = item.beginYearMonth || item.yearOfConstrFrom;
+                    const end = item.endYearMonth || item.yearOfConstrTo || 'Present';
+                    const yearStr = begin ? `${begin} - ${end}` : null;
+                    const engineCode = item.engines?.[0]?.code || item.engineCode;
+                    const isSelected =
+                      selectedVehicle &&
+                      (selectedVehicle.linkageTargetId || selectedVehicle.id) ===
+                        (item.linkageTargetId || item.id);
+
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          styles.modalRowItem,
+                          isSelected && styles.modalRowItemSelected,
+                        ]}
+                        onPress={() => handleSelectModel(item)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{ flex: 1, paddingRight: 8 }}>
+                          <Text style={[styles.modalItemTitle, isSelected && styles.modalItemTitleSelected]}>
+                            {trimTitle}
+                          </Text>
+                          <View style={styles.modalSpecsRow}>
+                            {powerStr && (
+                              <View style={styles.specPill}>
+                                <Text style={styles.specPillText}>{powerStr}</Text>
+                              </View>
+                            )}
+                            {yearStr && (
+                              <View style={styles.specPill}>
+                                <Text style={styles.specPillText}>{yearStr}</Text>
+                              </View>
+                            )}
+                            {engineCode && (
+                              <View style={styles.specPillEngine}>
+                                <Text style={styles.specPillEngineText}>Engine: {engineCode}</Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                        {isSelected ? (
+                          <Check size={18} color="#C6122E" />
+                        ) : (
+                          <ChevronRight size={16} color="#9CA3AF" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  if (modalType === 'series') {
+                    const label = item.modelname || item.name || '';
+                    const isSelected =
+                      selectedSeries &&
+                      (selectedSeries.modelId || selectedSeries.id) ===
+                        (item.modelId || item.id);
+
+                    return (
+                      <TouchableOpacity
+                        style={[
+                          styles.modalRowItem,
+                          isSelected && styles.modalRowItemSelected,
+                        ]}
+                        onPress={() => handleSelectSeries(item)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.modalItemTitle, isSelected && styles.modalItemTitleSelected]}>
+                            {label}
+                          </Text>
+                          {selectedManufacturer?.manuName && (
+                            <Text style={styles.modalItemSubtitle}>
+                              {selectedManufacturer.manuName}
+                            </Text>
+                          )}
+                        </View>
+                        {isSelected ? (
+                          <Check size={18} color="#C6122E" />
+                        ) : (
+                          <ChevronRight size={16} color="#9CA3AF" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  // Default: Manufacturer
+                  const label = item.manuName || item.name || '';
+                  const isSelected =
+                    selectedManufacturer &&
+                    (selectedManufacturer.manuId || selectedManufacturer.id) ===
+                      (item.manuId || item.id);
+
                   return (
                     <TouchableOpacity
-                      style={styles.modalRow}
-                      onPress={() =>
-                        modalType === 'manufacturer'
-                          ? handleSelectManufacturer(item)
-                          : handleSelectSeries(item)
-                      }
+                      style={[
+                        styles.modalRowItem,
+                        isSelected && styles.modalRowItemSelected,
+                      ]}
+                      onPress={() => handleSelectManufacturer(item)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.modalRowText}>{label}</Text>
-                      <Check size={16} color="#C6122E" style={{ opacity: 0 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.modalItemTitle, isSelected && styles.modalItemTitleSelected]}>
+                          {label}
+                        </Text>
+                      </View>
+                      {isSelected ? (
+                        <Check size={18} color="#C6122E" />
+                      ) : (
+                        <ChevronRight size={16} color="#9CA3AF" />
+                      )}
                     </TouchableOpacity>
                   );
                 }}
+                ListEmptyComponent={
+                  <View style={styles.modalEmptyState}>
+                    <Text style={styles.modalEmptyTitle}>
+                      {filterQuery ? 'No matching results' : 'No items available'}
+                    </Text>
+                    <Text style={styles.modalEmptySubtitle}>
+                      {filterQuery
+                        ? `We couldn't find anything matching "${filterQuery}"`
+                        : modalType === 'series'
+                        ? 'No model series found for this manufacturer.'
+                        : modalType === 'model'
+                        ? 'No vehicle trims or engines found.'
+                        : 'No records found.'}
+                    </Text>
+                  </View>
+                }
               />
             )}
           </View>
@@ -947,38 +1292,68 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '75%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '82%',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 10,
+    paddingBottom: 28,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginBottom: 14,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   modalTitle: {
     fontSize: 16,
     fontWeight: '800',
     color: '#111827',
   },
+  modalSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  modalCloseCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
   modalSearchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     paddingHorizontal: 12,
-    height: 40,
+    height: 44,
     marginBottom: 12,
-    gap: 8,
+    gap: 10,
   },
   modalSearchInput: {
     flex: 1,
@@ -986,27 +1361,93 @@ const styles = StyleSheet.create({
     color: '#111827',
     padding: 0,
   },
+  modalSearchClear: {
+    padding: 4,
+  },
   modalLoading: {
-    paddingVertical: 30,
+    paddingVertical: 40,
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   modalLoadingText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
+    fontWeight: '500',
   },
-  modalRow: {
+  modalRowItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  modalRowText: {
+  modalRowItemSelected: {
+    backgroundColor: '#FFF5F5',
+  },
+  modalItemTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#1F2937',
+  },
+  modalItemTitleSelected: {
+    color: '#C6122E',
+    fontWeight: '700',
+  },
+  modalItemSubtitle: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  modalSpecsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  specPill: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  specPillText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#4B5563',
+  },
+  specPillEngine: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  specPillEngineText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#C6122E',
+  },
+  modalEmptyState: {
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalEmptyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  modalEmptySubtitle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
 
