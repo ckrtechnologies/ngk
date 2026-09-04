@@ -121,7 +121,13 @@ const OwnerHomeScreen = () => {
     myself?.garage?.[0] ||
     myself?.cars?.[0] ||
     myself?.vehicleId?.[0] ||
-    null;
+    (myself?.watchList?.find(item => item.article_summary?.make) ? {
+      make: myself.watchList.find(item => item.article_summary?.make).article_summary.make,
+      model: myself.watchList.find(item => item.article_summary?.make).article_summary.model,
+      year: myself.watchList.find(item => item.article_summary?.make).article_summary.year,
+      engine: myself.watchList.find(item => item.article_summary?.make).article_summary.engine,
+      linkageTargetId: myself.watchList.find(item => item.article_summary?.make).article_summary.linkageTargetId || myself.watchList.find(item => item.article_summary?.make).article_summary.carId,
+    } : null);
 
   // Smart Direct Parts Lookup:
   // If registered vehicle has a TecDoc linkageTargetId, navigate directly to VerifiedPartsScreen!
