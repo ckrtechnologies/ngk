@@ -36,6 +36,60 @@ import {
   TickerQuoteIcon,
 } from '../components/icons/HomeIcons';
 
+// Static Live Feature Ticker items (auto-cycles every 3.6s with spring-back animation)
+const TICKER_ITEMS = [
+  {
+    id: 'oem_fit',
+    IconComponent: TickerLiveRadarIcon,
+    themeColor: '#C6122E',
+    badgeBg: '#FEE2E2',
+    countHighlight: '100% Genuine',
+    text: 'OEM spark plugs & coils',
+    highlight: 'Live Fit',
+    route: 'PartsFinder',
+  },
+  {
+    id: 'tecdoc_catalog',
+    IconComponent: TickerCatalogIcon,
+    themeColor: '#2563EB',
+    badgeBg: '#DBEAFE',
+    countHighlight: '50,000+ Parts',
+    text: 'TecDoc Pegasus catalog',
+    highlight: 'Catalog',
+    route: 'PartsFinder',
+  },
+  {
+    id: '360_showroom',
+    IconComponent: Ticker360Icon,
+    themeColor: '#7C3AED',
+    badgeBg: '#EDE9FE',
+    countHighlight: '360° Showroom',
+    text: 'Inspect pins & gap in 3D',
+    highlight: '3D View',
+    route: 'PartsFinder',
+  },
+  {
+    id: 'dealers_nearby',
+    IconComponent: TickerDealerIcon,
+    themeColor: '#D97706',
+    badgeBg: '#FEF3C7',
+    countHighlight: 'Stockists Nearby',
+    text: 'Verified NGK dealers',
+    highlight: 'Dealers',
+    route: 'DealerLocator',
+  },
+  {
+    id: 'tech_quote',
+    IconComponent: TickerQuoteIcon,
+    themeColor: '#059669',
+    badgeBg: '#D1FAE5',
+    countHighlight: 'Direct Support',
+    text: 'Instant technical quotes',
+    highlight: 'Quotes',
+    route: 'MyEnquiries',
+  },
+];
+
 const OwnerHomeScreen = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
@@ -62,60 +116,6 @@ const OwnerHomeScreen = () => {
   }, [fetchInitialData]);
 
   const activeCar = myself?.garage?.[0] || null;
-
-  // Live Feature Ticker items (auto-cycles every 3.6s with spring-back animation)
-  const tickerItems = [
-    {
-      id: 'oem_fit',
-      IconComponent: TickerLiveRadarIcon,
-      themeColor: '#C6122E',
-      badgeBg: '#FEE2E2',
-      countHighlight: '100% Genuine',
-      text: 'OEM spark plugs & coils',
-      highlight: 'Live Fit',
-      route: 'PartsFinder',
-    },
-    {
-      id: 'tecdoc_catalog',
-      IconComponent: TickerCatalogIcon,
-      themeColor: '#2563EB',
-      badgeBg: '#DBEAFE',
-      countHighlight: '50,000+ Parts',
-      text: 'TecDoc Pegasus catalog',
-      highlight: 'Catalog',
-      route: 'PartsFinder',
-    },
-    {
-      id: '360_showroom',
-      IconComponent: Ticker360Icon,
-      themeColor: '#7C3AED',
-      badgeBg: '#EDE9FE',
-      countHighlight: '360° Showroom',
-      text: 'Inspect pins & gap in 3D',
-      highlight: '3D View',
-      route: 'PartsFinder',
-    },
-    {
-      id: 'dealers_nearby',
-      IconComponent: TickerDealerIcon,
-      themeColor: '#D97706',
-      badgeBg: '#FEF3C7',
-      countHighlight: 'Stockists Nearby',
-      text: 'Verified NGK dealers',
-      highlight: 'Dealers',
-      route: 'DealerLocator',
-    },
-    {
-      id: 'tech_quote',
-      IconComponent: TickerQuoteIcon,
-      themeColor: '#059669',
-      badgeBg: '#D1FAE5',
-      countHighlight: 'Direct Support',
-      text: 'Instant technical quotes',
-      highlight: 'Quotes',
-      route: 'MyEnquiries',
-    },
-  ];
 
   // Upgraded Quick Tools with bespoke multi-layered 3D SVG icons
   const quickActions = [
@@ -209,7 +209,7 @@ const OwnerHomeScreen = () => {
       >
         {/* Animated Live Feature Ticker (Fameu Style) */}
         <LiveFeatureTicker
-          items={tickerItems}
+          items={TICKER_ITEMS}
           onItemPress={(item) => {
             if (item.route) navigation.navigate(item.route);
           }}

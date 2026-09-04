@@ -170,6 +170,11 @@ class DealerService {
       );
     }
 
+    // Distance radius filter if user coordinates were provided
+    if (hasCoords && radius && parseFloat(radius) < 1000) {
+      list = list.filter((d) => d.distanceKm <= parseFloat(radius));
+    }
+
     // Sort by distance if user coordinates were provided
     if (hasCoords) {
       list.sort((a, b) => a.distanceKm - b.distanceKm);

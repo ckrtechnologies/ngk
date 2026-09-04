@@ -11,59 +11,81 @@ import { ChevronRight } from 'lucide-react-native';
 
 export default function LiveFeatureTicker({ items, onItemPress }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+
   const translateY = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
   const scale = useRef(new Animated.Value(1)).current;
+  const isTransitioningRef = useRef(false);
+
+  const numItems = items?.length || 0;
 
   useEffect(() => {
-    if (!items || items.length <= 1) return;
+    if (numItems <= 1) return;
+
     const interval = setInterval(() => {
-      // 1. Slide up & fade out
+      if (isTransitioningRef.current) return;
+      isTransitioningRef.current = true;
+
+      // 1. Slide up & fade out smoothly
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: -16,
-          duration: 260,
+          toValue: -12,
+          duration: 220,
           useNativeDriver: true,
-          easing: Easing.out(Easing.ease),
+          easing: Easing.in(Easing.ease),
         }),
         Animated.timing(opacity, {
           toValue: 0,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
-        Animated.timing(scale, {
-          toValue: 0.96,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setCurrentIndex((prev) => (prev + 1) % items.length);
-        translateY.setValue(16);
-        scale.setValue(0.96);
-        // 2. Slide in with spring bounce & fade in
+      ]).start(({ finished }) => {
+        if (!finished) {
+          isTransitioningRef.current = false;
+          return;
+        }
+
+        // Set up starting position for entry
+        translateY.setValue(12);
+        scale.setValue(0.97);
+
+        // Advance to next item
+        setCurrentIndex((prev) => {
+          const currentCount = itemsRef.current?.length || 1;
+          return (prev + 1) % currentCount;
+        });
+
+        // 2. Slide in buttery smooth & fade in
         Animated.parallel([
           Animated.timing(translateY, {
             toValue: 0,
-            duration: 340,
+            duration: 280,
             useNativeDriver: true,
-            easing: Easing.out(Easing.back(1.4)),
+            easing: Easing.out(Easing.cubic),
           }),
           Animated.timing(opacity, {
             toValue: 1,
-            duration: 260,
+            duration: 240,
             useNativeDriver: true,
           }),
           Animated.timing(scale, {
             toValue: 1,
-            duration: 300,
+            duration: 260,
             useNativeDriver: true,
           }),
-        ]).start();
+        ]).start(() => {
+          isTransitioningRef.current = false;
+        });
       });
-    }, 3600);
+    }, 3800);
 
-    return () => clearInterval(interval);
-  }, [items, translateY, opacity, scale]);
+    return () => {
+      clearInterval(interval);
+      isTransitioningRef.current = false;
+    };
+  }, [numItems, translateY, opacity, scale]);
 
   if (!items || items.length === 0) return null;
 
@@ -82,12 +104,7 @@ export default function LiveFeatureTicker({ items, onItemPress }) {
     <TouchableOpacity
       activeOpacity={0.88}
       onPress={handlePress}
-      style={[
-        styles.tickerContainer,
-        {
-          borderColor: (currentItem.themeColor || '#C6122E') + '35',
-        },
-      ]}
+      style={styles.tickerContainer}
     >
       <View style={styles.tickerContent}>
         <Animated.View
@@ -168,13 +185,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 16,
-    borderWidth: 1.2,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
     marginBottom: 14,
   },
   tickerContent: {
