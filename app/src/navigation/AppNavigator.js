@@ -2,8 +2,13 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet } from 'react-native';
-import { Home, Search, MessageSquare, ShoppingBag } from 'lucide-react-native';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import {
+  PortalTabIcon,
+  SearchTabIcon,
+  EnquiriesTabIcon,
+  DealersTabIcon,
+} from '../components/icons/NavigationTabIcons';
 
 import SplashScreen from '../screens/SplashScreen';
 import RoleSelectionScreen from '../screens/RoleSelectionScreen';
@@ -45,11 +50,11 @@ const BottomTabNavigator = () => {
         tabBarActiveTintColor: '#FFFFFF',
         tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarIcon: ({ color, size }) => {
-          if (route.name === 'Portal') return <Home size={size} color={color} />;
-          if (route.name === 'Search') return <Search size={size} color={color} />;
-          if (route.name === 'Enquiries') return <MessageSquare size={size} color={color} />;
-          if (route.name === 'Dealers') return <ShoppingBag size={size} color={color} />;
+        tabBarIcon: ({ size, focused }) => {
+          if (route.name === 'Portal') return <PortalTabIcon focused={focused} size={size || 24} />;
+          if (route.name === 'Search') return <SearchTabIcon focused={focused} size={size || 24} />;
+          if (route.name === 'Enquiries') return <EnquiriesTabIcon focused={focused} size={size || 24} />;
+          if (route.name === 'Dealers') return <DealersTabIcon focused={focused} size={size || 24} />;
         },
       })}
     >

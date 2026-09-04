@@ -10,6 +10,187 @@ import Svg, {
   Line,
 } from 'react-native-svg';
 
+// 0. HOME DASHBOARD 3D ICON - Automotive HQ & Digital Tachometer Gateway
+export function HomeDashboard3DIcon({ size = 32, ...props }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none" {...props}>
+      <Defs>
+        <LinearGradient id="homeRoofGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#F87171" />
+          <Stop offset="50%" stopColor="#DC2626" />
+          <Stop offset="100%" stopColor="#991B1B" />
+        </LinearGradient>
+        <LinearGradient id="homeBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#FFFFFF" />
+          <Stop offset="100%" stopColor="#F1F5F9" />
+        </LinearGradient>
+        <LinearGradient id="speedDialGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#38BDF8" />
+          <Stop offset="100%" stopColor="#0284C7" />
+        </LinearGradient>
+      </Defs>
+
+      {/* Ground Foundation Shadow */}
+      <Path
+        d="M8 42h32"
+        stroke="#E2E8F0"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+
+      {/* Main 3D Beveled House / Automotive HQ Body */}
+      <Path
+        d="M10 21v18a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3V21l-14-11-14 11z"
+        fill="url(#homeBodyGrad)"
+        stroke="#CBD5E1"
+        strokeWidth="1.5"
+      />
+
+      {/* 3D Aerodynamic Crimson Roof Crest */}
+      <Path
+        d="M24 6l18 14.5a1.5 1.5 0 0 1-.9 2.5H38v-2L24 9.5 10 21v2H6.9a1.5 1.5 0 0 1-.9-2.5L24 6z"
+        fill="url(#homeRoofGrad)"
+      />
+      {/* Roof Specular Glare */}
+      <Path
+        d="M24 8l13 10.5"
+        stroke="#FFFFFF"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeOpacity="0.6"
+      />
+
+      {/* Central Tachometer / Gateway Core Arch */}
+      <Path
+        d="M17 42V28a7 7 0 0 1 14 0v14"
+        fill="#0F172A"
+      />
+
+      {/* Tachometer Glow Gauge Dial */}
+      <Path
+        d="M20 28a4 4 0 0 1 8 0"
+        stroke="url(#speedDialGrad)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      {/* High-Performance Redline Indicator */}
+      <Path
+        d="M27 26a4 4 0 0 1 1 2"
+        stroke="#EF4444"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+
+      {/* Speedometer Needle pointing to peak power */}
+      <Line
+        x1="24"
+        y1="28"
+        x2="26.5"
+        y2="25"
+        stroke="#F59E0B"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <Circle cx="24" cy="28" r="1.8" fill="#FFFFFF" />
+
+      {/* NGK Spark Core / Ignition LED */}
+      <Circle cx="24" cy="15" r="2.5" fill="#EF4444" />
+      <Circle cx="24" cy="15" r="1" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+// 0.1 USER PROFILE / TECHNICIAN AVATAR 3D ICON
+export function DrawerAvatar3DIcon({ size = 36, ...props }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none" {...props}>
+      <Defs>
+        <LinearGradient id="helmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#EF4444" />
+          <Stop offset="60%" stopColor="#C6122E" />
+          <Stop offset="100%" stopColor="#880B1F" />
+        </LinearGradient>
+        <LinearGradient id="visorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#1E293B" />
+          <Stop offset="100%" stopColor="#0F172A" />
+        </LinearGradient>
+        <LinearGradient id="visorGlint" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#38BDF8" stopOpacity="0.8" />
+          <Stop offset="100%" stopColor="#0284C7" stopOpacity="0.1" />
+        </LinearGradient>
+      </Defs>
+
+      {/* Outer Glow Disc */}
+      <Circle cx="24" cy="24" r="23" fill="#FEF2F2" stroke="#FECACA" strokeWidth="1" />
+
+      {/* Technician / Racing Driver Helmet Silhouette */}
+      <Path
+        d="M24 7c-9 0-15 6.5-15 15.5 0 5 2.5 9.5 6 12v3.5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3.5c3.5-2.5 6-7 6-12C39 13.5 33 7 24 7z"
+        fill="url(#helmGrad)"
+      />
+
+      {/* Visor Area */}
+      <Path
+        d="M13 20h22c1 0 1.8.8 1.5 1.8l-1.5 5c-.4 1.2-1.5 2.2-2.8 2.2H15.8c-1.3 0-2.4-1-2.8-2.2l-1.5-5c-.3-1 .5-1.8 1.5-1.8z"
+        fill="url(#visorGrad)"
+      />
+      {/* Visor Aerodynamic Reflection Glint */}
+      <Path
+        d="M15 22h14l-2 4h-14l2-4z"
+        fill="url(#visorGlint)"
+      />
+
+      {/* Chrome Chin Intake Vent */}
+      <Rect x="20" y="32" width="8" height="2" rx="1" fill="#FFFFFF" opacity="0.9" />
+      <Line x1="22" y1="36" x2="26" y2="36" stroke="#FFFFFF" strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
+
+      {/* Top Specular Glint */}
+      <Path
+        d="M19 10c2-1 4-1.5 6-1.5"
+        stroke="#FFFFFF"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeOpacity="0.7"
+      />
+    </Svg>
+  );
+}
+
+// 0.2 SIGN OUT 3D ICON
+export function DrawerSignOut3DIcon({ size = 20, ...props }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
+      <Defs>
+        <LinearGradient id="exitArrowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#EF4444" />
+          <Stop offset="100%" stopColor="#B91C1C" />
+        </LinearGradient>
+      </Defs>
+      {/* Door Frame */}
+      <Path
+        d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"
+        stroke="#DC2626"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      {/* Dynamic Directional Arrow with Gradient */}
+      <Path
+        d="M14 8l5 4-5 4"
+        stroke="url(#exitArrowGrad)"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M7 12h12"
+        stroke="url(#exitArrowGrad)"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 // 1. FIND PARTS 3D ICON - Precision Spark Plug + Optic Search Lens
 export function FindParts3DIcon({ size = 32, ...props }) {
   return (
