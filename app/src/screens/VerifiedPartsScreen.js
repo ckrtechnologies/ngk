@@ -341,11 +341,17 @@ const VerifiedPartsScreen = () => {
 
   const handleOpenSpecs = (item) => {
     setSelectedPart(item);
-    setActiveMediaTab('3d');
+    const allImgs = item?.images || item?.raw?.images || item?.articleMedia || [];
+    const has360 = allImgs.some(
+      (img) =>
+        img.fileName?.toLowerCase()?.includes('360') ||
+        img.headerDescription?.toLowerCase()?.includes('360')
+    );
+    setActiveMediaTab(has360 ? '3d' : 'photo');
     setSelectedImageIndex(0);
     setRotationY(0);
     setZoomScale(1);
-    setIsAutoSpinning(true);
+    setIsAutoSpinning(has360);
     setSpecsModalVisible(true);
   };
 
@@ -416,13 +422,16 @@ const VerifiedPartsScreen = () => {
       !img.headerDescription?.toLowerCase()?.includes('360')
   );
 
+  // Prioritize already cached 400px image for instant 0ms render without flicker,
+  // falling back gracefully to 800px or 200px.
   const activeImageUrl =
     activeMediaTab === '3d' && gif360
-      ? gif360.imageURL800 || gif360.imageURL400 || gif360.imageURL200
-      : regularImages[selectedImageIndex]?.imageURL800 ||
-        regularImages[selectedImageIndex]?.imageURL400 ||
+      ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200
+      : regularImages[selectedImageIndex]?.imageURL400 ||
+        regularImages[selectedImageIndex]?.imageURL800 ||
+        regularImages[selectedImageIndex]?.imageURL200 ||
+        getPartImage(selectedPart) ||
         selectedPart?.imageUrl ||
-        allImages[0]?.imageURL800 ||
         allImages[0]?.imageURL400 ||
         null;
 
@@ -971,6 +980,7 @@ const VerifiedPartsScreen = () => {
         visible={specsModalVisible}
         animationType="slide"
         presentationStyle="fullScreen"
+        statusBarTranslucent={true}
         onRequestClose={() => setSpecsModalVisible(false)}
       >
         <View
@@ -982,7 +992,7 @@ const VerifiedPartsScreen = () => {
             },
           ]}
         >
-          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
 
           {/* Top Modal Navigation Header - Clean Light Theme */}
           <View style={styles.modalHeaderLight}>
@@ -1020,30 +1030,32 @@ const VerifiedPartsScreen = () => {
               {/* Media Mode Switcher (360° 3D vs HD Photo) */}
               <View style={styles.showroomControlsLight}>
                 <View style={styles.mediaToggleBoxLight}>
-                  <TouchableOpacity
-                    style={[
-                      styles.mediaToggleBtnLight,
-                      activeMediaTab === '3d' && styles.mediaToggleBtnActiveLight,
-                    ]}
-                    onPress={() => {
-                      setActiveMediaTab('3d');
-                      setIsAutoSpinning(true);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <RotateCw
-                      size={13}
-                      color={activeMediaTab === '3d' ? '#FFFFFF' : '#4B5563'}
-                    />
-                    <Text
+                  {gif360 ? (
+                    <TouchableOpacity
                       style={[
-                        styles.mediaToggleTextLight,
-                        activeMediaTab === '3d' && styles.mediaToggleTextActiveLight,
+                        styles.mediaToggleBtnLight,
+                        activeMediaTab === '3d' && styles.mediaToggleBtnActiveLight,
                       ]}
+                      onPress={() => {
+                        setActiveMediaTab('3d');
+                        setIsAutoSpinning(true);
+                      }}
+                      activeOpacity={0.8}
                     >
-                      360° 3D Model
-                    </Text>
-                  </TouchableOpacity>
+                      <RotateCw
+                        size={13}
+                        color={activeMediaTab === '3d' ? '#FFFFFF' : '#4B5563'}
+                      />
+                      <Text
+                        style={[
+                          styles.mediaToggleTextLight,
+                          activeMediaTab === '3d' && styles.mediaToggleTextActiveLight,
+                        ]}
+                      >
+                        360° 3D Model
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
 
                   <TouchableOpacity
                     style={[
@@ -1067,12 +1079,12 @@ const VerifiedPartsScreen = () => {
                         activeMediaTab === 'photo' && styles.mediaToggleTextActiveLight,
                       ]}
                     >
-                      HD Photo
+                      {regularImages.length > 1 ? `HD Photos (${regularImages.length})` : 'HD Photo'}
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                {activeMediaTab === '3d' && (
+                {activeMediaTab === '3d' && gif360 && (
                   <View style={styles.active3DBadgeLight}>
                     <RotateCw size={11} color="#059669" />
                     <Text style={styles.active3DBadgeTextLight}>
@@ -1085,11 +1097,11 @@ const VerifiedPartsScreen = () => {
               {/* Touch-to-Rotate 360 Product Stage / HD Static Photo Stage */}
               <View style={styles.viewportCenterLight}>
                 <Product360Viewer
-                  isStatic={activeMediaTab === 'photo'}
-                  gifUrl={activeMediaTab === '3d' && gif360 ? gif360.imageURL800 || gif360.imageURL400 || gif360.imageURL200 : null}
+                  isStatic={activeMediaTab === 'photo' || !gif360}
+                  gifUrl={activeMediaTab === '3d' && gif360 ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200 : null}
                   staticImageUrl={activeImageUrl}
                   angle={activeMediaTab === '3d' ? rotationY : 0}
-                  isAutoSpinning={activeMediaTab === '3d' && isAutoSpinning}
+                  isAutoSpinning={activeMediaTab === '3d' && gif360 && isAutoSpinning}
                   zoomScale={zoomScale}
                   onAngleChange={(deg) => setRotationY(deg)}
                   onAutoSpinChange={(spinning) => setIsAutoSpinning(spinning)}
@@ -1098,7 +1110,7 @@ const VerifiedPartsScreen = () => {
               </View>
 
               {/* Interactive 3D Control Strip */}
-              {activeMediaTab === '3d' && (
+              {activeMediaTab === '3d' && gif360 && (
                 <View style={styles.interactive3DToolbar}>
                   <View style={styles.dragHintBox}>
                     <Text style={styles.dragHintText}>

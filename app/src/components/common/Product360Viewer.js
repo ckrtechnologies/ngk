@@ -78,9 +78,20 @@ const Product360Viewer = ({
         const res = await apiFunction(endpoint, [], {}, 'GET');
         const framesList = res?.frames || res?.data?.frames || res?.data?.data?.frames;
         if (isMounted && Array.isArray(framesList) && framesList.length > 0) {
-          setFrames(framesList);
-          setCurrentFrame(0);
-          setLoading(false);
+          // Pre-cache first 4 frames so there is ZERO flicker when switching to frames
+          Promise.all(
+            framesList.slice(0, 4).map((f) => Image.prefetch(f).catch(() => {}))
+          ).finally(() => {
+            if (isMounted) {
+              setFrames(framesList);
+              setCurrentFrame(0);
+              setLoading(false);
+            }
+          });
+          // Background prefetch the rest of the frames
+          setTimeout(() => {
+            framesList.slice(4).forEach((f) => Image.prefetch(f).catch(() => {}));
+          }, 250);
           return;
         }
       } catch (err) {
@@ -110,18 +121,18 @@ const Product360Viewer = ({
   }, [angle, isAutoSpinning, isStatic, frames.length]);
 
   // Auto-Spin animation loop (only for 360 mode)
-  // Cleanly updates internal frame without calling parent setState inside reducer
+  // Runs smoothly at 90ms intervals once frames are ready
   useEffect(() => {
     let timer = null;
-    if (!isStatic && isAutoSpinning && frames.length > 1) {
+    if (!isStatic && isAutoSpinning && !loading && frames.length > 1) {
       timer = setInterval(() => {
         setCurrentFrame((prev) => (prev + 1) % frames.length);
-      }, 50);
+      }, 90);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isAutoSpinning, isStatic, frames.length]);
+  }, [isAutoSpinning, isStatic, loading, frames.length]);
 
   // Helper: calculate distance between two touches for pinch-to-zoom
   const getTouchDistance = (touches) => {
@@ -225,15 +236,16 @@ const Product360Viewer = ({
   );
 
   // In static mode, ALWAYS show staticImageUrl; in 360 mode, show frames or fallback
+  const fallbackUri = staticImageUrl || gifUrl;
   const displayUri = isStatic
-    ? staticImageUrl || gifUrl
+    ? fallbackUri
     : frames.length > 0 && frames[currentFrame]
     ? frames[currentFrame]
-    : staticImageUrl || gifUrl;
+    : fallbackUri;
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
-      {displayUri ? (
+      {fallbackUri || displayUri ? (
         <Animated.View
           style={[
             styles.imageWrap,
@@ -246,11 +258,23 @@ const Product360Viewer = ({
             },
           ]}
         >
-          <Image
-            source={{ uri: displayUri }}
-            style={styles.productImage}
-            resizeMode="contain"
-          />
+          {/* Underlayer: persistent cached fallback so stage NEVER flashes blank white */}
+          {fallbackUri && fallbackUri !== displayUri ? (
+            <Image
+              source={{ uri: fallbackUri }}
+              style={[styles.productImage, styles.baseImageUnderlay]}
+              resizeMode="contain"
+            />
+          ) : null}
+
+          {/* Active display frame */}
+          {displayUri ? (
+            <Image
+              source={{ uri: displayUri }}
+              style={styles.productImage}
+              resizeMode="contain"
+            />
+          ) : null}
         </Animated.View>
       ) : (
         <View style={styles.centerBox}>
@@ -311,6 +335,9 @@ const styles = StyleSheet.create({
   productImage: {
     width: '88%',
     height: '88%',
+  },
+  baseImageUnderlay: {
+    position: 'absolute',
   },
 });
 
