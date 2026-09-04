@@ -175,6 +175,20 @@ const UserManagement = () => {
     });
   };
 
+  const handleToggleApproval = (user, approve) => {
+    dispatch(
+      updateUser({
+        id: user.id,
+        userData: {
+          is_approved: approve,
+          approval_status: approve ? 'approved' : 'rejected',
+        },
+      })
+    ).then((res) => {
+      if (!res.error) dispatch(fetchUsers());
+    });
+  };
+
   // Format creation timestamp
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
@@ -191,7 +205,7 @@ const UserManagement = () => {
     {
       key: 'user',
       label: 'User Profile',
-      width: '28%',
+      width: '26%',
       render: (row) => {
         const initials = row.name ? row.name.charAt(0).toUpperCase() : 'U';
         return (
@@ -215,13 +229,52 @@ const UserManagement = () => {
     {
       key: 'role',
       label: 'Assigned Role',
-      width: '14%',
+      width: '12%',
       render: (row) => <RoleBadge role={row.role} />,
+    },
+    {
+      key: 'approval',
+      label: 'Status / Live',
+      width: '16%',
+      render: (row) => {
+        const role = (row.role || '').toLowerCase();
+        if (role === 'owner' || role === 'admin') {
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+              Verified User
+            </span>
+          );
+        }
+        const approved = row.is_approved === true || row.approval_status === 'approved';
+        const rejected = row.approval_status === 'rejected';
+
+        if (approved) {
+          return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              Live & Approved
+            </span>
+          );
+        }
+        if (rejected) {
+          return (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+              <AlertTriangle className="w-3 h-3 text-rose-600" />
+              Rejected
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-300 animate-pulse">
+            Review Pending
+          </span>
+        );
+      },
     },
     {
       key: 'phone',
       label: 'Contact',
-      width: '16%',
+      width: '14%',
       render: (row) => (
         <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
           <Phone className="w-3 h-3 text-slate-400" />
@@ -232,7 +285,7 @@ const UserManagement = () => {
     {
       key: 'address',
       label: 'Location / City',
-      width: '24%',
+      width: '18%',
       render: (row) => (
         <div className="text-xs font-medium text-slate-600 truncate flex items-center gap-1.5" title={row.address}>
           <MapPin className="w-3 h-3 text-slate-400 flex-shrink-0" />
@@ -241,38 +294,54 @@ const UserManagement = () => {
       ),
     },
     {
-      key: 'created_at',
-      label: 'Joined Date',
-      width: '10%',
-      render: (row) => (
-        <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">
-          {formatDate(row.created_at)}
-        </span>
-      ),
-    },
-    {
       key: 'actions',
       label: 'Actions',
       align: 'right',
-      width: '8%',
-      render: (row) => (
-        <div className="flex items-center justify-end gap-1">
-          <button
-            onClick={() => handleOpenUpdate(row)}
-            className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
-            title="Edit User"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => handleOpenDelete(row)}
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-            title="Delete User"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
+      width: '14%',
+      render: (row) => {
+        const role = (row.role || '').toLowerCase();
+        const isCommercial = role === 'reseller' || role === 'distributor';
+        const isApproved = row.is_approved === true || row.approval_status === 'approved';
+
+        return (
+          <div className="flex items-center justify-end gap-1">
+            {isCommercial && (
+              !isApproved ? (
+                <button
+                  onClick={() => handleToggleApproval(row, true)}
+                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-extrabold flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                  title="Approve Dealer to Go Live"
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  Approve
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleToggleApproval(row, false)}
+                  className="px-2 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded text-[10px] font-bold cursor-pointer transition-colors border border-slate-200"
+                  title="Suspend Dealer"
+                >
+                  Suspend
+                </button>
+              )
+            )}
+            <button
+              onClick={() => handleOpenUpdate(row)}
+              className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+              title="Edit User"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => handleOpenDelete(row)}
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+              title="Delete User"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      },
     },
   ];
 

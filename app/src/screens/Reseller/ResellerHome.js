@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import {
   MapPin,
   Clock,
   CheckCircle2,
-  ChevronRight,
   TrendingUp,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -35,13 +34,13 @@ const ResellerHomeScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     const userId = await AsyncStorage.getItem('userId');
     if (userId) {
       dispatch(getMyselfRedux(userId));
       dispatch(getEnquiryRedux(userId));
     }
-  };
+  }, [dispatch]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -51,7 +50,7 @@ const ResellerHomeScreen = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [dispatch]);
+  }, [fetchDashboardData]);
 
   const pendingCount =
     enquiry?.filter((e) => (e.status || 'Pending').toLowerCase() === 'pending')
@@ -155,6 +154,21 @@ const ResellerHomeScreen = () => {
             {myself?.name ? myself.name : 'Workshop Partner'}
           </Text>
         </View>
+
+        {/* Account Approval Review Banner */}
+        {myself && (myself.is_approved === false || myself.approval_status === 'pending_approval') && (
+          <View style={styles.reviewBanner}>
+            <View style={styles.reviewBannerIconBox}>
+              <Clock size={16} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reviewBannerTitle}>Trade Account Under Review</Text>
+              <Text style={styles.reviewBannerDesc}>
+                Your reseller profile is pending NGK Admin verification. Live customer parts queries will activate once approved.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* KPI Metric Chips */}
         <View style={styles.kpiRow}>
@@ -360,6 +374,37 @@ const styles = StyleSheet.create({
   tileSubtitle: {
     fontSize: 11,
     color: '#6B7280',
+    lineHeight: 15,
+  },
+  reviewBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  reviewBannerIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#FDE68A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  reviewBannerTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  reviewBannerDesc: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 2,
     lineHeight: 15,
   },
 });

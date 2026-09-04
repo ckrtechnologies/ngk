@@ -61,6 +61,8 @@ class UserService {
     user.watchlist = watchlistRows || [];
     user.searchHistory = [];
     user.notifications = notificationRows || [];
+    user.is_approved = user.is_approved !== undefined ? user.is_approved : (user.role === 'owner');
+    user.approval_status = user.approval_status || (user.role === 'owner' ? 'approved' : 'pending_approval');
 
     return user;
   }
@@ -68,7 +70,7 @@ class UserService {
   async getAllUsers(role = null) {
     let query = supabase
       .from('users')
-      .select('id, name, email, role, address, phone, created_at, updated_at')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (role && role.toUpperCase() !== 'ALL') {
@@ -76,7 +78,11 @@ class UserService {
     }
     const { data, error } = await query;
     if (error) throw new Error(error.message || 'Failed to fetch users');
-    return data || [];
+    return (data || []).map(u => ({
+      ...u,
+      is_approved: u.is_approved !== undefined ? u.is_approved : (u.role === 'owner'),
+      approval_status: u.approval_status || (u.role === 'owner' ? 'approved' : 'pending_approval'),
+    }));
   }
 
   async updateUser(id, updateFields) {
@@ -147,17 +153,83 @@ class UserService {
       }
     }
 
+    // 6. Admin Approval & Verification fields
+    if (updateFields.is_approved !== undefined) {
+      payload.is_approved = Boolean(updateFields.is_approved);
+      if (payload.is_approved) {
+        payload.approved_at = new Date().toISOString();
+        payload.approval_status = 'approved';
+      }
+    }
+
+    if (updateFields.approval_status !== undefined) {
+      const cleanStatus = String(updateFields.approval_status).trim().toLowerCase();
+      const validStatuses = ['pending_approval', 'approved', 'rejected', 'suspended'];
+      if (validStatuses.includes(cleanStatus)) {
+        payload.approval_status = cleanStatus;
+        if (cleanStatus === 'approved') {
+          payload.is_approved = true;
+          payload.approved_at = new Date().toISOString();
+        } else if (cleanStatus === 'rejected' || cleanStatus === 'suspended') {
+          payload.is_approved = false;
+        }
+      }
+    }
+
+    if (updateFields.rejection_reason !== undefined) {
+      payload.rejection_reason = updateFields.rejection_reason ? String(updateFields.rejection_reason).trim() : null;
+    }
+
     const { data, error } = await supabase
       .from('users')
       .update(payload)
       .eq('id', id)
-      .select('id, name, email, role, address, phone, created_at, updated_at');
+      .select('*');
 
-    if (error) throw new Error(error.message || 'Failed to update user');
-    if (!data || data.length === 0) throw new Error('User not found');
+    if (error) {
+      // If error is due to missing columns before migration, retry with core fields only
+      console.warn('Update user failed with full payload, trying core fields:', error.message);
+      const corePayload = {
+        name: payload.name,
+        email: payload.email,
+        role: payload.role,
+        phone: payload.phone,
+        address: payload.address,
+        updated_at: payload.updated_at,
+      };
+      // Remove undefined keys
+      Object.keys(corePayload).forEach(k => corePayload[k] === undefined && delete corePayload[k]);
+      const { error: coreError } = await supabase.from('users').update(corePayload).eq('id', id);
+      if (coreError) throw new Error(coreError.message || 'Failed to update user');
+    }
+
+    // Synchronize dealers table is_live with user is_approved
+    if (payload.is_approved !== undefined) {
+      try {
+        await supabase
+          .from('dealers')
+          .update({ is_live: payload.is_approved })
+          .eq('user_id', id);
+
+        // Send push/in-app notification to the user
+        const notifMsg = payload.is_approved
+          ? 'Congratulations! Your business account has been approved by NGK Admin. You are now live to receive customer parts queries.'
+          : 'Your NGK dealer account status has been updated by administration.';
+
+        await supabase.from('notifications').insert({
+          user_id: id,
+          message: notifMsg,
+          event_type: 'account_approval',
+          metadata: { is_approved: payload.is_approved, approval_status: payload.approval_status },
+        });
+      } catch (syncErr) {
+        console.warn('Failed to sync dealer live status / notification:', syncErr.message);
+      }
+    }
 
     // Return full hydrated user object with garage, watchlist, notifications
     const fullUser = await this.getUserById(id);
+    return fullUser;
     return fullUser;
   }
 

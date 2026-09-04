@@ -1,4 +1,5 @@
 import supabase from '../../config/supabase.js';
+import dealerService from '../dealer/dealer.service.js';
 
 class EnquiryService {
   /**
@@ -10,7 +11,27 @@ class EnquiryService {
       throw new Error('User ID is required to create an enquiry');
     }
 
-    const dealer = payload.dealerId || payload.dealer_id || payload.dealer || null;
+    let dealer = payload.dealerId || payload.dealer_id || payload.dealer || null;
+    const userLat = payload.userLat || payload.lat || payload.latitude;
+    const userLon = payload.userLon || payload.lon || payload.longitude;
+
+    // Auto-match closest approved dealer via Haversine / PostGIS if no specific dealer selected
+    if (!dealer && userLat && userLon) {
+      try {
+        const nearby = await dealerService.getDealers({
+          userLat,
+          userLon,
+          radius: 50,
+          includeUnapproved: false,
+        });
+        if (nearby && nearby.length > 0) {
+          dealer = nearby[0].userId || nearby[0].id;
+        }
+      } catch (err) {
+        console.warn('Auto-matching nearest dealer failed, continuing without dealer:', err.message);
+      }
+    }
+
     const title =
       payload.title ||
       (payload.partName ? `${payload.partName}${payload.partNumber ? ` (${payload.partNumber})` : ''}`.trim() : null) ||
@@ -33,6 +54,11 @@ class EnquiryService {
       payload.vehicle?.imageurl ||
       null;
 
+    const partReference = {
+      ...(payload.vehicle || payload),
+      requesterLocation: userLat && userLon ? { latitude: userLat, longitude: userLon } : null,
+    };
+
     // 1. Insert into normalized enquiries table
     const { data: newEnquiry, error: enquiryError } = await supabase
       .from('enquiries')
@@ -43,7 +69,7 @@ class EnquiryService {
         description: description,
         quantity: quantity,
         image_url: finalImageUrl,
-        part_reference: payload.vehicle || payload,
+        part_reference: partReference,
         status: 'Pending',
       })
       .select()

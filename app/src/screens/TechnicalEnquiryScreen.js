@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -21,10 +21,11 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { apiFunction } from '../apis/apiFunction';
-import { addEnquiryApi, uploadApi } from '../apis/api';
+import { addEnquiryApi, uploadApi, dealersApi } from '../apis/api';
 import { useDispatch, useSelector } from 'react-redux';
 import { getUsersRedux } from '../redux/getData';
 import { launchImageLibrary } from 'react-native-image-picker';
+import Geolocation from '@react-native-community/geolocation';
 import ScreenContainer from '../components/common/ScreenContainer';
 import AppHeader from '../components/common/AppHeader';
 import AppInput from '../components/common/AppInput';
@@ -46,6 +47,8 @@ const TechnicalEnquiryScreen = () => {
   const [quantity, setQuantity] = useState(1);
   const [enquiryDetails, setEnquiryDetails] = useState('');
   const [loading, setLoading] = useState(false);
+  const [stockists, setStockists] = useState([]);
+  const [userCoords, setUserCoords] = useState(null);
   const [selectedDealerId, setSelectedDealerId] = useState(
     passedDealerId || passedDealer?.id || null
   );
@@ -58,11 +61,52 @@ const TechnicalEnquiryScreen = () => {
   const [imageUri, setImageUri] = useState(null);
   const [imageObj, setImageObj] = useState(null);
 
+  const loadStockists = useCallback(async () => {
+    Geolocation.getCurrentPosition(
+      async (pos) => {
+        const coords = { userLat: pos.coords.latitude, userLon: pos.coords.longitude };
+        setUserCoords(coords);
+        try {
+          const res = await apiFunction(dealersApi, [], coords, 'GET', false);
+          const list = res?.dealers || [];
+          if (list.length > 0) {
+            setStockists(list);
+            if (!selectedDealerId) {
+              const nearest = list[0];
+              setSelectedDealerId(nearest.userId || nearest.dealerId || nearest.id);
+              setSelectedDealerName(nearest.name || nearest.companyName);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to fetch nearby stockists with GPS:', err);
+        }
+      },
+      async () => {
+        // Fallback without coordinates
+        try {
+          const res = await apiFunction(dealersApi, [], {}, 'GET', false);
+          const list = res?.dealers || [];
+          if (list.length > 0) {
+            setStockists(list);
+            if (!selectedDealerId) {
+              setSelectedDealerId(list[0].userId || list[0].id);
+              setSelectedDealerName(list[0].name || list[0].companyName);
+            }
+          }
+        } catch (err) {
+          console.warn('Fallback dealer fetch failed:', err);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [selectedDealerId]);
+
   useEffect(() => {
     if (!users || users.length === 0) {
       dispatch(getUsersRedux());
     }
-  }, [dispatch, users]);
+    loadStockists();
+  }, [dispatch, loadStockists, users]);
 
   const resellers = (users || []).filter(
     (u) =>
@@ -70,23 +114,19 @@ const TechnicalEnquiryScreen = () => {
       u.role?.toLowerCase() === 'distributor'
   );
 
-  // Sync dealer name from users list if ID was passed without name
+  const candidateDealers = stockists.length > 0 ? stockists : resellers;
+
+  // Sync dealer name from candidate list if ID was passed without name
   useEffect(() => {
-    if (selectedDealerId && !selectedDealerName && resellers.length > 0) {
-      const found = resellers.find((r) => r.id === selectedDealerId);
+    if (selectedDealerId && !selectedDealerName && candidateDealers.length > 0) {
+      const found = candidateDealers.find(
+        (r) => (r.userId || r.dealerId || r.id) === selectedDealerId
+      );
       if (found) {
         setSelectedDealerName(found.name || found.companyName || found.email);
       }
     }
-  }, [resellers, selectedDealerId, selectedDealerName]);
-
-  // Auto-select first reseller ONLY if none was passed from previous screen
-  useEffect(() => {
-    if (!selectedDealerId && resellers.length > 0) {
-      setSelectedDealerId(resellers[0].id);
-      setSelectedDealerName(resellers[0].name || resellers[0].companyName || resellers[0].email);
-    }
-  }, [resellers, selectedDealerId]);
+  }, [candidateDealers, selectedDealerId, selectedDealerName]);
 
   const handleImagePick = async () => {
     const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
@@ -168,6 +208,8 @@ const TechnicalEnquiryScreen = () => {
         carName: carName,
         imageUrl: uploadedImageUrl,
         imageurl: uploadedImageUrl,
+        userLat: userCoords?.userLat || null,
+        userLon: userCoords?.userLon || null,
         vehicle: {
           title: partTitle,
           description: enquiryDetails.trim(),
@@ -177,6 +219,8 @@ const TechnicalEnquiryScreen = () => {
           enquiryDetails: enquiryDetails.trim(),
           dealerName: selectedDealerName,
           imageurl: uploadedImageUrl,
+          userLat: userCoords?.userLat || null,
+          userLon: userCoords?.userLon || null,
         },
       };
 
@@ -292,18 +336,20 @@ const TechnicalEnquiryScreen = () => {
             contentContainerStyle={styles.dealerPillRow}
             style={styles.dealerScrollView}
           >
-            {resellers.map((r) => {
-              const isSelected = selectedDealerId === r.id;
+            {candidateDealers.map((r) => {
+              const targetId = r.userId || r.dealerId || r.id;
+              const isSelected = selectedDealerId === targetId;
               const name = r.name || r.companyName || r.email;
+              const distText = r.distance && r.distance !== 'N/A' ? ` • ${r.distance}` : '';
               return (
                 <TouchableOpacity
-                  key={r.id}
+                  key={targetId}
                   style={[
                     styles.dealerPill,
                     isSelected && styles.dealerPillSelected,
                   ]}
                   onPress={() => {
-                    setSelectedDealerId(r.id);
+                    setSelectedDealerId(targetId);
                     setSelectedDealerName(name);
                     setShowDealerPicker(false);
                   }}
@@ -320,7 +366,7 @@ const TechnicalEnquiryScreen = () => {
                     ]}
                     numberOfLines={1}
                   >
-                    {name}
+                    {name}{distText}
                   </Text>
                   {isSelected && <CheckCircle2 size={13} color="#FFFFFF" />}
                 </TouchableOpacity>

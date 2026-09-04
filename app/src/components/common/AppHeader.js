@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 
@@ -65,7 +64,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   leftContainer: {
-    width: 44,
+    minWidth: 44,
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
@@ -97,7 +96,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   rightContainer: {
-    width: 44,
+    minWidth: 44,
     justifyContent: 'center',
     alignItems: 'flex-end',
   },

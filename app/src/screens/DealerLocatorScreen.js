@@ -10,6 +10,8 @@ import {
   Linking,
   ActivityIndicator,
   RefreshControl,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -22,8 +24,9 @@ import {
   Navigation as NavigationIcon,
   ShieldCheck,
   Building2,
-  Share2,
+  Locate,
 } from 'lucide-react-native';
+import Geolocation from '@react-native-community/geolocation';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { apiFunction } from '../apis/apiFunction';
@@ -41,19 +44,25 @@ const DealerLocatorScreen = () => {
   const [dealers, setDealers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [userCoords, setUserCoords] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'distributor' | 'reseller'
+  const [activeFilter, setActiveFilter] = useState('all'); // 'all' | 'distributor' | 'reseller' | 'near'
 
-  const fetchDealers = useCallback(async () => {
+  const fetchDealers = useCallback(async (coords = null) => {
     try {
-      const res = await apiFunction(dealersApi, [], {}, 'GET', false);
+      const queryParams = coords?.userLat && coords?.userLon
+        ? { userLat: coords.userLat, userLon: coords.userLon }
+        : {};
+
+      const res = await apiFunction(dealersApi, [], queryParams, 'GET', false);
       const list =
         res?.dealers ||
         res?.data?.array ||
         (Array.isArray(res?.data) ? res.data : []) ||
         [];
       setDealers(list);
-      dispatch(getDealersRedux());
+      dispatch(getDealersRedux(queryParams));
     } catch (err) {
       console.warn('Failed to load dealers:', err);
       // Fallback to Redux data if available
@@ -66,16 +75,64 @@ const DealerLocatorScreen = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLocating(false);
     }
   }, [apiDealersData, dispatch]);
 
+  const acquireGPS = useCallback(async () => {
+    setLocating(true);
+    try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'NGK Location Access',
+            message: 'Allow NGK to discover verified stockists and dealers near your current location.',
+            buttonPositive: 'Allow',
+            buttonNegative: 'Cancel',
+          }
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          setLocating(false);
+          fetchDealers(null);
+          return;
+        }
+      }
+
+      Geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = {
+            userLat: pos.coords.latitude,
+            userLon: pos.coords.longitude,
+          };
+          setUserCoords(coords);
+          fetchDealers(coords);
+        },
+        (err) => {
+          console.warn('Geolocation error:', err.message);
+          setLocating(false);
+          fetchDealers(null);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    } catch (err) {
+      console.warn('Failed to acquire location:', err);
+      setLocating(false);
+      fetchDealers(null);
+    }
+  }, [fetchDealers]);
+
   useEffect(() => {
-    fetchDealers();
-  }, []);
+    acquireGPS();
+  }, [acquireGPS]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchDealers();
+    if (userCoords) {
+      fetchDealers(userCoords);
+    } else {
+      acquireGPS();
+    }
   };
 
   const filteredDealers = useMemo(() => {
@@ -170,6 +227,23 @@ const DealerLocatorScreen = () => {
               <X size={16} color="#6B7280" />
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Location Status Bar */}
+        <View style={styles.locationBar}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+            <Locate size={14} color={userCoords ? '#059669' : '#9CA3AF'} />
+            <Text style={styles.locationBarText} numberOfLines={1}>
+              {locating
+                ? 'Acquiring GPS location...'
+                : userCoords
+                ? 'Showing closest stockists to your GPS'
+                : 'GPS inactive • Showing national directory'}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={acquireGPS} style={styles.locateBtn} activeOpacity={0.7}>
+            <Text style={styles.locateBtnText}>{userCoords ? 'Refresh GPS' : 'Enable GPS'}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Filter Pills: All | Distributors | Resellers */}
@@ -276,21 +350,29 @@ const DealerLocatorScreen = () => {
                         <Text style={styles.dealerName} numberOfLines={1}>
                           {name}
                         </Text>
-                        <View
-                          style={[
-                            styles.roleBadge,
-                            isDistributor ? styles.distributorBadge : styles.resellerBadge,
-                          ]}
-                        >
-                          <ShieldCheck size={10} color={isDistributor ? '#1D4ED8' : '#047857'} />
-                          <Text
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          {item.distance && item.distance !== 'N/A' && (
+                            <View style={styles.distanceBadge}>
+                              <NavigationIcon size={9} color="#C6122E" />
+                              <Text style={styles.distanceBadgeText}>{item.distance}</Text>
+                            </View>
+                          )}
+                          <View
                             style={[
-                              styles.roleBadgeText,
-                              isDistributor ? styles.distributorBadgeText : styles.resellerBadgeText,
+                              styles.roleBadge,
+                              isDistributor ? styles.distributorBadge : styles.resellerBadge,
                             ]}
                           >
-                            {isDistributor ? 'DISTRIBUTOR' : 'RESELLER'}
-                          </Text>
+                            <ShieldCheck size={10} color={isDistributor ? '#1D4ED8' : '#047857'} />
+                            <Text
+                              style={[
+                                styles.roleBadgeText,
+                                isDistributor ? styles.distributorBadgeText : styles.resellerBadgeText,
+                              ]}
+                            >
+                              {isDistributor ? 'DISTRIBUTOR' : 'RESELLER'}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                       <Text style={styles.dealerCity}>{cityProvince}</Text>
@@ -455,6 +537,52 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  locationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  locationBarText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  locateBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  locateBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#C6122E',
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  distanceBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C6122E',
   },
   dealerCard: {
     backgroundColor: '#FFFFFF',
