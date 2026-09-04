@@ -5,19 +5,19 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { apiFunction } from '../apis/apiFunction';
 import { loginApi } from '../apis/api';
 import Toast from 'react-native-toast-message';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import ScreenContainer from '../components/common/ScreenContainer';
 import AppHeader from '../components/common/AppHeader';
 import AppInput from '../components/common/AppInput';
 import AppButton from '../components/common/AppButton';
+import { useAuth } from '../core/auth/useAuth';
 
 const LoginScreen = ({ route, navigation }) => {
+  const { signIn } = useAuth();
   const { role = 'owner' } = route.params || {};
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -104,16 +104,12 @@ const LoginScreen = ({ route, navigation }) => {
           response.profile || (response.user && response.user[0]) || response.user;
         const userId = userObj?.id || response.user?.[0]?.id;
 
-        if (response.token) {
-          await AsyncStorage.setItem('token', response.token);
-        }
-        await AsyncStorage.setItem('role', role);
-        if (userId) {
-          await AsyncStorage.setItem('userId', String(userId));
-        }
-        if (userObj) {
-          await AsyncStorage.setItem('user', JSON.stringify(userObj));
-        }
+        await signIn({
+          token: response.token,
+          role,
+          user: userObj,
+          userId: userId ? String(userId) : undefined,
+        });
 
         setLoading(false);
         Toast.show({
@@ -121,14 +117,6 @@ const LoginScreen = ({ route, navigation }) => {
           text1: 'Login Successful',
           text2: `Welcome back, ${userObj?.name || 'User'}!`,
         });
-
-        const targetScreen =
-          role === 'owner'
-            ? 'OwnerHome'
-            : role === 'reseller'
-            ? 'ResellerHome'
-            : 'DistributorHomeScreen';
-        navigation.replace(targetScreen);
       } else {
         setLoading(false);
         Toast.show({

@@ -14,23 +14,27 @@ const SplashScreen = ({ navigation }) => {
         // Short brand splash delay
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        if ((token || userId) && role) {
-          const lowerRole = role.toLowerCase();
-          if (lowerRole === 'owner') {
-            navigation.replace('OwnerHome');
-          } else if (lowerRole === 'reseller') {
-            navigation.replace('ResellerHome');
-          } else if (lowerRole === 'distributor') {
-            navigation.replace('DistributorHomeScreen');
+        if (navigation?.replace) {
+          if ((token || userId) && role) {
+            const lowerRole = role.toLowerCase();
+            if (lowerRole === 'owner') {
+              navigation.replace('OwnerHome');
+            } else if (lowerRole === 'reseller') {
+              navigation.replace('ResellerHome');
+            } else if (lowerRole === 'distributor') {
+              navigation.replace('DistributorHomeScreen');
+            } else {
+              navigation.replace('RoleSelection');
+            }
           } else {
             navigation.replace('RoleSelection');
           }
-        } else {
-          navigation.replace('RoleSelection');
         }
       } catch (err) {
         console.log('Splash session check error:', err);
-        navigation.replace('RoleSelection');
+        if (navigation?.replace) {
+          navigation.replace('RoleSelection');
+        }
       }
     };
 

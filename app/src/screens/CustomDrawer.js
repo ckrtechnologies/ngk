@@ -12,7 +12,6 @@ import { X, ChevronRight } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMyselfRedux } from '../redux/getData';
-import Toast from 'react-native-toast-message';
 import {
   HomeDashboard3DIcon,
   FindParts3DIcon,
@@ -23,11 +22,14 @@ import {
   DrawerSignOut3DIcon,
 } from '../components/icons/HomeIcons';
 
+import { useAuth } from '../core/auth/useAuth';
+
 export default function CustomDrawer({ navigation }) {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
+  const { signOut, userRole } = useAuth();
   const { myself } = useSelector((state) => state.getData);
-  const [role, setRole] = useState('owner');
+  const [role, setRole] = useState(userRole || 'owner');
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -40,12 +42,7 @@ export default function CustomDrawer({ navigation }) {
   }, [dispatch, myself]);
 
   const handleLogout = async () => {
-    await AsyncStorage.multiRemove(['token', 'userId', 'role', 'user']);
-    Toast.show({ type: 'success', text1: 'Signed Out' });
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'RoleSelection' }],
-    });
+    await signOut();
   };
 
   const menuItems = [
