@@ -18,7 +18,7 @@ import {
   ChevronRight,
   Plus,
 } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { getMyselfRedux } from '../redux/getData';
@@ -111,11 +111,49 @@ const OwnerHomeScreen = () => {
     setRefreshing(false);
   };
 
-  useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchInitialData();
+    }, [fetchInitialData])
+  );
 
   const activeCar = myself?.garage?.[0] || null;
+
+  // Smart Direct Parts Lookup:
+  // If registered vehicle has a TecDoc linkageTargetId, navigate directly to VerifiedPartsScreen!
+  // Otherwise, route to PartsFinder with preselected vehicle data.
+  const handleLookupActiveCarParts = (car = activeCar) => {
+    if (!car) {
+      navigation.navigate('MyGarage');
+      return;
+    }
+    const targetId =
+      car.linkageTargetId ||
+      car.linkage_target_id ||
+      car.raw_specs?.linkageTargetId ||
+      car.raw_specs?.carId;
+
+    if (targetId) {
+      navigation.navigate('VerifiedParts', {
+        vehicle: {
+          linkageTargetId: targetId,
+          description: `${car.make} ${car.model} ${car.year ? `(${car.year})` : ''} ${car.engine || ''}`.trim(),
+          linkageTargetType: 'P',
+          make: car.make,
+          model: car.model,
+          year: car.year,
+          engine: car.engine || car.engine_code,
+          licensePlate: car.licensePlate || car.license_plate,
+        },
+        selectedManufacturer: { manuName: car.make },
+        selectedSeries: { modelname: car.model },
+        appType: 'P',
+        source: 'home_card',
+      });
+    } else {
+      navigation.navigate('PartsFinder', { preselectedVehicle: car });
+    }
+  };
 
   // Upgraded Quick Tools with bespoke multi-layered 3D SVG icons
   const quickActions = [
@@ -257,9 +295,7 @@ const OwnerHomeScreen = () => {
               </Text>
               <TouchableOpacity
                 style={styles.searchForCarBtn}
-                onPress={() =>
-                  navigation.navigate('PartsFinder', { preselectedVehicle: activeCar })
-                }
+                onPress={() => handleLookupActiveCarParts(activeCar)}
                 activeOpacity={0.8}
               >
                 <Search size={14} color="#FFFFFF" strokeWidth={2.2} />
@@ -299,7 +335,13 @@ const OwnerHomeScreen = () => {
               <TouchableOpacity
                 key={action.id}
                 style={styles.gridTile}
-                onPress={() => navigation.navigate(action.route)}
+                onPress={() => {
+                  if (action.id === 'parts' && activeCar) {
+                    handleLookupActiveCarParts(activeCar);
+                  } else {
+                    navigation.navigate(action.route);
+                  }
+                }}
                 activeOpacity={0.75}
               >
                 <View style={styles.tileTopRow}>

@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import {
   loginApi,
   getUsersApi,
+  getUserDetailApi,
   getEnquiriesApi,
   serviceJsonApi,
   updateUserApi,
@@ -72,6 +73,22 @@ export const fetchUsers = createAsyncThunk('admin/fetchUsers', async (_, { rejec
       return rejectWithValue(data.message || 'Failed to fetch users');
     }
     return data.users || [];
+  } catch (error) {
+    return rejectWithValue(error.message || 'Network error');
+  }
+});
+
+/**
+ * 2b. Fetch User Master Details By ID (Deep relational object)
+ */
+export const fetchUserById = createAsyncThunk('admin/fetchUserById', async (id, { rejectWithValue }) => {
+  try {
+    const response = await fetch(`${getUserDetailApi}/${id}`, { headers: getAuthHeaders() });
+    const data = await response.json();
+    if (!response.ok || !data.success) {
+      return rejectWithValue(data.message || 'Failed to fetch user master details');
+    }
+    return data.user?.[0] || data.user;
   } catch (error) {
     return rejectWithValue(error.message || 'Network error');
   }
@@ -337,6 +354,8 @@ const initialState = {
   enquiries: [],
   catalogDealers: [],
   catalogArticles: [],
+  selectedUserDetails: null,
+  detailsLoading: false,
   loading: false,
   actionLoading: false,
   error: null,
@@ -360,6 +379,10 @@ const adminSlice = createSlice({
     },
     clearSuccess: (state) => {
       state.successMessage = null;
+    },
+    clearSelectedUserDetails: (state) => {
+      state.selectedUserDetails = null;
+      state.detailsLoading = false;
     },
   },
   extraReducers: (builder) => {
@@ -392,6 +415,19 @@ const adminSlice = createSlice({
         state.error = action.payload;
       })
 
+      // Fetch User By Id (Master Details)
+      .addCase(fetchUserById.pending, (state) => {
+        state.detailsLoading = true;
+      })
+      .addCase(fetchUserById.fulfilled, (state, action) => {
+        state.detailsLoading = false;
+        state.selectedUserDetails = action.payload;
+      })
+      .addCase(fetchUserById.rejected, (state, action) => {
+        state.detailsLoading = false;
+        state.error = action.payload;
+      })
+
       // Create User
       .addCase(createUser.pending, (state) => {
         state.actionLoading = true;
@@ -416,7 +452,10 @@ const adminSlice = createSlice({
         state.actionLoading = false;
         const index = state.users.findIndex((u) => u.id === action.payload.id);
         if (index !== -1) {
-          state.users[index] = action.payload;
+          state.users[index] = { ...state.users[index], ...action.payload };
+        }
+        if (state.selectedUserDetails && state.selectedUserDetails.id === action.payload.id) {
+          state.selectedUserDetails = { ...state.selectedUserDetails, ...action.payload };
         }
         state.successMessage = 'User updated successfully!';
       })
@@ -558,5 +597,5 @@ const adminSlice = createSlice({
   },
 });
 
-export const { logout, clearError, clearSuccess } = adminSlice.actions;
+export const { logout, clearError, clearSuccess, clearSelectedUserDetails } = adminSlice.actions;
 export default adminSlice.reducer;

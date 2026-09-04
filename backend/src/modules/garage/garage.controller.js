@@ -79,3 +79,18 @@ export const removeFromWatchlist = async (req, res) => {
     return sendError(res, error.message, 400, error);
   }
 };
+
+export const setPrimaryVehicle = async (req, res) => {
+  try {
+    const userId = req.body.userId || req.user?.id || req.params.userId;
+    const vehicleId = req.body.vehicleId || req.params.vehicleId;
+    if (!userId || !vehicleId) {
+      return sendError(res, 'User ID and Vehicle ID are required', 400);
+    }
+    const result = await garageService.setPrimaryVehicle(userId, vehicleId);
+    return sendSuccess(res, { vehicle: result }, 'Primary vehicle updated successfully');
+  } catch (error) {
+    return sendError(res, error.message, 400, error);
+  }
+};
+

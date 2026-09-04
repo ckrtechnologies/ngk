@@ -51,7 +51,6 @@ const DealerLocatorScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [locating, setLocating] = useState(false);
   const [userCoords, setUserCoords] = useState(null);
-  const [isSimulated, setIsSimulated] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter Modal & Filter State
@@ -104,7 +103,6 @@ const DealerLocatorScreen = () => {
   );
 
   const acquireGPS = useCallback(async () => {
-    setIsSimulated(false);
     setLocating(true);
     try {
       if (Platform.OS === 'android') {
@@ -146,13 +144,6 @@ const DealerLocatorScreen = () => {
       setLocating(false);
       fetchDealers(null);
     }
-  }, [fetchDealers]);
-
-  const simulateSandton = useCallback(() => {
-    setIsSimulated(true);
-    const sandtonCoords = { userLat: -26.1076, userLon: 28.0567 };
-    setUserCoords(sandtonCoords);
-    fetchDealers(sandtonCoords);
   }, [fetchDealers]);
 
   // Keep a stable ref to acquireGPS so the mount effect below can call the
@@ -374,8 +365,6 @@ const DealerLocatorScreen = () => {
               color={
                 locating
                   ? '#9CA3AF'
-                  : isSimulated
-                  ? '#D97706'
                   : userCoords
                   ? '#059669'
                   : '#9CA3AF'
@@ -384,12 +373,6 @@ const DealerLocatorScreen = () => {
             <Text style={styles.locationBarText} numberOfLines={1}>
               {locating
                 ? 'Acquiring mobile GPS...'
-                : isSimulated
-                ? `Test SA (Sandton) • ${
-                    filters.radius === 1500
-                      ? 'All SA'
-                      : `Within ${filters.radius}km`
-                  }`
                 : userCoords
                 ? `Mobile GPS • ${
                     filters.radius === 1500
@@ -400,39 +383,15 @@ const DealerLocatorScreen = () => {
             </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            {isSimulated ? (
-              <TouchableOpacity
-                onPress={acquireGPS}
-                style={styles.locateBtn}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.locateBtnText}>Use Mobile GPS</Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <TouchableOpacity
-                  onPress={acquireGPS}
-                  style={styles.locateBtn}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.locateBtnText}>
-                    {userCoords ? 'Refresh' : 'Enable GPS'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={simulateSandton}
-                  style={[
-                    styles.locateBtn,
-                    { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' },
-                  ]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.locateBtnText, { color: '#B45309' }]}>
-                    Test SA
-                  </Text>
-                </TouchableOpacity>
-              </>
-            )}
+            <TouchableOpacity
+              onPress={acquireGPS}
+              style={styles.locateBtn}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.locateBtnText}>
+                {userCoords ? 'Refresh' : 'Enable GPS'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 

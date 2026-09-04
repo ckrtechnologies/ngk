@@ -7,7 +7,7 @@ import store from './src/redux/store';
 import { AuthProvider } from './src/core/auth/AuthContext';
 import RootNavigator from './src/core/navigation/RootNavigator';
 import { navigationRef } from './src/functions/navigationRefFunc';
-import Toast from 'react-native-toast-message';
+import { AppModal } from './src/components/common/AppModal';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
 const App = () => {
@@ -19,7 +19,7 @@ const App = () => {
             <NavigationContainer ref={navigationRef}>
               <RootNavigator />
             </NavigationContainer>
-            <Toast />
+            <AppModal />
           </SafeAreaProvider>
         </AuthProvider>
       </Provider>

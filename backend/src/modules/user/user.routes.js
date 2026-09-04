@@ -7,6 +7,7 @@ const userRouter = Router();
 userRouter.get('/user/:id', optionalAuth, getUserById);
 userRouter.get('/me', verifyToken, getUserById);
 userRouter.get('/users', optionalAuth, getUsers);
+userRouter.get('/users/:id', optionalAuth, getUserById);
 userRouter.get('/:id', optionalAuth, getUserById);
 userRouter.put('/updateUser/:id', optionalAuth, updateUser);
 userRouter.put('/:id', optionalAuth, updateUser);

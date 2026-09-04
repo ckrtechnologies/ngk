@@ -5,6 +5,7 @@ import {
   addSearchHistory,
   addVehicleToWatchlist,
   removeFromWatchlist,
+  setPrimaryVehicle,
 } from './garage.controller.js';
 import { optionalAuth } from '../../common/middleware/auth.middleware.js';
 
@@ -14,6 +15,10 @@ const garageRouter = Router();
 garageRouter.post('/addVehicleToGarage', optionalAuth, addVehicleToGarage);
 garageRouter.post('/addVehicleToGarage/:id', optionalAuth, addVehicleToGarage);
 garageRouter.put('/addVehicleToGarage/:id', optionalAuth, addVehicleToGarage);
+
+// Set Primary Vehicle
+garageRouter.post('/setPrimaryVehicle', optionalAuth, setPrimaryVehicle);
+garageRouter.post('/set-primary', optionalAuth, setPrimaryVehicle);
 
 // Get Garage Vehicles
 garageRouter.get('/vehicles/:id', optionalAuth, getGarageVehicles);

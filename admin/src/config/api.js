@@ -8,6 +8,7 @@ export const BASE_URL = API_BASE;
 export const registerApi = `${BASE_URL}/auth/register`;
 export const loginApi = `${BASE_URL}/auth/login`;
 export const getUsersApi = `${BASE_URL}/users/users`;
+export const getUserDetailApi = `${BASE_URL}/users`;
 export const updateUserApi = `${BASE_URL}/users/updateUser`;
 export const deleteUserApi = `${BASE_URL}/users/deleteUser`;
 export const readNotificationsApi = `${BASE_URL}/users/readNotifications`;

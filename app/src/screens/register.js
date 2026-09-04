@@ -82,15 +82,30 @@ const RegisterScreen = ({ route, navigation }) => {
   const fetchCoords = () => {
     setLocationLoading(true);
     Geolocation.getCurrentPosition(
-      (position) => {
-        setLocationLoading(false);
+      async (position) => {
         const { latitude, longitude } = position.coords;
         setCoords({ latitude, longitude });
-        setAddress(`GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+
+        let prefetchedAddress = `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        try {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+            { headers: { 'User-Agent': 'NGKApp/1.0' } }
+          );
+          const geoData = await geoRes.json();
+          if (geoData && geoData.display_name) {
+            prefetchedAddress = geoData.display_name;
+          }
+        } catch (geoErr) {
+          console.warn('Reverse geocode prefetch error:', geoErr.message);
+        }
+
+        setAddress(prefetchedAddress);
+        setLocationLoading(false);
         Toast.show({
           type: 'success',
-          text1: 'Location Acquired',
-          text2: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+          text1: 'Location & Address Prefetched',
+          text2: 'You can adjust or edit the address text below.',
         });
       },
       (error) => {

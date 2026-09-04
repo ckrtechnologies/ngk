@@ -49,19 +49,20 @@ const Product360Viewer = ({
   // Seed from global cache (prefetched in a previous mount) — instant READY
   const seedFrames = (!isStatic && gifUrl && globalFramesCache.get(gifUrl)) || null;
 
-  const [frames, setFrames]               = useState(seedFrames || []);
-  const [phase, setPhase]                 = useState(
+  const [frames, setFrames] = useState(seedFrames || []);
+  const [phase, setPhase]   = useState(
     seedFrames        ? Phase.READY
     : isStatic || !gifUrl ? Phase.IDLE
     : Phase.FETCHING
   );
-  const [prefetchProgress, setPrefetchProgress] = useState(0);
-  const [currentFrame, setCurrentFrame]   = useState(0);
+  const [currentFrame, setCurrentFrame] = useState(0);
 
-  // Pan & zoom animated values
+  // Pan, pitch & zoom animated values
   const pan        = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const panOffset  = useRef({ x: 0, y: 0 });
   const scaleAnim  = useRef(new Animated.Value(zoomScale)).current;
+  const pitchAnim  = useRef(new Animated.Value(0)).current;
+  const pitchOffset = useRef(0);
 
   // Gesture-state refs (no re-renders)
   const lastTapRef           = useRef(0);
@@ -89,13 +90,31 @@ const Product360Viewer = ({
     }).start();
     if (zoomScale <= 1.05) {
       panOffset.current = { x: 0, y: 0 };
+      pitchOffset.current = 0;
       Animated.spring(pan, {
         toValue: { x: 0, y: 0 },
         useNativeDriver: true,
         friction: 7,
       }).start();
+      Animated.spring(pitchAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 7,
+      }).start();
     }
-  }, [zoomScale, scaleAnim, pan]);
+  }, [zoomScale, scaleAnim, pan, pitchAnim]);
+
+  // ── Reset pitch when angle resets to 0 at normal scale ─────────────────
+  useEffect(() => {
+    if (angle === 0 && zoomScale <= 1.05) {
+      pitchOffset.current = 0;
+      Animated.spring(pitchAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 7,
+      }).start();
+    }
+  }, [angle, zoomScale, pitchAnim]);
 
   // ── Main loading pipeline ───────────────────────────────────────────────
   useEffect(() => {
@@ -119,9 +138,8 @@ const Product360Viewer = ({
     }
 
     const run = async () => {
-      // Step 1 ─ fetch frame URL list from backend
+      // Step 1 ─ fetch frame list from backend
       setPhase(Phase.FETCHING);
-      setPrefetchProgress(0);
 
       let list = null;
       try {
@@ -138,18 +156,18 @@ const Product360Viewer = ({
         return;
       }
 
-      // Step 2 ─ prefetch ALL frame URLs to device disk cache in parallel
-      setPhase(Phase.PREFETCHING);
-      const total = list.length;
-      let done = 0;
-
-      await Promise.all(
-        list.map(async (url) => {
-          try { await Image.prefetch(url); } catch (_) { /* non-fatal */ }
-          done += 1;
-          if (alive) setPrefetchProgress(Math.round((done / total) * 100));
-        })
-      );
+      // Step 2 ─ Only prefetch if URLs are remote HTTP/HTTPS (base64 data URIs are already in memory)
+      const isHttp = typeof list[0] === 'string' && list[0].startsWith('http');
+      if (isHttp) {
+        setPhase(Phase.PREFETCHING);
+        try {
+          await Promise.all(
+            list.map(async (url) => {
+              try { await Image.prefetch(url); } catch (_) {}
+            })
+          );
+        } catch (_) {}
+      }
 
       if (!alive) return;
 
@@ -158,7 +176,6 @@ const Product360Viewer = ({
       setFrames(list);
       setCurrentFrame(0);
       setPhase(Phase.READY);
-      // One rAF so the first frame paints before notifying parent
       requestAnimationFrame(() => { if (alive) onFramesReady?.(); });
     };
 
@@ -200,21 +217,12 @@ const Product360Viewer = ({
     onMoveShouldSetPanResponder: (evt, gs) => {
       // Always claim 2-finger pinch
       if (evt.nativeEvent.touches?.length === 2) return true;
-      // When zoomed: claim ALL directions (horizontal + vertical pan)
-      if (zoomScaleRef.current > 1.08) {
-        return Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2;
-      }
-      // At normal scale in 360 mode: only horizontal scrub
-      if (!isStatic && framesCountRef.current > 1) {
-        return Math.abs(gs.dx) > Math.abs(gs.dy) && Math.abs(gs.dx) > 4;
-      }
-      return false;
+      // Claim on any meaningful drag in any direction (X or Y)
+      return Math.abs(gs.dx) > 3 || Math.abs(gs.dy) > 3;
     },
 
-    // ─── KEY FIX: when zoomed, block parent ScrollView from stealing gesture ───
-    // Default is () => true (allow termination). Returning false prevents the
-    // parent ScrollView from re-claiming the responder during a vertical drag.
-    onPanResponderTerminationRequest: () => zoomScaleRef.current <= 1.08,
+    // Block parent ScrollView from hijacking touch during active interaction
+    onPanResponderTerminationRequest: () => false,
 
     onPanResponderGrant: (evt) => {
       touchStartTimeRef.current = Date.now();
@@ -265,38 +273,62 @@ const Product360Viewer = ({
         return;
       }
 
-      // 1-finger 360 horizontal scrub
+      // 1-finger 360 horizontal scrub (X axis)
       if (!isStatic && framesCountRef.current > 1) {
         const total = framesCountRef.current;
         let next = (startXRef.current - Math.round(gs.dx / 8)) % total;
         if (next < 0) next += total;
         setCurrentFrame(next);
         onAngleChange?.(Math.round((next / total) * 360) % 360);
+      } else if (isStatic) {
+        pan.setValue({
+          x: panOffset.current.x + gs.dx * 0.4,
+          y: panOffset.current.y + gs.dy * 0.4,
+        });
       }
+
+      // 1-finger 3D vertical pitch tilt (Y axis)
+      // Moving finger up (-dy) tilts view up, finger down (+dy) tilts view down
+      const targetPitch = Math.max(-28, Math.min(28, pitchOffset.current - gs.dy * 0.25));
+      pitchAnim.setValue(targetPitch);
     },
 
     onPanResponderRelease: (evt, gs) => {
       if (zoomScaleRef.current > 1.08) {
         panOffset.current.x += gs.dx;
         panOffset.current.y += gs.dy;
+      } else if (isStatic) {
+        panOffset.current.x += gs.dx * 0.4;
+        panOffset.current.y += gs.dy * 0.4;
       }
+      pitchOffset.current = Math.max(-28, Math.min(28, pitchOffset.current - gs.dy * 0.25));
       pinchStartDistRef.current = 0;
+
       // Single clean tap → trigger onPressImage
       const dur  = Date.now() - touchStartTimeRef.current;
       const dist = Math.hypot(gs.dx, gs.dy);
       if (dur < 280 && dist < 8 && onPressImage) onPressImage();
     },
-  }), [isStatic, getTouchDist]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [isStatic, getTouchDist, onAngleChange, onAutoSpinChange, onScaleChange, onPressImage]);
 
   // ── URI selection ────────────────────────────────────────────────────────
-  const isGif       = (url) => typeof url === 'string' && url.toLowerCase().includes('.gif');
-  const cleanStatic = staticImageUrl && !isGif(staticImageUrl) ? staticImageUrl : null;
+  const isGif = useCallback((url) => {
+    if (!url || typeof url !== 'string') return false;
+    const lower = url.toLowerCase();
+    return lower.includes('.gif') || lower.includes('360');
+  }, []);
+
+  const cleanStatic = useMemo(() => {
+    if (staticImageUrl && !isGif(staticImageUrl)) return staticImageUrl;
+    return null;
+  }, [staticImageUrl, isGif]);
+
+  const staticSource = useMemo(() => {
+    return cleanStatic ? { uri: cleanStatic } : null;
+  }, [cleanStatic]);
 
   // Loading state labels
   const isLoadingPhase = phase === Phase.FETCHING || phase === Phase.PREFETCHING;
-  const loadingLabel   = phase === Phase.FETCHING
-    ? 'Analyzing 360° model...'
-    : `Downloading frames... ${prefetchProgress}%`;
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -305,60 +337,65 @@ const Product360Viewer = ({
       {...panResponder.panHandlers}
     >
       {/*
-       * LAYER 1 — Static image underlayer (always visible).
-       * This prevents any "white flash" during the loading phase and serves
-       * as a stable background under the 360 frame layer.
-       * Never a .gif to avoid streaming flicker.
+       * LAYER 1 — Static placeholder underlayer.
+       * Rendered ONLY while phase !== Phase.READY to eliminate scale jumps,
+       * double-layer ghosting, and background bleed during rotation.
        */}
-      {cleanStatic ? (
-        <Image
-          source={{ uri: cleanStatic }}
-          style={[StyleSheet.absoluteFill, styles.underlayImage]}
-          resizeMode="contain"
-          fadeDuration={0}
-        />
-      ) : isLoadingPhase ? (
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="small" color="#C6122E" />
-          <Text style={styles.loadingText}>Loading 360° model...</Text>
-        </View>
-      ) : phase === Phase.IDLE && !cleanStatic ? (
-        <View style={styles.centerBox}>
-          <Text style={styles.loadingText}>No Image Available</Text>
-        </View>
-      ) : null}
+      {phase !== Phase.READY && (
+        cleanStatic ? (
+          <View style={[StyleSheet.absoluteFill, styles.layerCenter]}>
+            <Image
+              source={staticSource}
+              style={styles.frameImage}
+              resizeMode="contain"
+              fadeDuration={0}
+            />
+          </View>
+        ) : isLoadingPhase ? (
+          <View style={styles.centerBox}>
+            <ActivityIndicator size="small" color="#C6122E" />
+            <Text style={styles.loadingText}>Loading 360° model...</Text>
+          </View>
+        ) : phase === Phase.IDLE && !cleanStatic ? (
+          <View style={styles.centerBox}>
+            <Text style={styles.loadingText}>No Image Available</Text>
+          </View>
+        ) : null
+      )}
 
       {/*
        * LAYER 2 — 360 frame (or static zoom/pan) layer.
-       * Only rendered when phase === READY (all frames confirmed on disk).
-       * NO opacity animation — appears instantly on top of the underlayer.
-       * This eliminates the crossfade flicker completely.
-       * fadeDuration={0} kills Android's built-in image crossfade.
+       * Only rendered when phase === READY (all frames confirmed on disk/memory).
        */}
-      {phase === Phase.READY || isStatic ? (
+      {(phase === Phase.READY || isStatic) && (
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
             styles.frameLayer,
             {
               transform: [
+                { perspective: 1000 },
                 { scale: scaleAnim },
                 { translateX: pan.x },
                 { translateY: pan.y },
+                {
+                  rotateX: pitchAnim.interpolate({
+                    inputRange: [-28, 28],
+                    outputRange: ['-28deg', '28deg'],
+                  }),
+                },
               ],
             },
           ]}
         >
           {isStatic ? (
-            // Static mode: show clean static image with zoom/pan support
             <Image
-              source={{ uri: cleanStatic || gifUrl }}
+              source={staticSource || { uri: gifUrl }}
               style={styles.frameImage}
               resizeMode="contain"
               fadeDuration={0}
             />
           ) : frames.length > 0 ? (
-            // 360 mode: show current prefetched frame
             <Image
               source={{ uri: frames[currentFrame] }}
               style={styles.frameImage}
@@ -367,13 +404,13 @@ const Product360Viewer = ({
             />
           ) : null}
         </Animated.View>
-      ) : null}
+      )}
 
-      {/* Non-blocking loading pill — top-right corner during fetch/prefetch */}
+      {/* Non-blocking loading pill — top-right corner during fetch */}
       {isLoadingPhase && !isStatic && (
         <View style={styles.loadingOverlay} pointerEvents="none">
           <ActivityIndicator size="small" color="#C6122E" />
-          <Text style={styles.loadingOverlayText}>{loadingLabel}</Text>
+          <Text style={styles.loadingOverlayText}>Loading 360° Studio...</Text>
         </View>
       )}
 
@@ -403,13 +440,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
-  underlayImage: {
-    // Covers entire container — stable background during loading
-    width: undefined,
-    height: undefined,
+  layerCenter: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   frameLayer: {
-    // Absolutely fills container; receives pan+zoom transforms
     justifyContent: 'center',
     alignItems: 'center',
   },

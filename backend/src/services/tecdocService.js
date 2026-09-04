@@ -662,6 +662,127 @@ class TecDocService {
       };
     });
   }
+
+  /**
+   * Categorize single article into top-level automotive systems
+   */
+  categorizeArticle(article) {
+    const genericId = Number(article.genericArticles?.[0]?.genericArticleId || article.genericArticleId || 0);
+    const desc = (
+      article.genericArticles?.[0]?.genericArticleDescription ||
+      article.articleName ||
+      article.title ||
+      ''
+    ).toLowerCase();
+
+    // 1. Ignition & Glow Systems (NGK)
+    if (
+      [686, 243, 689, 685].includes(genericId) ||
+      desc.includes('spark plug') ||
+      desc.includes('glow plug') ||
+      desc.includes('ignition') ||
+      desc.includes('bougie')
+    ) {
+      let sub = 'Spark Plugs';
+      if (desc.includes('glow')) sub = 'Glow Plugs';
+      else if (desc.includes('coil')) sub = 'Ignition Coils';
+      else if (desc.includes('cable') || desc.includes('lead') || desc.includes('wire')) sub = 'Ignition Leads';
+
+      return {
+        id: 'ignition',
+        name: 'Ignition & Glow',
+        icon: 'Zap',
+        subCategory: sub,
+      };
+    }
+
+    // 2. Sensors & Engine Electronics (NTK)
+    if (
+      [3922, 3923, 3925, 3926].includes(genericId) ||
+      desc.includes('lambda') ||
+      desc.includes('oxygen sensor') ||
+      desc.includes('o2 sensor') ||
+      desc.includes('sensor') ||
+      desc.includes('probe') ||
+      desc.includes('transmitter') ||
+      desc.includes('flow meter')
+    ) {
+      let sub = 'Engine Sensors';
+      if (desc.includes('lambda') || desc.includes('oxygen') || desc.includes('o2')) sub = 'Lambda / O2 Sensors';
+      else if (desc.includes('temp')) sub = 'Temperature Sensors';
+      else if (desc.includes('pressure') || desc.includes('map')) sub = 'Pressure Sensors';
+
+      return {
+        id: 'sensors',
+        name: 'Sensors & Electronics',
+        icon: 'Activity',
+        subCategory: sub,
+      };
+    }
+
+    // 3. Suspension & Damping (KYB)
+    if (
+      [854, 855, 856].includes(genericId) ||
+      desc.includes('shock') ||
+      desc.includes('damper') ||
+      desc.includes('strut') ||
+      desc.includes('spring') ||
+      desc.includes('amortisseur')
+    ) {
+      let sub = 'Shock Absorbers';
+      if (desc.includes('spring')) sub = 'Coil Springs';
+      else if (desc.includes('mount') || desc.includes('bearing')) sub = 'Strut Mounts';
+
+      return {
+        id: 'suspension',
+        name: 'Suspension & Damping',
+        icon: 'ShieldCheck',
+        subCategory: sub,
+      };
+    }
+
+    // 4. Other Components
+    return {
+      id: 'general',
+      name: 'Other Components',
+      icon: 'Layers',
+      subCategory: 'Components',
+    };
+  }
+
+  /**
+   * Group an array of articles into categorized buckets with counts and metadata
+   */
+  groupArticlesByCategory(articles = []) {
+    const categoryMap = {
+      ignition: { id: 'ignition', name: 'Ignition & Glow', icon: 'Zap', count: 0, articles: [] },
+      sensors: { id: 'sensors', name: 'Sensors & Electronics', icon: 'Activity', count: 0, articles: [] },
+      suspension: { id: 'suspension', name: 'Suspension & Damping', icon: 'ShieldCheck', count: 0, articles: [] },
+      general: { id: 'general', name: 'Other Components', icon: 'Layers', count: 0, articles: [] },
+    };
+
+    const enrichedArticles = articles.map((article) => {
+      const category = this.categorizeArticle(article);
+      categoryMap[category.id].count += 1;
+      categoryMap[category.id].articles.push(article);
+      return { ...article, category };
+    });
+
+    const categories = Object.values(categoryMap).filter((cat) => cat.count > 0);
+
+    return {
+      articles: enrichedArticles,
+      totalCount: enrichedArticles.length,
+      categories,
+      categoryCounts: {
+        all: enrichedArticles.length,
+        ignition: categoryMap.ignition.count,
+        sensors: categoryMap.sensors.count,
+        suspension: categoryMap.suspension.count,
+        general: categoryMap.general.count,
+      },
+    };
+  }
 }
 
 export const tecdocService = new TecDocService();

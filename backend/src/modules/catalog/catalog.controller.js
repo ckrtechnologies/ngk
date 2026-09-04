@@ -48,7 +48,19 @@ export const getArticlesByVehicle = async (req, res) => {
       return sendError(res, 'linkageTargetId or vehicleId query parameter is required', 400);
     }
     const articles = await tecdocService.getArticlesByVehicle(id, type, country, lang);
-    return sendSuccess(res, { status: 200, articles, count: articles.length }, 'Articles fetched successfully');
+    const categorized = tecdocService.groupArticlesByCategory(articles);
+
+    return sendSuccess(
+      res,
+      {
+        status: 200,
+        articles: categorized.articles,
+        count: categorized.articles.length,
+        categories: categorized.categories,
+        categoryCounts: categorized.categoryCounts,
+      },
+      'Articles fetched successfully'
+    );
   } catch (error) {
     return sendError(res, error.message, 500, error);
   }

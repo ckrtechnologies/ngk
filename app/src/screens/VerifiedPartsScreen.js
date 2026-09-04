@@ -30,6 +30,9 @@ import {
   FileText,
   Maximize2,
   Minimize2,
+  Car,
+  Activity,
+  Layers,
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { apiFunction } from '../apis/apiFunction';
@@ -45,6 +48,97 @@ import AppButton from '../components/common/AppButton';
 import JourneyStepIndicator from '../components/common/JourneyStepIndicator';
 import Product360Viewer from '../components/common/Product360Viewer';
 
+const categorizePart = (item) => {
+  if (item?.category?.id) {
+    return item.category;
+  }
+  const genericId = Number(
+    item?.genericArticles?.[0]?.genericArticleId ||
+    item?.genericArticleId ||
+    0
+  );
+  const desc = (
+    item?.genericArticles?.[0]?.genericArticleDescription ||
+    item?.articleName ||
+    item?.title ||
+    ''
+  ).toLowerCase();
+
+  // 1. Ignition & Glow Systems
+  if (
+    [686, 243, 689, 685].includes(genericId) ||
+    desc.includes('spark plug') ||
+    desc.includes('glow plug') ||
+    desc.includes('ignition') ||
+    desc.includes('bougie')
+  ) {
+    let sub = 'Spark Plugs';
+    if (desc.includes('glow')) sub = 'Glow Plugs';
+    else if (desc.includes('coil')) sub = 'Ignition Coils';
+    else if (desc.includes('cable') || desc.includes('lead') || desc.includes('wire')) sub = 'Ignition Leads';
+
+    return {
+      id: 'ignition',
+      name: 'Ignition & Glow',
+      icon: 'Zap',
+      subCategory: sub,
+    };
+  }
+
+  // 2. Sensors & Engine Electronics (NTK)
+  if (
+    [3922, 3923, 3925, 3926].includes(genericId) ||
+    desc.includes('lambda') ||
+    desc.includes('oxygen sensor') ||
+    desc.includes('o2 sensor') ||
+    desc.includes('sensor') ||
+    desc.includes('probe') ||
+    desc.includes('transmitter') ||
+    desc.includes('flow meter')
+  ) {
+    let sub = 'Engine Sensors';
+    if (desc.includes('lambda') || desc.includes('oxygen') || desc.includes('o2')) sub = 'Lambda / O2 Sensors';
+    else if (desc.includes('temp')) sub = 'Temperature Sensors';
+    else if (desc.includes('pressure') || desc.includes('map')) sub = 'Pressure Sensors';
+
+    return {
+      id: 'sensors',
+      name: 'Sensors & Electronics',
+      icon: 'Activity',
+      subCategory: sub,
+    };
+  }
+
+  // 3. Suspension & Damping (KYB)
+  if (
+    [854, 855, 856].includes(genericId) ||
+    desc.includes('shock') ||
+    desc.includes('damper') ||
+    desc.includes('strut') ||
+    desc.includes('spring') ||
+    desc.includes('amortisseur')
+  ) {
+    let sub = 'Shock Absorbers';
+    if (desc.includes('spring')) sub = 'Coil Springs';
+    else if (desc.includes('mount') || desc.includes('bearing')) sub = 'Strut Mounts';
+
+    return {
+      id: 'suspension',
+      name: 'Suspension & Damping',
+      icon: 'ShieldCheck',
+      subCategory: sub,
+    };
+  }
+
+  // 4. Other
+  return {
+    id: 'general',
+    name: 'Other Components',
+    icon: 'Layers',
+    subCategory: 'Components',
+  };
+};
+
 const VerifiedPartsScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -52,6 +146,7 @@ const VerifiedPartsScreen = () => {
   const insets = useSafeAreaInsets();
 
   const [parts, setParts] = useState(route.params?.articles || []);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPart, setSelectedPart] = useState(null);
@@ -76,6 +171,43 @@ const VerifiedPartsScreen = () => {
   const selectedSeries = route.params?.selectedSeries;
   const [fallbackSiblingName, setFallbackSiblingName] = useState(null);
   const fetchedTargetRef = useRef(null);
+
+  // Category Buckets and Filtered Parts
+  const { categoryCounts, displayedParts, availableCategories } = useMemo(() => {
+    const counts = { all: parts.length, ignition: 0, sensors: 0, suspension: 0, general: 0 };
+
+    parts.forEach((p) => {
+      const cat = categorizePart(p);
+      if (counts[cat.id] !== undefined) {
+        counts[cat.id] += 1;
+      } else {
+        counts.general += 1;
+      }
+    });
+
+    const cats = [
+      { id: 'all', label: 'All Parts', count: counts.all, icon: 'Layers' },
+    ];
+    if (counts.ignition > 0) {
+      cats.push({ id: 'ignition', label: 'Ignition & Glow', count: counts.ignition, icon: 'Zap' });
+    }
+    if (counts.sensors > 0) {
+      cats.push({ id: 'sensors', label: 'Sensors & NTK', count: counts.sensors, icon: 'Activity' });
+    }
+    if (counts.suspension > 0) {
+      cats.push({ id: 'suspension', label: 'Suspension (KYB)', count: counts.suspension, icon: 'ShieldCheck' });
+    }
+    if (counts.general > 0) {
+      cats.push({ id: 'general', label: 'Other', count: counts.general, icon: 'Layers' });
+    }
+
+    const filtered =
+      selectedCategory === 'all'
+        ? parts
+        : parts.filter((p) => categorizePart(p).id === selectedCategory);
+
+    return { categoryCounts: counts, displayedParts: filtered, availableCategories: cats };
+  }, [parts, selectedCategory]);
 
   const reloadParts = useCallback(async () => {
     setRefreshing(true);
@@ -374,15 +506,22 @@ const VerifiedPartsScreen = () => {
     const staticImg = images.find(
       (img) =>
         !img.fileName?.toLowerCase()?.includes('360') &&
-        !img.headerDescription?.toLowerCase()?.includes('360')
+        !img.headerDescription?.toLowerCase()?.includes('360') &&
+        !img.imageURL400?.toLowerCase()?.includes('.gif') &&
+        !img.imageURL200?.toLowerCase()?.includes('.gif')
     );
     if (staticImg) {
       return staticImg.imageURL400 || staticImg.imageURL200 || staticImg.imageURL800;
     }
-    if (images[0]) {
-      return images[0].imageURL400 || images[0].imageURL200 || images[0].imageURL800;
+    const nonGifImg = images.find(
+      (img) =>
+        !img.imageURL400?.toLowerCase()?.includes('.gif') &&
+        !img.imageURL200?.toLowerCase()?.includes('.gif')
+    );
+    if (nonGifImg) {
+      return nonGifImg.imageURL400 || nonGifImg.imageURL200 || nonGifImg.imageURL800;
     }
-    return item.imageUrl || null;
+    return item.imageUrl && !item.imageUrl.toLowerCase().includes('.gif') ? item.imageUrl : null;
   };
 
   const getBriefSpecs = (item) => {
@@ -427,18 +566,22 @@ const VerifiedPartsScreen = () => {
   const regularImages = allImages.filter(
     (img) =>
       !img.fileName?.toLowerCase()?.includes('360') &&
-      !img.headerDescription?.toLowerCase()?.includes('360')
+      !img.headerDescription?.toLowerCase()?.includes('360') &&
+      !img.imageURL400?.toLowerCase()?.includes('.gif') &&
+      !img.imageURL200?.toLowerCase()?.includes('.gif')
   );
+
+  const isGifUrl = (url) => typeof url === 'string' && (url.toLowerCase().includes('.gif') || url.toLowerCase().includes('360'));
 
   // Always use the real, verified static 2D photo for the initial placeholder
   // so remote animated GIFs are NEVER used as placeholders, eliminating decode jitter.
   const verifiedStaticPhoto =
-    regularImages[selectedImageIndex]?.imageURL400 ||
-    regularImages[selectedImageIndex]?.imageURL800 ||
-    regularImages[selectedImageIndex]?.imageURL200 ||
-    getPartImage(selectedPart) ||
-    selectedPart?.imageUrl ||
-    allImages[0]?.imageURL400 ||
+    (!isGifUrl(regularImages[selectedImageIndex]?.imageURL400) && regularImages[selectedImageIndex]?.imageURL400) ||
+    (!isGifUrl(regularImages[selectedImageIndex]?.imageURL800) && regularImages[selectedImageIndex]?.imageURL800) ||
+    (!isGifUrl(regularImages[selectedImageIndex]?.imageURL200) && regularImages[selectedImageIndex]?.imageURL200) ||
+    (!isGifUrl(getPartImage(selectedPart)) && getPartImage(selectedPart)) ||
+    (!isGifUrl(selectedPart?.imageUrl) && selectedPart?.imageUrl) ||
+    (!isGifUrl(allImages[0]?.imageURL400) && allImages[0]?.imageURL400) ||
     null;
 
   const activeImageUrl =
@@ -621,12 +764,136 @@ const VerifiedPartsScreen = () => {
           </View>
         ) : (
           <View style={styles.partsList}>
+            {/* Registered Vehicle Context Banner */}
+            {vehicle && (
+              <View style={styles.vehicleContextCard}>
+                <View style={styles.vehicleContextLeft}>
+                  <View style={styles.vehicleContextBadge}>
+                    <Car size={13} color="#C6122E" strokeWidth={2.2} />
+                    <Text style={styles.vehicleContextBadgeText}>
+                      REGISTERED VEHICLE
+                    </Text>
+                  </View>
+                  <Text style={styles.vehicleContextTitle} numberOfLines={1}>
+                    {vehicle.make || selectedManufacturer?.manuName || 'Vehicle'} {vehicle.model || selectedSeries?.modelname || ''} {vehicle.year ? `(${vehicle.year})` : ''}
+                  </Text>
+                  <View style={styles.vehicleContextMetaRow}>
+                    {(vehicle.engine || vehicle.engineCode) ? (
+                      <Text style={styles.vehicleContextEngine} numberOfLines={1}>
+                        {vehicle.engine || vehicle.engineCode}
+                      </Text>
+                    ) : null}
+                    {vehicle.licensePlate ? (
+                      <View style={styles.plateTag}>
+                        <Text style={styles.plateTagText}>{vehicle.licensePlate}</Text>
+                      </View>
+                    ) : null}
+                    <View style={styles.guaranteeTag}>
+                      <ShieldCheck size={11} color="#059669" strokeWidth={2.5} />
+                      <Text style={styles.guaranteeTagText}>100% Fitment</Text>
+                    </View>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.switchVehicleBtn}
+                  onPress={() => navigation.navigate('MyGarage')}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.switchVehicleText}>Switch</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Category Filter Pills */}
+            <View style={styles.categoryPillsWrapper}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryPillsScroll}
+              >
+                {availableCategories.map((cat) => {
+                  const isSelected = selectedCategory === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.categoryPill,
+                        isSelected && styles.categoryPillActive,
+                      ]}
+                      onPress={() => setSelectedCategory(cat.id)}
+                      activeOpacity={0.7}
+                    >
+                      {cat.id === 'ignition' && (
+                        <Zap
+                          size={13}
+                          color={isSelected ? '#FFFFFF' : '#C6122E'}
+                          strokeWidth={2.2}
+                        />
+                      )}
+                      {cat.id === 'sensors' && (
+                        <Activity
+                          size={13}
+                          color={isSelected ? '#FFFFFF' : '#2563EB'}
+                          strokeWidth={2.2}
+                        />
+                      )}
+                      {cat.id === 'suspension' && (
+                        <ShieldCheck
+                          size={13}
+                          color={isSelected ? '#FFFFFF' : '#D97706'}
+                          strokeWidth={2.2}
+                        />
+                      )}
+                      {cat.id === 'all' && (
+                        <Layers
+                          size={13}
+                          color={isSelected ? '#FFFFFF' : '#4B5563'}
+                          strokeWidth={2.2}
+                        />
+                      )}
+                      {cat.id === 'general' && (
+                        <Layers
+                          size={13}
+                          color={isSelected ? '#FFFFFF' : '#6B7280'}
+                          strokeWidth={2.2}
+                        />
+                      )}
+                      <Text
+                        style={[
+                          styles.categoryPillText,
+                          isSelected && styles.categoryPillTextActive,
+                        ]}
+                      >
+                        {cat.label}
+                      </Text>
+                      <View
+                        style={[
+                          styles.categoryPillCount,
+                          isSelected && styles.categoryPillCountActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.categoryPillCountText,
+                            isSelected && styles.categoryPillCountTextActive,
+                          ]}
+                        >
+                          {cat.count}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
             {/* Layout Mode Switcher & Counter */}
             <View style={styles.listToolbar}>
               <View style={styles.toolbarCountBox}>
                 <ShieldCheck size={14} color="#059669" />
                 <Text style={styles.toolbarCountText}>
-                  {parts.length} {parts.length === 1 ? 'Component' : 'Components'} Verified
+                  {displayedParts.length} {displayedParts.length === 1 ? 'Component' : 'Components'}{' '}
+                  {selectedCategory !== 'all' ? `(${selectedCategory})` : 'Verified'}
                 </Text>
               </View>
               <View style={styles.layoutToggleGroup}>
@@ -676,53 +943,73 @@ const VerifiedPartsScreen = () => {
               </View>
             </View>
 
-            {parts.map((item, idx) => {
-              const partNo =
-                item.tradeNumbers?.[0] ||
-                item.articleNumber ||
-                item.articleNo ||
-                item.partNumber ||
-                item.directArticle?.articleNo ||
-                'NGK-PART';
-              const partName =
-                item.genericArticles?.[0]?.genericArticleDescription ||
-                item.articleName ||
-                item.directArticle?.articleName ||
-                item.name ||
-                'Ignition / Sensor Component';
-              const brand =
-                item.mfrName ||
-                item.brandName ||
-                item.dataSupplierName ||
-                item.directArticle?.brandName ||
-                'NGK';
-              const isKyb = String(brand).toUpperCase().includes('KYB');
-              const fitPos = (item.articleCriteria || item.specs || []).find((c) =>
-                (c.criteriaDescription || c.label || c.attrName || '').toLowerCase().includes('fitting position')
-              );
-              const fitPosVal = fitPos?.formattedValue || fitPos?.value || fitPos?.rawValue;
-              const photoUrl = getPartImage(item);
-              const briefSpecs = getBriefSpecs(item);
+            {displayedParts.length === 0 ? (
+              <View style={styles.emptyCategoryBox}>
+                <Layers size={36} color="#9CA3AF" />
+                <Text style={styles.emptyCategoryTitle}>No Parts in This Category</Text>
+                <Text style={styles.emptyCategorySub}>
+                  No verified components for the selected filter. Switch category or view all parts.
+                </Text>
+                <TouchableOpacity
+                  style={styles.resetCategoryBtn}
+                  onPress={() => setSelectedCategory('all')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.resetCategoryBtnText}>View All Parts ({parts.length})</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              displayedParts.map((item, idx) => {
+                const catInfo = categorizePart(item);
+                const partNo =
+                  item.tradeNumbers?.[0] ||
+                  item.articleNumber ||
+                  item.articleNo ||
+                  item.partNumber ||
+                  item.directArticle?.articleNo ||
+                  'NGK-PART';
+                const partName =
+                  item.genericArticles?.[0]?.genericArticleDescription ||
+                  item.articleName ||
+                  item.directArticle?.articleName ||
+                  item.name ||
+                  'Ignition / Sensor Component';
+                const brand =
+                  item.mfrName ||
+                  item.brandName ||
+                  item.dataSupplierName ||
+                  item.directArticle?.brandName ||
+                  'NGK';
+                const isKyb = String(brand).toUpperCase().includes('KYB');
+                const fitPos = (item.articleCriteria || item.specs || []).find((c) =>
+                  (c.criteriaDescription || c.label || c.attrName || '').toLowerCase().includes('fitting position')
+                );
+                const fitPosVal = fitPos?.formattedValue || fitPos?.value || fitPos?.rawValue;
+                const photoUrl = getPartImage(item);
+                const briefSpecs = getBriefSpecs(item);
 
-              if (layoutMode === 'cards') {
-                return (
-                  <View key={item.articleId || idx} style={styles.richCard}>
-                    {/* Card Top: Brand Badge, Fitment, Peek Trigger */}
-                    <View style={styles.cardHeader}>
-                      <View style={styles.cardHeaderBadges}>
-                        <View style={[styles.brandBadge, isKyb && styles.kybBadge]}>
-                          <Text style={[styles.brandBadgeText, isKyb && styles.kybBadgeText]}>{brand}</Text>
-                        </View>
-                        {fitPosVal && (
-                          <View style={styles.fitPosPill}>
-                            <Text style={styles.fitPosPillText} numberOfLines={1}>{fitPosVal}</Text>
+                if (layoutMode === 'cards') {
+                  return (
+                    <View key={item.articleId || idx} style={styles.richCard}>
+                      {/* Card Top: Brand Badge, Fitment, Peek Trigger */}
+                      <View style={styles.cardHeader}>
+                        <View style={styles.cardHeaderBadges}>
+                          <View style={[styles.brandBadge, isKyb && styles.kybBadge]}>
+                            <Text style={[styles.brandBadgeText, isKyb && styles.kybBadgeText]}>{brand}</Text>
                           </View>
-                        )}
-                        <View style={styles.verifiedMicroPill}>
-                          <ShieldCheck size={11} color="#059669" />
-                          <Text style={styles.verifiedMicroText}>OEM Fit</Text>
+                          {fitPosVal && (
+                            <View style={styles.fitPosPill}>
+                              <Text style={styles.fitPosPillText} numberOfLines={1}>{fitPosVal}</Text>
+                            </View>
+                          )}
+                          <View style={styles.catSubPill}>
+                            <Text style={styles.catSubPillText}>{catInfo.subCategory}</Text>
+                          </View>
+                          <View style={styles.verifiedMicroPill}>
+                            <ShieldCheck size={11} color="#059669" />
+                            <Text style={styles.verifiedMicroText}>OEM Fit</Text>
+                          </View>
                         </View>
-                      </View>
 
                       <TouchableOpacity
                         style={styles.peekHeaderBtn}
@@ -820,6 +1107,9 @@ const VerifiedPartsScreen = () => {
                           </Text>
                         </View>
                       )}
+                      <View style={styles.catSubPill}>
+                        <Text style={styles.catSubPillText}>{catInfo.subCategory}</Text>
+                      </View>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <TouchableOpacity
@@ -857,7 +1147,7 @@ const VerifiedPartsScreen = () => {
                   </View>
                 </View>
               );
-            })}
+            }))}
           </View>
         )}
       </ScrollView>
@@ -1216,7 +1506,7 @@ const VerifiedPartsScreen = () => {
 
                 <View style={[styles.dragHintBox, { paddingVertical: 3 }]}>
                   <Text style={[styles.dragHintText, { fontSize: 10 }]}>
-                    👆 Swipe to rotate 360° • Pinch or double-tap to zoom • Drag to pan
+                    👆 Drag horizontally to rotate • Drag vertically to tilt • Pinch to zoom
                   </Text>
                 </View>
 
@@ -1395,7 +1685,7 @@ const VerifiedPartsScreen = () => {
                           <View style={styles.active3DBadgeLight}>
                             <RotateCw size={11} color="#059669" />
                             <Text style={styles.active3DBadgeTextLight}>
-                              {isAutoSpinning ? 'AUTO-SPINNING' : `${((rotationY % 360) + 360) % 360}° ORBIT`}
+                              {isAutoSpinning ? 'AUTO-SPIN' : `${((rotationY % 360) + 360) % 360}° ORBIT`}
                             </Text>
                           </View>
                         )}
@@ -1412,7 +1702,7 @@ const VerifiedPartsScreen = () => {
                             : null
                         }
                         staticImageUrl={verifiedStaticPhoto}
-                        height={340}
+                        height={290}
                         angle={activeMediaTab === '3d' ? rotationY : 0}
                         isAutoSpinning={activeMediaTab === '3d' && !!gif360 && isAutoSpinning}
                         zoomScale={zoomScale}
@@ -1420,7 +1710,7 @@ const VerifiedPartsScreen = () => {
                         onAutoSpinChange={(spinning) => setIsAutoSpinning(spinning)}
                         onScaleChange={(scale) => setZoomScale(scale)}
                         onPressImage={() => setIsStudioFullscreen(true)}
-                        showTapHint={activeMediaTab === '3d' && !!gif360}
+                        showTapHint={false}
                       />
                     </View>
 
@@ -1429,7 +1719,7 @@ const VerifiedPartsScreen = () => {
                       <View style={styles.interactive3DToolbar}>
                         <View style={styles.dragHintBox}>
                           <Text style={styles.dragHintText}>
-                            👆 Swipe to rotate • Pinch or double-tap to zoom • Drag to pan
+                            👆 Drag horizontally to rotate • Drag vertically to tilt • Pinch to zoom
                           </Text>
                         </View>
 
@@ -2433,6 +2723,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 8,
   },
   mediaToggleBoxLight: {
@@ -2480,11 +2772,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   viewportCenterLight: {
-    height: 230,
+    height: 290,
     width: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 4,
+    marginVertical: 6,
+    backgroundColor: '#F8FAFC',
   },
   product3DImage: {
     width: '100%',
@@ -2501,7 +2796,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   interactive3DToolbar: {
-    marginTop: 6,
+    marginTop: 8,
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
@@ -2926,6 +3221,189 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: '#C6122E',
+  },
+  vehicleContextCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  vehicleContextLeft: {
+    flex: 1,
+    marginRight: 10,
+  },
+  vehicleContextBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 4,
+  },
+  vehicleContextBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C6122E',
+    letterSpacing: 0.5,
+  },
+  vehicleContextTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  vehicleContextMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 5,
+    flexWrap: 'wrap',
+  },
+  vehicleContextEngine: {
+    fontSize: 12,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  plateTag: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  plateTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  guaranteeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  guaranteeTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065F46',
+  },
+  switchVehicleBtn: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  switchVehicleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  categoryPillsWrapper: {
+    marginBottom: 12,
+  },
+  categoryPillsScroll: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  categoryPillActive: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  categoryPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  categoryPillTextActive: {
+    color: '#FFFFFF',
+  },
+  categoryPillCount: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  categoryPillCountActive: {
+    backgroundColor: '#374151',
+  },
+  categoryPillCountText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  categoryPillCountTextActive: {
+    color: '#FFFFFF',
+  },
+  catSubPill: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  catSubPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  emptyCategoryBox: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 20,
+  },
+  emptyCategoryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 4,
+  },
+  emptyCategorySub: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  resetCategoryBtn: {
+    marginTop: 10,
+    backgroundColor: '#C6122E',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  resetCategoryBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

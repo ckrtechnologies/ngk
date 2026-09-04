@@ -1,3 +1,4 @@
+import bcrypt from 'bcrypt';
 import supabase from '../../config/supabase.js';
 
 class UserService {
@@ -8,7 +9,7 @@ class UserService {
 
     const { data, error } = await supabase
       .from('users')
-      .select('id, name, email, role, address, phone, created_at, updated_at')
+      .select('*')
       .eq('id', id);
 
     if (error || !data || data.length === 0) {
@@ -22,6 +23,7 @@ class UserService {
       .from('garage_vehicles')
       .select('*')
       .eq('user_id', id)
+      .order('is_primary', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
 
     const garageList = (garageRows && garageRows.length > 0)
@@ -36,6 +38,7 @@ class UserService {
           license_plate: v.license_plate || v.raw_specs?.licensePlate || v.raw_specs?.license_plate || '',
           vin: v.vin,
           linkageTargetId: v.linkage_target_id,
+          isPrimary: v.is_primary || false,
           created_at: v.created_at,
         }))
       : [];
@@ -53,6 +56,32 @@ class UserService {
       .select('*')
       .eq('user_id', id)
       .order('created_at', { ascending: false });
+
+    // Fetch associated dealer directory record if commercial partner
+    const { data: dealerRows } = await supabase
+      .from('dealers')
+      .select('*')
+      .eq('user_id', id);
+    user.dealer = dealerRows && dealerRows.length > 0 ? dealerRows[0] : null;
+
+    // Fetch recent enquiries related to this user
+    try {
+      let enquiriesQuery = supabase
+        .from('enquiries')
+        .select('id, ticket_number, status, subject, priority, created_at')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (user.dealer?.id) {
+        enquiriesQuery = enquiriesQuery.or(`user_id.eq.${id},dealer_id.eq.${user.dealer.id}`);
+      } else {
+        enquiriesQuery = enquiriesQuery.eq('user_id', id);
+      }
+      const { data: enquiryRows } = await enquiriesQuery;
+      user.enquiries = enquiryRows || [];
+    } catch {
+      user.enquiries = [];
+    }
 
     user.garage = garageList;
     user.cars = garageList;
@@ -151,6 +180,11 @@ class UserService {
       } else {
         payload.address = String(updateFields.address).trim();
       }
+    }
+
+    // Optional password reset / update
+    if (updateFields.password && typeof updateFields.password === 'string' && updateFields.password.trim().length >= 6) {
+      payload.password_hash = await bcrypt.hash(updateFields.password.trim(), 10);
     }
 
     // 6. Admin Approval & Verification fields
@@ -253,6 +287,26 @@ class UserService {
         });
       } catch (syncErr) {
         console.warn('Failed to sync dealer live status / notification:', syncErr.message);
+      }
+    }
+
+    // Also synchronize dealer commercial details if provided
+    if (updateFields.company_name || updateFields.latitude !== undefined || updateFields.longitude !== undefined || updateFields.city) {
+      try {
+        const dealerUpdate = {};
+        if (updateFields.company_name) dealerUpdate.company_name = String(updateFields.company_name).trim();
+        if (updateFields.city) dealerUpdate.city = String(updateFields.city).trim();
+        if (updateFields.phone) dealerUpdate.phone = String(updateFields.phone).trim();
+        if (updateFields.address) dealerUpdate.street_address = String(updateFields.address).trim();
+        if (updateFields.latitude !== undefined && updateFields.latitude !== '') {
+          dealerUpdate.latitude = parseFloat(updateFields.latitude);
+        }
+        if (updateFields.longitude !== undefined && updateFields.longitude !== '') {
+          dealerUpdate.longitude = parseFloat(updateFields.longitude);
+        }
+        await supabase.from('dealers').update(dealerUpdate).eq('user_id', id);
+      } catch (dErr) {
+        console.warn('Failed to update dealer commercial details:', dErr.message);
       }
     }
 

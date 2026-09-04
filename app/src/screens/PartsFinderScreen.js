@@ -807,7 +807,7 @@ const PartsFinderScreen = () => {
             {/* Quick Part Suggestions Chips */}
             <View style={styles.quickSearchRow}>
               <Text style={styles.quickSearchLabel}>Popular:</Text>
-              {['BKR6E-11', 'BKR6E', 'ILKAR7C10', '4856', '6962'].map((q) => (
+              {['U5154', 'BKR6E-11', 'BKR6E', 'ILKAR7C10', '4856'].map((q) => (
                 <TouchableOpacity
                   key={q}
                   style={styles.quickSearchChip}

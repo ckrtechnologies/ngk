@@ -60,6 +60,7 @@ class GarageService {
       .from('garage_vehicles')
       .select('*')
       .eq('user_id', userId)
+      .order('is_primary', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
 
     if (error || !vehicles) {
@@ -78,8 +79,35 @@ class GarageService {
       license_plate: v.raw_specs?.licensePlate || v.raw_specs?.license_plate || '',
       vin: v.vin || v.raw_specs?.vin || '',
       linkageTargetId: v.linkage_target_id,
+      isPrimary: v.is_primary || false,
       created_at: v.created_at,
     }));
+  }
+
+  /**
+   * Set vehicle as primary
+   */
+  async setPrimaryVehicle(userId, vehicleId) {
+    if (!userId || !vehicleId) return;
+
+    // Reset others
+    await supabase
+      .from('garage_vehicles')
+      .update({ is_primary: false })
+      .eq('user_id', userId);
+
+    // Set selected as primary
+    const { data, error } = await supabase
+      .from('garage_vehicles')
+      .update({ is_primary: true })
+      .eq('user_id', userId)
+      .eq('id', vehicleId)
+      .select();
+
+    if (error) {
+      console.warn('Could not set primary vehicle:', error.message);
+    }
+    return data;
   }
 
   /**
