@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { apiFunction } from "../apis/apiFunction"
-import { getEnquiryApi, getUserApi, getUsersApi, serviceJsonApi, dealersApi } from "../apis/api";
+import { getEnquiryApi, getUserApi, getUsersApi, serviceJsonApi, dealersApi, updateUserApi, deleteUserApi } from "../apis/api";
 
 export const getArticlesRedux = createAsyncThunk("getArticles/getData", async (data) => {
     try {
@@ -73,6 +73,31 @@ export const getUsersRedux = createAsyncThunk("getUsers/getData", async () => {
     } catch (error) {
         console.log("getUsers error:", error)
         return []
+    }
+})
+
+export const updateUserRedux = createAsyncThunk("updateUser/getData", async ({ userId, userData }) => {
+    try {
+        if (!userId) return null
+        const response = await apiFunction(updateUserApi, [userId], userData, "PUT", true)
+        if (!response?.user || response?.user?.length === 0) {
+            return null
+        }
+        return response?.user[0]
+    } catch (error) {
+        console.log("updateUser error:", error)
+        return null
+    }
+})
+
+export const deleteUserRedux = createAsyncThunk("deleteUser/getData", async (userId) => {
+    try {
+        if (!userId) return null
+        const response = await apiFunction(deleteUserApi, [userId], {}, "DELETE", true)
+        return response
+    } catch (error) {
+        console.log("deleteUser error:", error)
+        return null
     }
 })
 
@@ -188,6 +213,26 @@ const getDataSlice = createSlice({
                 state.loading = false
                 state.users = null
                 state.error = "Failed to fetch users"
+            })
+            .addCase(updateUserRedux.pending, (state) => {
+                state.loading = true
+                state.error = null
+            })
+            .addCase(updateUserRedux.fulfilled, (state, action) => {
+                state.loading = false
+                if (action.payload) {
+                    state.myself = {
+                        ...state.myself,
+                        ...action.payload,
+                    }
+                }
+            })
+            .addCase(updateUserRedux.rejected, (state) => {
+                state.loading = false
+                state.error = "Failed to update user"
+            })
+            .addCase(deleteUserRedux.fulfilled, (state) => {
+                state.myself = null
             })
     }
 })

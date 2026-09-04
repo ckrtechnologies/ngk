@@ -55,6 +55,7 @@ class UserService {
       .order('created_at', { ascending: false });
 
     user.garage = garageList;
+    user.cars = garageList;
     user.vehicleId = garageList;
     user.watchList = watchlistRows || [];
     user.watchlist = watchlistRows || [];
@@ -79,11 +80,70 @@ class UserService {
   }
 
   async updateUser(id, updateFields) {
-    const allowed = ['name', 'email', 'role', 'address', 'phone'];
+    if (!id) {
+      throw new Error('User ID is required');
+    }
+    if (!updateFields || typeof updateFields !== 'object') {
+      throw new Error('Invalid update payload');
+    }
+
     const payload = { updated_at: new Date().toISOString() };
-    for (const key of allowed) {
-      if (updateFields[key] !== undefined) {
-        payload[key] = updateFields[key];
+
+    // 1. Name validation (string, trimmed, min 2 chars)
+    if (updateFields.name !== undefined) {
+      if (typeof updateFields.name !== 'string' || updateFields.name.trim().length < 2) {
+        throw new Error('Name must be a valid text of at least 2 characters');
+      }
+      payload.name = updateFields.name.trim();
+    }
+
+    // 2. Email validation (string, valid regex, unique check)
+    if (updateFields.email !== undefined) {
+      if (typeof updateFields.email !== 'string') {
+        throw new Error('Email must be a valid text');
+      }
+      const cleanEmail = updateFields.email.trim().toLowerCase();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        throw new Error('Please provide a valid email address');
+      }
+      // Check if another user is already registered with this email
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', cleanEmail)
+        .neq('id', id);
+      if (existingUser && existingUser.length > 0) {
+        throw new Error('This email address is already registered to another account');
+      }
+      payload.email = cleanEmail;
+    }
+
+    // 3. Role validation (string, one of allowed roles)
+    if (updateFields.role !== undefined) {
+      const cleanRole = String(updateFields.role).trim().toLowerCase();
+      const validRoles = ['owner', 'reseller', 'distributor', 'admin'];
+      if (!validRoles.includes(cleanRole)) {
+        throw new Error(`Invalid role '${cleanRole}'. Must be one of: ${validRoles.join(', ')}`);
+      }
+      payload.role = cleanRole;
+    }
+
+    // 4. Phone validation (string, trimmed or null)
+    if (updateFields.phone !== undefined) {
+      if (updateFields.phone === null || updateFields.phone === '') {
+        payload.phone = null;
+      } else {
+        payload.phone = String(updateFields.phone).trim();
+      }
+    }
+
+    // 5. Address validation (string, trimmed or null)
+    if (updateFields.address !== undefined) {
+      if (updateFields.address === null || updateFields.address === '') {
+        payload.address = null;
+      } else {
+        payload.address = String(updateFields.address).trim();
       }
     }
 
@@ -94,7 +154,11 @@ class UserService {
       .select('id, name, email, role, address, phone, created_at, updated_at');
 
     if (error) throw new Error(error.message || 'Failed to update user');
-    return data;
+    if (!data || data.length === 0) throw new Error('User not found');
+
+    // Return full hydrated user object with garage, watchlist, notifications
+    const fullUser = await this.getUserById(id);
+    return fullUser;
   }
 
   async deleteUser(id) {

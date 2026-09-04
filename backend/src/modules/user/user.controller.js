@@ -23,9 +23,10 @@ export const getUsers = async (req, res) => {
 
 export const updateUser = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id || req.user?.id;
     const updated = await userService.updateUser(id, req.body);
-    return sendSuccess(res, { user: updated }, 'User updated successfully', 200);
+    const userArray = Array.isArray(updated) ? updated : [updated];
+    return sendSuccess(res, { user: userArray }, 'User updated successfully', 200);
   } catch (error) {
     return sendError(res, error.message, 400, error);
   }

@@ -6,13 +6,18 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Mail,
   MapPin,
-  ShieldCheck,
   Briefcase,
   ChevronRight,
   LogOut,
@@ -20,17 +25,38 @@ import {
   MessageSquare,
   Wrench,
   CheckCircle2,
+  Pencil,
+  Phone,
+  User,
+  X,
+  Check,
+  Trash2,
 } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
-import { getMyselfRedux, getEnquiryRedux } from '../redux/getData';
+import {
+  getMyselfRedux,
+  getEnquiryRedux,
+  updateUserRedux,
+  deleteUserRedux,
+} from '../redux/getData';
 import Toast from 'react-native-toast-message';
 
 export default function ProfileScreen({ navigation }) {
   const dispatch = useDispatch();
   const insets = useSafeAreaInsets();
   const { myself, enquiry } = useSelector((state) => state.getData);
+
   const [role, setRole] = useState('owner');
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Edit form state
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editRole, setEditRole] = useState('owner');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -45,6 +71,93 @@ export default function ProfileScreen({ navigation }) {
     loadProfile();
   }, [dispatch]);
 
+  // Sync form state when modal opens or myself updates
+  const openEditModal = () => {
+    setEditName(myself?.name || '');
+    setEditEmail(myself?.email || '');
+    setEditPhone(myself?.phone || '');
+    setEditAddress(myself?.address || '');
+    setEditRole(myself?.role || role || 'owner');
+    setEditModalVisible(true);
+  };
+
+  const handleSaveProfile = async () => {
+    const trimmedName = editName.trim();
+    const trimmedEmail = editEmail.trim().toLowerCase();
+    const trimmedPhone = editPhone.trim();
+    const trimmedAddress = editAddress.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Full name must be at least 2 characters.',
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Validation Error',
+        text2: 'Please provide a valid email address.',
+      });
+      return;
+    }
+
+    const userId = myself?.id;
+    if (!userId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'User session not found.',
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        name: trimmedName,
+        email: trimmedEmail,
+        phone: trimmedPhone || null,
+        address: trimmedAddress || null,
+        role: editRole.toLowerCase(),
+      };
+
+      const result = await dispatch(
+        updateUserRedux({ userId, userData: payload })
+      ).unwrap();
+
+      if (result) {
+        setRole(payload.role);
+        await AsyncStorage.setItem('role', payload.role);
+        Toast.show({
+          type: 'success',
+          text1: 'Profile Updated',
+          text2: 'Your account credentials have been saved.',
+        });
+        setEditModalVisible(false);
+        dispatch(getMyselfRedux(userId));
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Update Failed',
+          text2: 'Could not update profile. Please try again.',
+        });
+      }
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: 'Update Failed',
+        text2: err?.message || 'Failed to update user profile',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(['token', 'userId', 'role', 'user']);
     Toast.show({ type: 'success', text1: 'Signed Out Successfully' });
@@ -54,10 +167,46 @@ export default function ProfileScreen({ navigation }) {
     });
   };
 
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account and all associated vehicles, enquiries, and data? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            const userId = myself?.id;
+            if (userId) {
+              await dispatch(deleteUserRedux(userId));
+            }
+            await AsyncStorage.multiRemove(['token', 'userId', 'role', 'user']);
+            Toast.show({
+              type: 'info',
+              text1: 'Account Deleted',
+              text2: 'Your account has been deleted from our system.',
+            });
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'RoleSelection' }],
+            });
+          },
+        },
+      ]
+    );
+  };
+
   const userName = myself?.name || 'Chandan Mallik';
   const userEmail = myself?.email || 'chandan@example.com';
-  const userAddress = myself?.address || 'Johannesburg, South Africa';
-  const carsCount = myself?.cars?.length || 0;
+  const userPhone = myself?.phone || 'Not provided';
+  const userAddress = myself?.address || 'Not provided';
+  const userRole = (myself?.role || role || 'owner').toLowerCase();
+  const carsCount =
+    myself?.garage?.length ||
+    myself?.cars?.length ||
+    myself?.vehicleId?.length ||
+    0;
   const enquiriesCount = enquiry?.length || 0;
 
   // Generate 2-letter initials monogram without image CDN
@@ -68,6 +217,19 @@ export default function ProfileScreen({ navigation }) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
     return name.slice(0, 2).toUpperCase();
+  };
+
+  const getRoleLabel = (r) => {
+    switch (r) {
+      case 'reseller':
+        return 'Authorized Reseller & Workshop';
+      case 'distributor':
+        return 'Wholesale Distribution Partner';
+      case 'admin':
+        return 'System Administrator';
+      default:
+        return 'Vehicle Owner & Fleet Operator';
+    }
   };
 
   return (
@@ -89,7 +251,13 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.headerSubtitle}>NGK TECHNICAL NETWORK</Text>
         </View>
 
-        <View style={styles.headerRightPlaceholder} />
+        <TouchableOpacity
+          style={styles.headerEditBtn}
+          onPress={openEditModal}
+          activeOpacity={0.75}
+        >
+          <Pencil size={18} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -99,7 +267,7 @@ export default function ProfileScreen({ navigation }) {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Executive Profile Card (No CDN Image) */}
+        {/* Executive Profile Card (No CDN Image, No Client ID) */}
         <View style={styles.profileCard}>
           <View style={styles.profileCardTop}>
             {/* Monogram Badge */}
@@ -113,7 +281,9 @@ export default function ProfileScreen({ navigation }) {
               </Text>
               <View style={styles.roleRow}>
                 <View style={styles.rolePill}>
-                  <Text style={styles.rolePillText}>{role.toUpperCase()}</Text>
+                  <Text style={styles.rolePillText}>
+                    {userRole.toUpperCase()}
+                  </Text>
                 </View>
                 <View style={styles.verifiedRow}>
                   <CheckCircle2 size={13} color="#10B981" />
@@ -123,16 +293,18 @@ export default function ProfileScreen({ navigation }) {
             </View>
           </View>
 
-          {/* Member ID Bar */}
-          <View style={styles.memberIdBar}>
-            <Text style={styles.memberIdLabel}>CLIENT ID</Text>
-            <Text style={styles.memberIdValue}>
-              NGK-ZA-2026-0{myself?.id || '842'}
-            </Text>
-          </View>
+          {/* Quick Edit CTA Pill */}
+          <TouchableOpacity
+            style={styles.editPillBtn}
+            onPress={openEditModal}
+            activeOpacity={0.75}
+          >
+            <Pencil size={14} color="#C6122E" />
+            <Text style={styles.editPillText}>Edit Profile Details</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Quick Stats Grid */}
+        {/* Quick Stats Grid (Clean 2-card layout, No OEM) */}
         <View style={styles.statsGrid}>
           <TouchableOpacity
             style={styles.statCard}
@@ -140,7 +312,7 @@ export default function ProfileScreen({ navigation }) {
             activeOpacity={0.75}
           >
             <View style={styles.statIconBadgeBlue}>
-              <Car size={18} color="#2563EB" />
+              <Car size={20} color="#2563EB" />
             </View>
             <Text style={styles.statNumber}>{carsCount}</Text>
             <Text style={styles.statLabel}>Garage Fleet</Text>
@@ -152,24 +324,34 @@ export default function ProfileScreen({ navigation }) {
             activeOpacity={0.75}
           >
             <View style={styles.statIconBadgeGreen}>
-              <MessageSquare size={18} color="#059669" />
+              <MessageSquare size={20} color="#059669" />
             </View>
             <Text style={styles.statNumber}>{enquiriesCount}</Text>
             <Text style={styles.statLabel}>Tech Enquiries</Text>
           </TouchableOpacity>
-
-          <View style={styles.statCard}>
-            <View style={styles.statIconBadgeRed}>
-              <ShieldCheck size={18} color="#C6122E" />
-            </View>
-            <Text style={styles.statNumber}>100%</Text>
-            <Text style={styles.statLabel}>OEM Verified</Text>
-          </View>
         </View>
 
         {/* Account Details Section */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeader}>ACCOUNT CREDENTIALS</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeader}>ACCOUNT CREDENTIALS</Text>
+            <TouchableOpacity onPress={openEditModal} activeOpacity={0.7}>
+              <Text style={styles.sectionEditLink}>Edit</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Full Name Item */}
+          <View style={styles.detailRow}>
+            <View style={styles.detailIconWrapper}>
+              <User size={16} color="#4B5563" />
+            </View>
+            <View style={styles.detailTextWrapper}>
+              <Text style={styles.detailLabel}>Full Name</Text>
+              <Text style={styles.detailValue}>{userName}</Text>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
 
           {/* Email Item */}
           <View style={styles.detailRow}>
@@ -179,6 +361,19 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.detailTextWrapper}>
               <Text style={styles.detailLabel}>Email Address</Text>
               <Text style={styles.detailValue}>{userEmail}</Text>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Phone Item */}
+          <View style={styles.detailRow}>
+            <View style={styles.detailIconWrapper}>
+              <Phone size={16} color="#4B5563" />
+            </View>
+            <View style={styles.detailTextWrapper}>
+              <Text style={styles.detailLabel}>Phone Number</Text>
+              <Text style={styles.detailValue}>{userPhone}</Text>
             </View>
           </View>
 
@@ -204,13 +399,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
             <View style={styles.detailTextWrapper}>
               <Text style={styles.detailLabel}>Platform Role</Text>
-              <Text style={styles.detailValue}>
-                {role === 'reseller'
-                  ? 'Authorized Reseller'
-                  : role === 'distributor'
-                  ? 'Official Wholesale Distributor'
-                  : 'Vehicle Owner & Fleet Operator'}
-              </Text>
+              <Text style={styles.detailValue}>{getRoleLabel(userRole)}</Text>
             </View>
           </View>
         </View>
@@ -259,7 +448,7 @@ export default function ProfileScreen({ navigation }) {
 
           <TouchableOpacity
             style={styles.navRow}
-            onPress={() => navigation.navigate('PartsFinder')}
+            onPress={() => navigation.navigate('CatalogSearch')}
             activeOpacity={0.7}
           >
             <View style={styles.navIconBadgeRed}>
@@ -268,27 +457,249 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.navTextCol}>
               <Text style={styles.navTitle}>TecDoc Parts & Catalog</Text>
               <Text style={styles.navSubtitle}>
-                Instant part verification across 50,000+ OEM items
+                Instant part verification across 50,000+ items
               </Text>
             </View>
             <ChevronRight size={18} color="#9CA3AF" />
           </TouchableOpacity>
         </View>
 
-        {/* Sign Out Action Button */}
+        {/* Sign Out CTA Button */}
         <TouchableOpacity
-          style={styles.logoutBtn}
+          style={styles.signOutBtn}
           onPress={handleLogout}
           activeOpacity={0.8}
         >
           <LogOut size={18} color="#DC2626" />
-          <Text style={styles.logoutBtnText}>Sign Out of NGK Technical</Text>
+          <Text style={styles.signOutText}>Sign Out of NGK Technical</Text>
         </TouchableOpacity>
 
-        <Text style={styles.footerBranding}>
-          NGK SPARK PLUGS (PTY) LTD • TEC-DOC CERTIFIED 2026
+        {/* Delete Account CTA (Full CRUD coverage) */}
+        <TouchableOpacity
+          style={styles.deleteAccountBtn}
+          onPress={confirmDeleteAccount}
+          activeOpacity={0.8}
+        >
+          <Trash2 size={16} color="#9CA3AF" />
+          <Text style={styles.deleteAccountText}>Delete Account Data</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.footerNote}>
+          NGK SPARK PLUGS (PTY) LTD • TECHNICAL PROFILE 2026
         </Text>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContainer}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Edit Profile</Text>
+                <Text style={styles.modalSubtitle}>
+                  Update your contact & workshop details
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.modalCloseBtn}
+                onPress={() => setEditModalVisible(false)}
+                activeOpacity={0.7}
+              >
+                <X size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.modalBody}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Name Field */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Full Name</Text>
+                <View style={styles.inputWrapper}>
+                  <User size={18} color="#9CA3AF" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInput}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder="e.g. Chandan Mallik"
+                    placeholderTextColor="#9CA3AF"
+                    autoCapitalize="words"
+                  />
+                </View>
+              </View>
+
+              {/* Email Field */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email Address</Text>
+                <View style={styles.inputWrapper}>
+                  <Mail size={18} color="#9CA3AF" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInput}
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                    placeholder="e.g. user@example.com"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+
+              {/* Phone Field */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Phone Number</Text>
+                <View style={styles.inputWrapper}>
+                  <Phone size={18} color="#9CA3AF" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.textInput}
+                    value={editPhone}
+                    onChangeText={setEditPhone}
+                    placeholder="e.g. +27 82 123 4567"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              </View>
+
+              {/* Workshop / Location Field */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Location / Workshop Address</Text>
+                <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+                  <MapPin
+                    size={18}
+                    color="#9CA3AF"
+                    style={[styles.inputIcon, styles.textAreaIcon]}
+                  />
+                  <TextInput
+                    style={[styles.textInput, styles.textAreaInput]}
+                    value={editAddress}
+                    onChangeText={setEditAddress}
+                    placeholder="e.g. 124 Main Reef Road, Johannesburg, 2001"
+                    placeholderTextColor="#9CA3AF"
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+              </View>
+
+              {/* Role Selection */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Account Persona / Role</Text>
+                <View style={styles.rolePickerRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOption,
+                      editRole === 'owner' && styles.roleOptionActive,
+                    ]}
+                    onPress={() => setEditRole('owner')}
+                    activeOpacity={0.7}
+                  >
+                    <Car
+                      size={16}
+                      color={editRole === 'owner' ? '#C6122E' : '#6B7280'}
+                    />
+                    <Text
+                      style={[
+                        styles.roleOptionText,
+                        editRole === 'owner' && styles.roleOptionTextActive,
+                      ]}
+                    >
+                      Owner
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOption,
+                      editRole === 'reseller' && styles.roleOptionActive,
+                    ]}
+                    onPress={() => setEditRole('reseller')}
+                    activeOpacity={0.7}
+                  >
+                    <Wrench
+                      size={16}
+                      color={editRole === 'reseller' ? '#C6122E' : '#6B7280'}
+                    />
+                    <Text
+                      style={[
+                        styles.roleOptionText,
+                        editRole === 'reseller' && styles.roleOptionTextActive,
+                      ]}
+                    >
+                      Reseller
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.roleOption,
+                      editRole === 'distributor' && styles.roleOptionActive,
+                    ]}
+                    onPress={() => setEditRole('distributor')}
+                    activeOpacity={0.7}
+                  >
+                    <Briefcase
+                      size={16}
+                      color={editRole === 'distributor' ? '#C6122E' : '#6B7280'}
+                    />
+                    <Text
+                      style={[
+                        styles.roleOptionText,
+                        editRole === 'distributor' &&
+                          styles.roleOptionTextActive,
+                      ]}
+                    >
+                      Distributor
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Modal Actions */}
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setEditModalVisible(false)}
+                disabled={isSaving}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalSaveBtn,
+                  isSaving && styles.modalSaveBtnDisabled,
+                ]}
+                onPress={handleSaveProfile}
+                disabled={isSaving}
+                activeOpacity={0.8}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Check size={18} color="#FFFFFF" style={styles.saveIcon} />
+                    <Text style={styles.modalSaveText}>Save Changes</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -300,24 +711,17 @@ const styles = StyleSheet.create({
   },
   headerBar: {
     backgroundColor: '#C6122E',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
   },
   backBtn: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -325,86 +729,93 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.8)',
-    letterSpacing: 0.8,
-    marginTop: 1,
+    color: 'rgba(255, 255, 255, 0.75)',
+    letterSpacing: 1.1,
+    marginTop: 2,
   },
-  headerRightPlaceholder: {
+  headerEditBtn: {
     width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    gap: 16,
+    padding: 16,
   },
   profileCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
+    marginBottom: 16,
   },
   profileCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
   },
   monogramBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 18,
     backgroundColor: '#C6122E',
-    borderWidth: 2,
-    borderColor: '#FECACA',
+    borderWidth: 2.5,
+    borderColor: '#FDE047',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 16,
+    shadowColor: '#C6122E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   monogramText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: 0.5,
+    letterSpacing: -0.5,
   },
   profileInfoCol: {
     flex: 1,
   },
   profileName: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.3,
+    color: '#111827',
+    letterSpacing: -0.4,
+    marginBottom: 6,
   },
   roleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
     gap: 8,
   },
   rolePill: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
     borderRadius: 6,
   },
   rolePillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#DC2626',
     letterSpacing: 0.5,
   },
   verifiedRow: {
@@ -413,111 +824,124 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   verifiedLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  memberIdBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  memberIdLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#94A3B8',
-    letterSpacing: 0.6,
-  },
-  memberIdValue: {
     fontSize: 12,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  editPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    marginTop: 14,
+    gap: 6,
+  },
+  editPillText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
-    fontVariant: ['tabular-nums'],
+    color: '#C6122E',
   },
   statsGrid: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    marginBottom: 16,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    alignItems: 'center',
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   statIconBadgeBlue: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   statIconBadgeGreen: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: '#ECFDF5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statIconBadgeRed: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   statNumber: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#111827',
+    letterSpacing: -0.3,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#6B7280',
     marginTop: 2,
-    textAlign: 'center',
   },
   sectionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+    marginBottom: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
   },
   sectionHeader: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#6B7280',
     letterSpacing: 0.8,
-    marginBottom: 12,
+  },
+  sectionEditLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C6122E',
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 4,
+    paddingVertical: 10,
   },
   detailIconWrapper: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
-    backgroundColor: '#F1F5F9',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 14,
   },
   detailTextWrapper: {
     flex: 1,
@@ -525,86 +949,260 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#6B7280',
+    marginBottom: 2,
   },
   detailValue: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
-    marginTop: 1,
+    color: '#111827',
   },
   divider: {
     height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 10,
+    backgroundColor: '#F3F4F6',
   },
   navRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 4,
+    paddingVertical: 12,
   },
   navIconBadgeBlue: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 14,
   },
   navIconBadgeGreen: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#ECFDF5',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 14,
   },
   navIconBadgeRed: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: '#FEF2F2',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 14,
   },
   navTextCol: {
     flex: 1,
   },
   navTitle: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#111827',
   },
   navSubtitle: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#64748B',
-    marginTop: 1,
+    color: '#6B7280',
+    marginTop: 2,
   },
-  logoutBtn: {
+  signOutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    height: 48,
+    borderWidth: 1.5,
+    borderColor: '#FECDD3',
     borderRadius: 14,
-    marginTop: 4,
+    paddingVertical: 15,
+    gap: 8,
+    marginBottom: 10,
   },
-  logoutBtnText: {
-    fontSize: 14,
+  signOutText: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#DC2626',
-    letterSpacing: 0.1,
   },
-  footerBranding: {
-    fontSize: 10.5,
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    gap: 6,
+    marginBottom: 14,
+  },
+  deleteAccountText: {
+    fontSize: 13,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: '#9CA3AF',
+  },
+  footerNote: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9CA3AF',
     textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.3,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  textInput: {
+    flex: 1,
+    height: 48,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  textAreaWrapper: {
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+  },
+  textAreaIcon: {
     marginTop: 4,
+  },
+  textAreaInput: {
+    height: 72,
+    textAlignVertical: 'top',
+  },
+  rolePickerRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  roleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  roleOptionActive: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#C6122E',
+  },
+  roleOptionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  roleOptionTextActive: {
+    color: '#C6122E',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  modalSaveBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    backgroundColor: '#C6122E',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#C6122E',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  modalSaveBtnDisabled: {
+    opacity: 0.65,
+  },
+  saveIcon: {
+    marginRight: 6,
+  },
+  modalSaveText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
