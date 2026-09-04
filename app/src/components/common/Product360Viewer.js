@@ -18,6 +18,8 @@ const Product360Viewer = ({
   angle = 0,
   isAutoSpinning = false,
   zoomScale = 1,
+  height = 360,
+  containerStyle,
   onAngleChange,
   onAutoSpinChange,
   onScaleChange,
@@ -235,16 +237,23 @@ const Product360Viewer = ({
     [frames.length, isStatic]
   );
 
-  // In static mode, ALWAYS show staticImageUrl; in 360 mode, show frames or fallback
-  const fallbackUri = staticImageUrl || gifUrl;
+  // When in 360 mode and frames are still loading from backend, NEVER render the raw animated GIF directly,
+  // because remote animated GIFs flicker and stutter on Android Fresco while streaming.
+  // Instead, show the crystal-clear static photo until frames are decoded and ready!
+  const placeholderUri = staticImageUrl || null;
   const displayUri = isStatic
-    ? fallbackUri
+    ? staticImageUrl || gifUrl
     : frames.length > 0 && frames[currentFrame]
     ? frames[currentFrame]
-    : fallbackUri;
+    : placeholderUri || gifUrl;
+
+  const fallbackUri = placeholderUri || staticImageUrl || gifUrl;
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View
+      style={[styles.container, height ? { height } : null, containerStyle]}
+      {...panResponder.panHandlers}
+    >
       {fallbackUri || displayUri ? (
         <Animated.View
           style={[
@@ -286,6 +295,7 @@ const Product360Viewer = ({
       {loading && !isStatic && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="small" color="#C6122E" />
+          <Text style={styles.loadingOverlayText}>Preparing 360° Studio...</Text>
         </View>
       )}
     </View>
@@ -295,9 +305,9 @@ const Product360Viewer = ({
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    height: 230,
+    height: 360,
     backgroundColor: '#F8FAFC',
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
@@ -315,16 +325,27 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    padding: 6,
-    borderRadius: 16,
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  loadingOverlayText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
   },
   imageWrap: {
     width: '100%',
@@ -333,8 +354,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   productImage: {
-    width: '88%',
-    height: '88%',
+    width: '90%',
+    height: '90%',
   },
   baseImageUnderlay: {
     position: 'absolute',

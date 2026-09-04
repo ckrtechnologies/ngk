@@ -27,6 +27,9 @@ import {
   LayoutGrid,
   List,
   Zap,
+  FileText,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { apiFunction } from '../apis/apiFunction';
@@ -53,6 +56,8 @@ const VerifiedPartsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPart, setSelectedPart] = useState(null);
   const [specsModalVisible, setSpecsModalVisible] = useState(false);
+  const [modalMainTab, setModalMainTab] = useState('studio'); // 'studio' | 'specs'
+  const [isStudioFullscreen, setIsStudioFullscreen] = useState(false);
   const [activeMediaTab, setActiveMediaTab] = useState('3d'); // '3d' | 'photo'
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [rotationY, setRotationY] = useState(0);
@@ -352,6 +357,8 @@ const VerifiedPartsScreen = () => {
     setRotationY(0);
     setZoomScale(1);
     setIsAutoSpinning(has360);
+    setModalMainTab('studio');
+    setIsStudioFullscreen(true);
     setSpecsModalVisible(true);
   };
 
@@ -422,18 +429,21 @@ const VerifiedPartsScreen = () => {
       !img.headerDescription?.toLowerCase()?.includes('360')
   );
 
-  // Prioritize already cached 400px image for instant 0ms render without flicker,
-  // falling back gracefully to 800px or 200px.
+  // Always use the real, verified static 2D photo for the initial placeholder
+  // so remote animated GIFs are NEVER used as placeholders, eliminating decode jitter.
+  const verifiedStaticPhoto =
+    regularImages[selectedImageIndex]?.imageURL400 ||
+    regularImages[selectedImageIndex]?.imageURL800 ||
+    regularImages[selectedImageIndex]?.imageURL200 ||
+    getPartImage(selectedPart) ||
+    selectedPart?.imageUrl ||
+    allImages[0]?.imageURL400 ||
+    null;
+
   const activeImageUrl =
     activeMediaTab === '3d' && gif360
       ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200
-      : regularImages[selectedImageIndex]?.imageURL400 ||
-        regularImages[selectedImageIndex]?.imageURL800 ||
-        regularImages[selectedImageIndex]?.imageURL200 ||
-        getPartImage(selectedPart) ||
-        selectedPart?.imageUrl ||
-        allImages[0]?.imageURL400 ||
-        null;
+      : verifiedStaticPhoto;
 
   const criteriaList = selectedPart?.articleCriteria || selectedPart?.specs || [];
 
@@ -995,111 +1005,198 @@ const VerifiedPartsScreen = () => {
           <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={true} />
 
           {/* Top Modal Navigation Header - Clean Light Theme */}
-          <View style={styles.modalHeaderLight}>
-            <View style={styles.modalHeaderInfo}>
-              <View style={styles.modalBrandPillLight}>
-                <Text style={styles.modalBrandTextLight}>
-                  {selectedPart?.mfrName || selectedPart?.brandName || 'NGK SPARK PLUG'}
+          {!isStudioFullscreen && (
+            <View style={styles.modalHeaderLight}>
+              <View style={styles.modalHeaderInfo}>
+                <View style={styles.modalBrandPillLight}>
+                  <Text style={styles.modalBrandTextLight}>
+                    {selectedPart?.mfrName || selectedPart?.brandName || 'NGK SPARK PLUG'}
+                  </Text>
+                </View>
+                <Text style={styles.modalPartNumberLight}>
+                  {selectedPart?.tradeNumbers?.[0] ||
+                    selectedPart?.articleNumber ||
+                    selectedPart?.articleNo ||
+                    selectedPart?.partNumber ||
+                    'GENUINE NGK'}
+                </Text>
+                <Text style={styles.modalPartSubLight}>
+                  {selectedPart?.genericArticles?.[0]?.genericArticleDescription ||
+                    selectedPart?.articleName ||
+                    'Ignition Component'}
                 </Text>
               </View>
-              <Text style={styles.modalPartNumberLight}>
-                {selectedPart?.tradeNumbers?.[0] ||
-                  selectedPart?.articleNumber ||
-                  selectedPart?.articleNo ||
-                  selectedPart?.partNumber ||
-                  'GENUINE NGK'}
-              </Text>
-              <Text style={styles.modalPartSubLight}>
-                {selectedPart?.genericArticles?.[0]?.genericArticleDescription ||
-                  selectedPart?.articleName ||
-                  'Ignition Component'}
-              </Text>
+              <TouchableOpacity
+                style={styles.modalCloseBtnLight}
+                onPress={() => setSpecsModalVisible(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <X size={20} color="#374151" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.modalCloseBtnLight}
-              onPress={() => setSpecsModalVisible(false)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <X size={20} color="#374151" />
-            </TouchableOpacity>
-          </View>
+          )}
 
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBodyLight}>
-            {/* 3D Interactive Showroom Stage (Light Theme) */}
-            <View style={styles.showroomStageLight}>
-              {/* Media Mode Switcher (360° 3D vs HD Photo) */}
-              <View style={styles.showroomControlsLight}>
-                <View style={styles.mediaToggleBoxLight}>
-                  {gif360 ? (
-                    <TouchableOpacity
-                      style={[
-                        styles.mediaToggleBtnLight,
-                        activeMediaTab === '3d' && styles.mediaToggleBtnActiveLight,
-                      ]}
-                      onPress={() => {
-                        setActiveMediaTab('3d');
-                        setIsAutoSpinning(true);
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <RotateCw
-                        size={13}
-                        color={activeMediaTab === '3d' ? '#FFFFFF' : '#4B5563'}
-                      />
-                      <Text
-                        style={[
-                          styles.mediaToggleTextLight,
-                          activeMediaTab === '3d' && styles.mediaToggleTextActiveLight,
-                        ]}
-                      >
-                        360° 3D Model
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
+          {/* Subheader: Segmented Tab Switcher (Studio vs Specs) */}
+          {!isStudioFullscreen && (
+            <View style={styles.modalSubHeaderTabRow}>
+              <TouchableOpacity
+                style={[
+                  styles.modalSubHeaderTab,
+                  modalMainTab === 'studio' && styles.modalSubHeaderTabActive,
+                ]}
+                onPress={() => {
+                  setModalMainTab('studio');
+                  setIsStudioFullscreen(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <RotateCw
+                  size={13}
+                  color={modalMainTab === 'studio' ? '#C6122E' : '#64748B'}
+                />
+                <Text
+                  style={[
+                    styles.modalSubHeaderTabText,
+                    modalMainTab === 'studio' && styles.modalSubHeaderTabTextActive,
+                  ]}
+                >
+                  3D Interactive Studio
+                </Text>
+              </TouchableOpacity>
 
+              <TouchableOpacity
+                style={[
+                  styles.modalSubHeaderTab,
+                  modalMainTab === 'specs' && styles.modalSubHeaderTabActive,
+                ]}
+                onPress={() => setModalMainTab('specs')}
+                activeOpacity={0.8}
+              >
+                <FileText
+                  size={13}
+                  color={modalMainTab === 'specs' ? '#C6122E' : '#64748B'}
+                />
+                <Text
+                  style={[
+                    styles.modalSubHeaderTabText,
+                    modalMainTab === 'specs' && styles.modalSubHeaderTabTextActive,
+                  ]}
+                >
+                  Technical Specifications
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {isStudioFullscreen ? (
+            /* True Full-Screen Studio Mode */
+            <View style={styles.fullScreenStudioContainer}>
+              <View style={styles.fullScreenStudioTopBar}>
+                <View style={styles.fullScreenStudioTopLeft}>
                   <TouchableOpacity
-                    style={[
-                      styles.mediaToggleBtnLight,
-                      activeMediaTab === 'photo' && styles.mediaToggleBtnActiveLight,
-                    ]}
+                    style={styles.fullScreenExitBtn}
+                    onPress={() => setSpecsModalVisible(false)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <X size={18} color="#1E293B" />
+                  </TouchableOpacity>
+
+                  <View style={{ marginLeft: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={styles.modalBrandPillLight}>
+                        <Text style={styles.modalBrandTextLight}>
+                          {selectedPart?.mfrName || selectedPart?.brandName || 'NGK'}
+                        </Text>
+                      </View>
+                      <Text style={styles.fullScreenStudioPartNo}>
+                        {selectedPart?.tradeNumbers?.[0] || selectedPart?.articleNumber || 'Component'}
+                      </Text>
+                    </View>
+                    <Text style={styles.modalPartSubLight} numberOfLines={1}>
+                      {selectedPart?.genericArticles?.[0]?.genericArticleDescription ||
+                        selectedPart?.articleName ||
+                        'Genuine OEM Component'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.fullScreenStudioTopActions}>
+                  {/* Media Toggle: 360 vs Photos if both available */}
+                  {gif360 && regularImages.length > 0 && (
+                    <View style={styles.mediaToggleBoxLight}>
+                      <TouchableOpacity
+                        style={[
+                          styles.mediaToggleBtnLight,
+                          activeMediaTab === '3d' && styles.mediaToggleBtnActiveLight,
+                          { paddingHorizontal: 7, paddingVertical: 4 },
+                        ]}
+                        onPress={() => {
+                          setActiveMediaTab('3d');
+                          setIsAutoSpinning(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <RotateCw size={11} color={activeMediaTab === '3d' ? '#FFFFFF' : '#4B5563'} />
+                        <Text
+                          style={[
+                            styles.mediaToggleTextLight,
+                            activeMediaTab === '3d' && styles.mediaToggleTextActiveLight,
+                            { fontSize: 10 },
+                          ]}
+                        >
+                          360°
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.mediaToggleBtnLight,
+                          activeMediaTab === 'photo' && styles.mediaToggleBtnActiveLight,
+                          { paddingHorizontal: 7, paddingVertical: 4 },
+                        ]}
+                        onPress={() => {
+                          setActiveMediaTab('photo');
+                          setIsAutoSpinning(false);
+                          setZoomScale(1);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Eye size={11} color={activeMediaTab === 'photo' ? '#FFFFFF' : '#4B5563'} />
+                        <Text
+                          style={[
+                            styles.mediaToggleTextLight,
+                            activeMediaTab === 'photo' && styles.mediaToggleTextActiveLight,
+                            { fontSize: 10 },
+                          ]}
+                        >
+                          Photo
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Button to switch to Technical Specs */}
+                  <TouchableOpacity
+                    style={styles.fullScreenSpecsBtn}
                     onPress={() => {
-                      setActiveMediaTab('photo');
-                      setIsAutoSpinning(false);
-                      setZoomScale(1);
+                      setIsStudioFullscreen(false);
+                      setModalMainTab('specs');
                     }}
                     activeOpacity={0.8}
                   >
-                    <Eye
-                      size={13}
-                      color={activeMediaTab === 'photo' ? '#FFFFFF' : '#4B5563'}
-                    />
-                    <Text
-                      style={[
-                        styles.mediaToggleTextLight,
-                        activeMediaTab === 'photo' && styles.mediaToggleTextActiveLight,
-                      ]}
-                    >
-                      {regularImages.length > 1 ? `HD Photos (${regularImages.length})` : 'HD Photo'}
-                    </Text>
+                    <Sliders size={12} color="#C6122E" />
+                    <Text style={styles.fullScreenSpecsBtnText}>Specs</Text>
                   </TouchableOpacity>
                 </View>
-
-                {activeMediaTab === '3d' && gif360 && (
-                  <View style={styles.active3DBadgeLight}>
-                    <RotateCw size={11} color="#059669" />
-                    <Text style={styles.active3DBadgeTextLight}>
-                      {isAutoSpinning ? 'AUTO-SPINNING' : `${((rotationY % 360) + 360) % 360}° ORBIT`}
-                    </Text>
-                  </View>
-                )}
               </View>
 
-              {/* Touch-to-Rotate 360 Product Stage / HD Static Photo Stage */}
-              <View style={styles.viewportCenterLight}>
+              <View style={styles.fullScreenStudioViewport}>
                 <Product360Viewer
                   isStatic={activeMediaTab === 'photo' || !gif360}
                   gifUrl={activeMediaTab === '3d' && gif360 ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200 : null}
-                  staticImageUrl={activeImageUrl}
+                  staticImageUrl={verifiedStaticPhoto}
+                  height={undefined}
+                  containerStyle={{ flex: 1, borderRadius: 0, backgroundColor: '#F8FAFC' }}
                   angle={activeMediaTab === '3d' ? rotationY : 0}
                   isAutoSpinning={activeMediaTab === '3d' && gif360 && isAutoSpinning}
                   zoomScale={zoomScale}
@@ -1109,70 +1206,71 @@ const VerifiedPartsScreen = () => {
                 />
               </View>
 
-              {/* Interactive 3D Control Strip */}
-              {activeMediaTab === '3d' && gif360 && (
-                <View style={styles.interactive3DToolbar}>
-                  <View style={styles.dragHintBox}>
-                    <Text style={styles.dragHintText}>
-                      👆 Swipe to rotate • Pinch or double-tap to zoom • Drag to pan
-                    </Text>
-                  </View>
+              <View style={styles.fullScreenStudioBottomBar}>
+                {/* Drag hint */}
+                <View style={[styles.dragHintBox, { paddingVertical: 3 }]}>
+                  <Text style={[styles.dragHintText, { fontSize: 10 }]}>
+                    👆 Swipe to rotate 360° • Pinch or double-tap to zoom • Drag to pan
+                  </Text>
+                </View>
 
-                  {/* Actions: Auto-Spin, Reset, Zoom In, Zoom Out */}
-                  <View style={styles.toolActionButtonsRow}>
+                {/* Main controls row */}
+                <View style={styles.toolActionButtonsRow}>
+                  {gif360 && (
                     <TouchableOpacity
-                      style={[
-                        styles.toolBtn,
-                        isAutoSpinning && styles.toolBtnActive,
-                      ]}
+                      style={[styles.toolBtn, isAutoSpinning && styles.toolBtnActive]}
                       onPress={() => setIsAutoSpinning((prev) => !prev)}
                       activeOpacity={0.7}
                     >
-                      <RotateCw
-                        size={13}
-                        color={isAutoSpinning ? '#FFFFFF' : '#374151'}
-                      />
-                      <Text
-                        style={[
-                          styles.toolBtnText,
-                          isAutoSpinning && styles.toolBtnTextActive,
-                        ]}
-                      >
+                      <RotateCw size={13} color={isAutoSpinning ? '#FFFFFF' : '#374151'} />
+                      <Text style={[styles.toolBtnText, isAutoSpinning && styles.toolBtnTextActive]}>
                         {isAutoSpinning ? 'Pause' : 'Auto-Spin'}
                       </Text>
                     </TouchableOpacity>
+                  )}
 
-                    <TouchableOpacity
-                      style={styles.toolBtn}
-                      onPress={() => {
-                        setRotationY(0);
-                        setZoomScale(1);
-                        setIsAutoSpinning(false);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <RotateCcw size={13} color="#374151" />
-                      <Text style={styles.toolBtnText}>Reset</Text>
-                    </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.toolBtn}
+                    onPress={() => {
+                      setRotationY(0);
+                      setZoomScale(1);
+                      setIsAutoSpinning(false);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <RotateCcw size={13} color="#374151" />
+                    <Text style={styles.toolBtnText}>Reset</Text>
+                  </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.toolBtnIcon}
-                      onPress={() => setZoomScale((s) => Math.min(1.8, s + 0.2))}
-                      activeOpacity={0.7}
-                    >
-                      <ZoomIn size={14} color="#374151" />
-                    </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.toolBtnIcon}
+                    onPress={() => setZoomScale((s) => Math.min(3.5, s + 0.3))}
+                    activeOpacity={0.7}
+                  >
+                    <ZoomIn size={15} color="#374151" />
+                  </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.toolBtnIcon}
-                      onPress={() => setZoomScale((s) => Math.max(0.7, s - 0.2))}
-                      activeOpacity={0.7}
-                    >
-                      <ZoomOut size={14} color="#374151" />
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.toolBtnIcon}
+                    onPress={() => setZoomScale((s) => Math.max(0.7, s - 0.3))}
+                    activeOpacity={0.7}
+                  >
+                    <ZoomOut size={15} color="#374151" />
+                  </TouchableOpacity>
 
-                  {/* Quick Preset Angles */}
+                  {/* Degree indicator badge */}
+                  {activeMediaTab === '3d' && gif360 && (
+                    <View style={styles.active3DBadgeLight}>
+                      <RotateCw size={11} color="#059669" />
+                      <Text style={styles.active3DBadgeTextLight}>
+                        {isAutoSpinning ? 'SPINNING' : `${((rotationY % 360) + 360) % 360}°`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Preset Angle Buttons */}
+                {gif360 && (
                   <View style={styles.anglePresetRow}>
                     {[
                       { label: '0° Front', deg: 0 },
@@ -1185,201 +1283,448 @@ const VerifiedPartsScreen = () => {
                       return (
                         <TouchableOpacity
                           key={p.deg}
-                          style={[
-                            styles.anglePresetChip,
-                            isNear && styles.anglePresetChipActive,
-                          ]}
+                          style={[styles.anglePresetChip, isNear && styles.anglePresetChipActive]}
                           onPress={() => {
                             setIsAutoSpinning(false);
                             setRotationY(p.deg);
                           }}
                           activeOpacity={0.7}
                         >
-                          <Text
-                            style={[
-                              styles.anglePresetChipText,
-                              isNear && styles.anglePresetChipTextActive,
-                            ]}
-                          >
+                          <Text style={[styles.anglePresetChipText, isNear && styles.anglePresetChipTextActive]}>
                             {p.label}
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
                   </View>
-                </View>
-              )}
+                )}
 
-              {/* HD Photo Zoom Controls */}
-              {activeMediaTab === 'photo' && (
-                <View style={styles.interactive3DToolbar}>
-                  <View style={styles.dragHintBox}>
-                    <Text style={styles.dragHintText}>
-                      🔍 Pinch or double-tap to zoom • Drag in any direction to pan
-                    </Text>
-                  </View>
-
-                  <View style={styles.toolActionButtonsRow}>
-                    <TouchableOpacity
-                      style={styles.toolBtn}
-                      onPress={() => setZoomScale(1)}
-                      activeOpacity={0.7}
-                    >
-                      <RotateCcw size={13} color="#374151" />
-                      <Text style={styles.toolBtnText}>Reset Zoom</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.toolBtnIcon}
-                      onPress={() => setZoomScale((s) => Math.min(2.5, s + 0.25))}
-                      activeOpacity={0.7}
-                    >
-                      <ZoomIn size={14} color="#374151" />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.toolBtnIcon}
-                      onPress={() => setZoomScale((s) => Math.max(0.7, s - 0.25))}
-                      activeOpacity={0.7}
-                    >
-                      <ZoomOut size={14} color="#374151" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-
-              {/* Photo Thumbnails if multiple regular photos exist */}
-              {activeMediaTab === 'photo' && regularImages.length > 1 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.thumbnailRowLight}
-                >
-                  {regularImages.map((img, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[
-                        styles.thumbBoxLight,
-                        selectedImageIndex === idx && styles.thumbBoxActiveLight,
-                      ]}
-                      onPress={() => setSelectedImageIndex(idx)}
-                    >
-                      <Image
-                        source={{ uri: img.imageURL200 || img.imageURL100 }}
-                        style={styles.thumbImg}
-                        resizeMode="contain"
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
-
-              {/* Studio Fitment Guarantee Footer */}
-              <View style={styles.stageFooterRowLight}>
-                <ShieldCheck size={14} color="#059669" />
-                <Text style={styles.stageFooterTextLight}>
-                  {`TecAlliance Pegasus 3.0 • Genuine ${selectedPart?.mfrName || selectedPart?.brandName || 'Automotive'} Component`}
-                </Text>
+                {/* Direct Quote Request CTA in Full Screen */}
+                <AppButton
+                  title="Request Support / Quote from Dealer"
+                  onPress={() => {
+                    setSpecsModalVisible(false);
+                    if (selectedPart) handleEnquirePart(selectedPart);
+                  }}
+                  backgroundColor="#059669"
+                  rightIcon={<MessageSquare size={15} color="#FFFFFF" />}
+                  height={44}
+                />
               </View>
             </View>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalBodyLight}>
+              {modalMainTab === 'studio' ? (
+                <>
+                  {/* 3D Interactive Showroom Stage */}
+                  <View style={styles.showroomStageLight}>
+                    {/* Top stage controls: Media toggle, Fullscreen button, Orbit badge */}
+                    <View style={styles.showroomControlsLight}>
+                      <View style={styles.mediaToggleBoxLight}>
+                        {gif360 ? (
+                          <TouchableOpacity
+                            style={[
+                              styles.mediaToggleBtnLight,
+                              activeMediaTab === '3d' && styles.mediaToggleBtnActiveLight,
+                            ]}
+                            onPress={() => {
+                              setActiveMediaTab('3d');
+                              setIsAutoSpinning(true);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <RotateCw
+                              size={13}
+                              color={activeMediaTab === '3d' ? '#FFFFFF' : '#4B5563'}
+                            />
+                            <Text
+                              style={[
+                                styles.mediaToggleTextLight,
+                                activeMediaTab === '3d' && styles.mediaToggleTextActiveLight,
+                              ]}
+                            >
+                              360° 3D Model
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
 
-            {/* Quick KPI Spec Highlights (Dynamic criteria - no fake fallbacks) */}
-            {highlightKpis.length > 0 && (
-              <View style={styles.kpiGrid}>
-                {highlightKpis.map((kpi, kIdx) => (
-                  <View key={kIdx} style={styles.kpiCardLight}>
-                    <Text style={styles.kpiLabelLight} numberOfLines={1}>{kpi.label}</Text>
-                    <Text style={styles.kpiValueLight} numberOfLines={1}>{kpi.value}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+                        <TouchableOpacity
+                          style={[
+                            styles.mediaToggleBtnLight,
+                            activeMediaTab === 'photo' && styles.mediaToggleBtnActiveLight,
+                          ]}
+                          onPress={() => {
+                            setActiveMediaTab('photo');
+                            setIsAutoSpinning(false);
+                            setZoomScale(1);
+                          }}
+                          activeOpacity={0.8}
+                        >
+                          <Eye
+                            size={13}
+                            color={activeMediaTab === 'photo' ? '#FFFFFF' : '#4B5563'}
+                          />
+                          <Text
+                            style={[
+                              styles.mediaToggleTextLight,
+                              activeMediaTab === 'photo' && styles.mediaToggleTextActiveLight,
+                            ]}
+                          >
+                            {regularImages.length > 1 ? `HD Photos (${regularImages.length})` : 'HD Photo'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
 
-            {/* Complete Technical Specifications Table */}
-            <View style={styles.specsCardLight}>
-              <View style={styles.specsSectionHeader}>
-                <Sliders size={15} color="#C6122E" />
-                <Text style={styles.specsSectionTitleLight}>Technical Specifications</Text>
-              </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <TouchableOpacity
+                          style={styles.fullScreenExpandBtn}
+                          onPress={() => setIsStudioFullscreen(true)}
+                          activeOpacity={0.7}
+                        >
+                          <Maximize2 size={12} color="#475569" />
+                          <Text style={styles.fullScreenExpandBtnText}>Fullscreen</Text>
+                        </TouchableOpacity>
 
-              <View style={styles.specsTableLight}>
-                <View style={[styles.specTableRowLight, styles.specTableZebraLight]}>
-                  <Text style={styles.specTableKeyLight}>Part / Trade Number</Text>
-                  <Text style={styles.specTableValLight}>
-                    {selectedPart?.tradeNumbers?.[0] ||
-                      selectedPart?.articleNumber ||
-                      selectedPart?.articleNo ||
-                      selectedPart?.partNumber ||
-                      'N/A'}
-                  </Text>
-                </View>
-
-                <View style={styles.specTableRowLight}>
-                  <Text style={styles.specTableKeyLight}>Category</Text>
-                  <Text style={styles.specTableValLight}>
-                    {selectedPart?.genericArticles?.[0]?.genericArticleDescription ||
-                      selectedPart?.articleName ||
-                      'Automotive Ignition'}
-                  </Text>
-                </View>
-
-                <View style={[styles.specTableRowLight, styles.specTableZebraLight]}>
-                  <Text style={styles.specTableKeyLight}>Brand / Manufacturer</Text>
-                  <Text style={styles.specTableValLight}>
-                    {selectedPart?.mfrName || selectedPart?.brandName || 'NGK SPARK PLUG'}
-                  </Text>
-                </View>
-
-                {criteriaList.map((crit, cIdx) => (
-                  <View
-                    key={cIdx}
-                    style={[
-                      styles.specTableRowLight,
-                      cIdx % 2 === 1 ? styles.specTableZebraLight : null,
-                    ]}
-                  >
-                    <Text style={styles.specTableKeyLight}>
-                      {crit.criteriaDescription || crit.label || crit.attrName}
-                    </Text>
-                    <Text style={styles.specTableValLight}>
-                      {crit.formattedValue || crit.value || crit.attrValue || crit.rawValue}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* OE Cross Reference Numbers */}
-            {oeNumbers.length > 0 && (
-              <View style={styles.oeCardLight}>
-                <Text style={styles.oeTitleLight}>Original Equipment (OE) Cross-References</Text>
-                <View style={styles.oePillWrap}>
-                  {oeNumbers.slice(0, 16).map((oe, oIdx) => (
-                    <View key={oIdx} style={styles.oePillLight}>
-                      <Text style={styles.oeMfrNameLight}>{oe.mfrName || 'OEM'}:</Text>
-                      <Text style={styles.oeArticleNoLight}>{oe.articleNumber || oe.oeNumber}</Text>
+                        {activeMediaTab === '3d' && gif360 && (
+                          <View style={styles.active3DBadgeLight}>
+                            <RotateCw size={11} color="#059669" />
+                            <Text style={styles.active3DBadgeTextLight}>
+                              {isAutoSpinning ? 'AUTO-SPINNING' : `${((rotationY % 360) + 360) % 360}° ORBIT`}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  ))}
-                </View>
-              </View>
-            )}
 
-            <View style={{ height: 95 }} />
-          </ScrollView>
+                    {/* Touch-to-Rotate 360 Product Stage / HD Static Photo Stage */}
+                    <View style={styles.viewportCenterLight}>
+                      <Product360Viewer
+                        isStatic={activeMediaTab === 'photo' || !gif360}
+                        gifUrl={activeMediaTab === '3d' && gif360 ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200 : null}
+                        staticImageUrl={verifiedStaticPhoto}
+                        height={340}
+                        angle={activeMediaTab === '3d' ? rotationY : 0}
+                        isAutoSpinning={activeMediaTab === '3d' && gif360 && isAutoSpinning}
+                        zoomScale={zoomScale}
+                        onAngleChange={(deg) => setRotationY(deg)}
+                        onAutoSpinChange={(spinning) => setIsAutoSpinning(spinning)}
+                        onScaleChange={(scale) => setZoomScale(scale)}
+                      />
+                    </View>
 
-          {/* Sticky Bottom Action Bar */}
-          <View style={styles.modalBottomBarLight}>
-            <AppButton
-              title="Request Support / Quote from Dealer"
-              onPress={() => {
-                setSpecsModalVisible(false);
-                if (selectedPart) handleEnquirePart(selectedPart);
-              }}
-              backgroundColor="#059669"
-              rightIcon={<MessageSquare size={16} color="#FFFFFF" />}
-              height={48}
-            />
-          </View>
+                    {/* Interactive 3D Control Strip */}
+                    {activeMediaTab === '3d' && gif360 && (
+                      <View style={styles.interactive3DToolbar}>
+                        <View style={styles.dragHintBox}>
+                          <Text style={styles.dragHintText}>
+                            👆 Swipe to rotate • Pinch or double-tap to zoom • Drag to pan
+                          </Text>
+                        </View>
+
+                        {/* Actions: Auto-Spin, Reset, Zoom In, Zoom Out */}
+                        <View style={styles.toolActionButtonsRow}>
+                          <TouchableOpacity
+                            style={[
+                              styles.toolBtn,
+                              isAutoSpinning && styles.toolBtnActive,
+                            ]}
+                            onPress={() => setIsAutoSpinning((prev) => !prev)}
+                            activeOpacity={0.7}
+                          >
+                            <RotateCw
+                              size={13}
+                              color={isAutoSpinning ? '#FFFFFF' : '#374151'}
+                            />
+                            <Text
+                              style={[
+                                styles.toolBtnText,
+                                isAutoSpinning && styles.toolBtnTextActive,
+                              ]}
+                            >
+                              {isAutoSpinning ? 'Pause' : 'Auto-Spin'}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.toolBtn}
+                            onPress={() => {
+                              setRotationY(0);
+                              setZoomScale(1);
+                              setIsAutoSpinning(false);
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <RotateCcw size={13} color="#374151" />
+                            <Text style={styles.toolBtnText}>Reset</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.toolBtnIcon}
+                            onPress={() => setZoomScale((s) => Math.min(3.5, s + 0.25))}
+                            activeOpacity={0.7}
+                          >
+                            <ZoomIn size={14} color="#374151" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.toolBtnIcon}
+                            onPress={() => setZoomScale((s) => Math.max(0.7, s - 0.25))}
+                            activeOpacity={0.7}
+                          >
+                            <ZoomOut size={14} color="#374151" />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Quick Preset Angles */}
+                        <View style={styles.anglePresetRow}>
+                          {[
+                            { label: '0° Front', deg: 0 },
+                            { label: '90° Side', deg: 90 },
+                            { label: '180° Back', deg: 180 },
+                            { label: '270° Side', deg: 270 },
+                          ].map((p) => {
+                            const currentNorm = ((rotationY % 360) + 360) % 360;
+                            const isNear = Math.abs(currentNorm - p.deg) < 15;
+                            return (
+                              <TouchableOpacity
+                                key={p.deg}
+                                style={[
+                                  styles.anglePresetChip,
+                                  isNear && styles.anglePresetChipActive,
+                                ]}
+                                onPress={() => {
+                                  setIsAutoSpinning(false);
+                                  setRotationY(p.deg);
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <Text
+                                  style={[
+                                    styles.anglePresetChipText,
+                                    isNear && styles.anglePresetChipTextActive,
+                                  ]}
+                                >
+                                  {p.label}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* HD Photo Zoom Controls */}
+                    {activeMediaTab === 'photo' && (
+                      <View style={styles.interactive3DToolbar}>
+                        <View style={styles.dragHintBox}>
+                          <Text style={styles.dragHintText}>
+                            🔍 Pinch or double-tap to zoom • Drag in any direction to pan
+                          </Text>
+                        </View>
+
+                        <View style={styles.toolActionButtonsRow}>
+                          <TouchableOpacity
+                            style={styles.toolBtn}
+                            onPress={() => setZoomScale(1)}
+                            activeOpacity={0.7}
+                          >
+                            <RotateCcw size={13} color="#374151" />
+                            <Text style={styles.toolBtnText}>Reset Zoom</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.toolBtnIcon}
+                            onPress={() => setZoomScale((s) => Math.min(3.5, s + 0.25))}
+                            activeOpacity={0.7}
+                          >
+                            <ZoomIn size={14} color="#374151" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.toolBtnIcon}
+                            onPress={() => setZoomScale((s) => Math.max(0.7, s - 0.25))}
+                            activeOpacity={0.7}
+                          >
+                            <ZoomOut size={14} color="#374151" />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Photo Thumbnails if multiple regular photos exist */}
+                    {activeMediaTab === 'photo' && regularImages.length > 1 && (
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.thumbnailRowLight}
+                      >
+                        {regularImages.map((img, idx) => (
+                          <TouchableOpacity
+                            key={idx}
+                            style={[
+                              styles.thumbBoxLight,
+                              selectedImageIndex === idx && styles.thumbBoxActiveLight,
+                            ]}
+                            onPress={() => setSelectedImageIndex(idx)}
+                          >
+                            <Image
+                              source={{ uri: img.imageURL200 || img.imageURL100 }}
+                              style={styles.thumbImg}
+                              resizeMode="contain"
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    )}
+
+                    {/* Studio Fitment Guarantee Footer */}
+                    <View style={styles.stageFooterRowLight}>
+                      <ShieldCheck size={14} color="#059669" />
+                      <Text style={styles.stageFooterTextLight}>
+                        {`TecAlliance Pegasus 3.0 • Genuine ${selectedPart?.mfrName || selectedPart?.brandName || 'Automotive'} Component`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Quick KPI Spec Highlights */}
+                  {highlightKpis.length > 0 && (
+                    <View style={styles.kpiGrid}>
+                      {highlightKpis.map((kpi, kIdx) => (
+                        <View key={kIdx} style={styles.kpiCardLight}>
+                          <Text style={styles.kpiLabelLight} numberOfLines={1}>{kpi.label}</Text>
+                          <Text style={styles.kpiValueLight} numberOfLines={1}>{kpi.value}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Quick Switch Banner to Full Specifications */}
+                  <TouchableOpacity
+                    style={styles.viewFullSpecsBanner}
+                    onPress={() => setModalMainTab('specs')}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.viewFullSpecsBannerContent}>
+                      <Sliders size={18} color="#C6122E" />
+                      <View>
+                        <Text style={styles.viewFullSpecsBannerTitle}>Complete Technical Specifications</Text>
+                        <Text style={styles.viewFullSpecsBannerSub}>Dimensions, electrical criteria & OEM part references</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.viewFullSpecsBannerAction}>View Specs →</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {/* Complete Technical Specifications Table */}
+                  <View style={styles.specsCardLight}>
+                    <View style={styles.specsSectionHeader}>
+                      <Sliders size={15} color="#C6122E" />
+                      <Text style={styles.specsSectionTitleLight}>Technical Specifications</Text>
+                    </View>
+
+                    <View style={styles.specsTableLight}>
+                      <View style={[styles.specTableRowLight, styles.specTableZebraLight]}>
+                        <Text style={styles.specTableKeyLight}>Part / Trade Number</Text>
+                        <Text style={styles.specTableValLight}>
+                          {selectedPart?.tradeNumbers?.[0] ||
+                            selectedPart?.articleNumber ||
+                            selectedPart?.articleNo ||
+                            selectedPart?.partNumber ||
+                            'N/A'}
+                        </Text>
+                      </View>
+
+                      <View style={styles.specTableRowLight}>
+                        <Text style={styles.specTableKeyLight}>Category</Text>
+                        <Text style={styles.specTableValLight}>
+                          {selectedPart?.genericArticles?.[0]?.genericArticleDescription ||
+                            selectedPart?.articleName ||
+                            'Automotive Ignition'}
+                        </Text>
+                      </View>
+
+                      <View style={[styles.specTableRowLight, styles.specTableZebraLight]}>
+                        <Text style={styles.specTableKeyLight}>Brand / Manufacturer</Text>
+                        <Text style={styles.specTableValLight}>
+                          {selectedPart?.mfrName || selectedPart?.brandName || 'NGK SPARK PLUG'}
+                        </Text>
+                      </View>
+
+                      {criteriaList.map((crit, cIdx) => (
+                        <View
+                          key={cIdx}
+                          style={[
+                            styles.specTableRowLight,
+                            cIdx % 2 === 1 ? styles.specTableZebraLight : null,
+                          ]}
+                        >
+                          <Text style={styles.specTableKeyLight}>
+                            {crit.criteriaDescription || crit.label || crit.attrName}
+                          </Text>
+                          <Text style={styles.specTableValLight}>
+                            {crit.formattedValue || crit.value || crit.attrValue || crit.rawValue}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* OE Cross Reference Numbers */}
+                  {oeNumbers.length > 0 && (
+                    <View style={styles.oeCardLight}>
+                      <Text style={styles.oeTitleLight}>Original Equipment (OE) Cross-References</Text>
+                      <View style={styles.oePillWrap}>
+                        {oeNumbers.slice(0, 16).map((oe, oIdx) => (
+                          <View key={oIdx} style={styles.oePillLight}>
+                            <Text style={styles.oeMfrNameLight}>{oe.mfrName || 'OEM'}:</Text>
+                            <Text style={styles.oeArticleNoLight}>{oe.articleNumber || oe.oeNumber}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Return to 3D Studio Banner */}
+                  <TouchableOpacity
+                    style={styles.viewFullSpecsBanner}
+                    onPress={() => {
+                      setModalMainTab('studio');
+                      setIsStudioFullscreen(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.viewFullSpecsBannerContent}>
+                      <RotateCw size={18} color="#059669" />
+                      <View>
+                        <Text style={styles.viewFullSpecsBannerTitle}>Return to 3D Interactive Studio</Text>
+                        <Text style={styles.viewFullSpecsBannerSub}>360° rotation, full zoom & HD photography</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.viewFullSpecsBannerAction, { color: '#059669' }]}>Open Studio ↗</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              <View style={{ height: 95 }} />
+            </ScrollView>
+          )}
+
+          {/* Sticky Bottom Action Bar (Only in Specs / Standard view) */}
+          {!isStudioFullscreen && (
+            <View style={styles.modalBottomBarLight}>
+              <AppButton
+                title="Request Support / Quote from Dealer"
+                onPress={() => {
+                  setSpecsModalVisible(false);
+                  if (selectedPart) handleEnquirePart(selectedPart);
+                }}
+                backgroundColor="#059669"
+                rightIcon={<MessageSquare size={16} color="#FFFFFF" />}
+                height={48}
+              />
+            </View>
+          )}
         </View>
       </Modal>
     </View>
@@ -2403,6 +2748,165 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  modalSubHeaderTabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 10,
+    padding: 3,
+    gap: 4,
+  },
+  modalSubHeaderTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  modalSubHeaderTabActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  modalSubHeaderTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  modalSubHeaderTabTextActive: {
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  fullScreenExpandBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  fullScreenExpandBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  fullScreenStudioContainer: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+  },
+  fullScreenStudioTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  fullScreenStudioTopLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fullScreenStudioPartNo: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  fullScreenStudioTopActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  fullScreenExitBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  fullScreenStudioViewport: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  fullScreenStudioBottomBar: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 10,
+  },
+  viewFullSpecsBanner: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  viewFullSpecsBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  viewFullSpecsBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  viewFullSpecsBannerSub: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 1,
+  },
+  viewFullSpecsBannerAction: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#C6122E',
+    marginLeft: 8,
+  },
+  fullScreenSpecsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  fullScreenSpecsBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#C6122E',
   },
 });
 
