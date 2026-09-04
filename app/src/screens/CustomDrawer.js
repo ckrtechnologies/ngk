@@ -135,7 +135,7 @@ export default function CustomDrawer({ navigation }) {
           <View style={styles.profileTextCol}>
             <View style={styles.nameRow}>
               <Text style={styles.userName} numberOfLines={1}>
-                {myself?.name || 'Chandan Mallik'}
+                {myself?.name || 'Account User'}
               </Text>
               <ChevronRight size={16} color="#9CA3AF" />
             </View>

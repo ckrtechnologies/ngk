@@ -56,7 +56,6 @@ export default function ProfileScreen({ navigation }) {
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
-  const [editRole, setEditRole] = useState('owner');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -77,7 +76,6 @@ export default function ProfileScreen({ navigation }) {
     setEditEmail(myself?.email || '');
     setEditPhone(myself?.phone || '');
     setEditAddress(myself?.address || '');
-    setEditRole(myself?.role || role || 'owner');
     setEditModalVisible(true);
   };
 
@@ -123,7 +121,6 @@ export default function ProfileScreen({ navigation }) {
         email: trimmedEmail,
         phone: trimmedPhone || null,
         address: trimmedAddress || null,
-        role: editRole.toLowerCase(),
       };
 
       const result = await dispatch(
@@ -131,8 +128,6 @@ export default function ProfileScreen({ navigation }) {
       ).unwrap();
 
       if (result) {
-        setRole(payload.role);
-        await AsyncStorage.setItem('role', payload.role);
         Toast.show({
           type: 'success',
           text1: 'Profile Updated',
@@ -197,10 +192,10 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  const userName = myself?.name || 'Chandan Mallik';
-  const userEmail = myself?.email || 'chandan@example.com';
-  const userPhone = myself?.phone || 'Not provided';
-  const userAddress = myself?.address || 'Not provided';
+  const userName = myself?.name || '';
+  const userEmail = myself?.email || '';
+  const userPhone = myself?.phone || '';
+  const userAddress = myself?.address || '';
   const userRole = (myself?.role || role || 'owner').toLowerCase();
   const carsCount =
     myself?.garage?.length ||
@@ -211,8 +206,8 @@ export default function ProfileScreen({ navigation }) {
 
   // Generate 2-letter initials monogram without image CDN
   const getInitials = (name) => {
-    if (!name) return 'NG';
-    const parts = name.trim().split(' ');
+    if (!name || !name.trim()) return 'U';
+    const parts = name.trim().split(' ').filter(Boolean);
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
@@ -277,7 +272,7 @@ export default function ProfileScreen({ navigation }) {
 
             <View style={styles.profileInfoCol}>
               <Text style={styles.profileName} numberOfLines={1}>
-                {userName}
+                {userName || 'Account User'}
               </Text>
               <View style={styles.roleRow}>
                 <View style={styles.rolePill}>
@@ -347,7 +342,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
             <View style={styles.detailTextWrapper}>
               <Text style={styles.detailLabel}>Full Name</Text>
-              <Text style={styles.detailValue}>{userName}</Text>
+              <Text style={styles.detailValue}>{userName || 'Not provided'}</Text>
             </View>
           </View>
 
@@ -360,7 +355,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
             <View style={styles.detailTextWrapper}>
               <Text style={styles.detailLabel}>Email Address</Text>
-              <Text style={styles.detailValue}>{userEmail}</Text>
+              <Text style={styles.detailValue}>{userEmail || 'Not provided'}</Text>
             </View>
           </View>
 
@@ -373,7 +368,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
             <View style={styles.detailTextWrapper}>
               <Text style={styles.detailLabel}>Phone Number</Text>
-              <Text style={styles.detailValue}>{userPhone}</Text>
+              <Text style={styles.detailValue}>{userPhone || 'Not provided'}</Text>
             </View>
           </View>
 
@@ -386,7 +381,7 @@ export default function ProfileScreen({ navigation }) {
             </View>
             <View style={styles.detailTextWrapper}>
               <Text style={styles.detailLabel}>Location / Workshop</Text>
-              <Text style={styles.detailValue}>{userAddress}</Text>
+              <Text style={styles.detailValue}>{userAddress || 'Not provided'}</Text>
             </View>
           </View>
 
@@ -494,13 +489,24 @@ export default function ProfileScreen({ navigation }) {
         visible={editModalVisible}
         animationType="slide"
         transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={() => setEditModalVisible(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setEditModalVisible(false)}
+          />
+          <View
+            style={[
+              styles.modalContainer,
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View>
@@ -520,6 +526,7 @@ export default function ProfileScreen({ navigation }) {
 
             <ScrollView
               style={styles.modalBody}
+              contentContainerStyle={styles.modalScrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -532,7 +539,7 @@ export default function ProfileScreen({ navigation }) {
                     style={styles.textInput}
                     value={editName}
                     onChangeText={setEditName}
-                    placeholder="e.g. Chandan Mallik"
+                    placeholder="Enter your full name"
                     placeholderTextColor="#9CA3AF"
                     autoCapitalize="words"
                   />
@@ -548,7 +555,7 @@ export default function ProfileScreen({ navigation }) {
                     style={styles.textInput}
                     value={editEmail}
                     onChangeText={setEditEmail}
-                    placeholder="e.g. user@example.com"
+                    placeholder="Enter your email address"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="email-address"
                     autoCapitalize="none"
@@ -565,7 +572,7 @@ export default function ProfileScreen({ navigation }) {
                     style={styles.textInput}
                     value={editPhone}
                     onChangeText={setEditPhone}
-                    placeholder="e.g. +27 82 123 4567"
+                    placeholder="Enter your phone number"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="phone-pad"
                   />
@@ -585,84 +592,11 @@ export default function ProfileScreen({ navigation }) {
                     style={[styles.textInput, styles.textAreaInput]}
                     value={editAddress}
                     onChangeText={setEditAddress}
-                    placeholder="e.g. 124 Main Reef Road, Johannesburg, 2001"
+                    placeholder="Enter workshop or delivery address"
                     placeholderTextColor="#9CA3AF"
                     multiline
                     numberOfLines={3}
                   />
-                </View>
-              </View>
-
-              {/* Role Selection */}
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Account Persona / Role</Text>
-                <View style={styles.rolePickerRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.roleOption,
-                      editRole === 'owner' && styles.roleOptionActive,
-                    ]}
-                    onPress={() => setEditRole('owner')}
-                    activeOpacity={0.7}
-                  >
-                    <Car
-                      size={16}
-                      color={editRole === 'owner' ? '#C6122E' : '#6B7280'}
-                    />
-                    <Text
-                      style={[
-                        styles.roleOptionText,
-                        editRole === 'owner' && styles.roleOptionTextActive,
-                      ]}
-                    >
-                      Owner
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.roleOption,
-                      editRole === 'reseller' && styles.roleOptionActive,
-                    ]}
-                    onPress={() => setEditRole('reseller')}
-                    activeOpacity={0.7}
-                  >
-                    <Wrench
-                      size={16}
-                      color={editRole === 'reseller' ? '#C6122E' : '#6B7280'}
-                    />
-                    <Text
-                      style={[
-                        styles.roleOptionText,
-                        editRole === 'reseller' && styles.roleOptionTextActive,
-                      ]}
-                    >
-                      Reseller
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.roleOption,
-                      editRole === 'distributor' && styles.roleOptionActive,
-                    ]}
-                    onPress={() => setEditRole('distributor')}
-                    activeOpacity={0.7}
-                  >
-                    <Briefcase
-                      size={16}
-                      color={editRole === 'distributor' ? '#C6122E' : '#6B7280'}
-                    />
-                    <Text
-                      style={[
-                        styles.roleOptionText,
-                        editRole === 'distributor' &&
-                          styles.roleOptionTextActive,
-                      ]}
-                    >
-                      Distributor
-                    </Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             </ScrollView>
@@ -1051,12 +985,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
+  modalBackdrop: {
+    flex: 1,
+  },
   modalContainer: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
-    paddingBottom: 24,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1091,6 +1027,9 @@ const styles = StyleSheet.create({
   modalBody: {
     paddingHorizontal: 20,
     paddingVertical: 14,
+  },
+  modalScrollContent: {
+    paddingBottom: 16,
   },
   inputGroup: {
     marginBottom: 16,
@@ -1131,41 +1070,15 @@ const styles = StyleSheet.create({
     height: 72,
     textAlignVertical: 'top',
   },
-  rolePickerRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  roleOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingVertical: 12,
-  },
-  roleOptionActive: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#C6122E',
-  },
-  roleOptionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-  },
-  roleOptionTextActive: {
-    color: '#C6122E',
-  },
   modalFooter: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingTop: 12,
+    paddingBottom: 8,
     gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
   },
   modalCancelBtn: {
     flex: 1,
