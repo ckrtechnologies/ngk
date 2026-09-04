@@ -19,6 +19,7 @@ import { apiFunction } from '../apis/apiFunction';
 import { readNotificationsApi } from '../apis/api';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import Toast from 'react-native-toast-message';
+import AppHeader from '../components/common/AppHeader';
 
 const Notification = () => {
   const navigation = useNavigation();
@@ -124,37 +125,41 @@ const Notification = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#C6122E" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
-          <ChevronLeft color="#FFFFFF" size={wp('7%')} />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>NOTIFICATIONS</Text>
-
-        <View style={styles.headerRight}>
-          {unreadNotifications.length > 0 && (
+    <View style={styles.container}>
+      <AppHeader
+        title="Notifications"
+        subtitle={
+          unreadNotifications.length > 0
+            ? `${unreadNotifications.length} unread alerts`
+            : 'All caught up'
+        }
+        onBack={() => navigation.goBack()}
+        rightElement={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {unreadNotifications.length > 0 && (
+              <TouchableOpacity
+                style={styles.readAllButton}
+                onPress={markAllAsRead}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.readAllText}>Read All</Text>
+                )}
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              style={styles.readAllButton}
-              onPress={markAllAsRead}
-              disabled={loading}
+              onPress={() => navigation.navigate('OwnerHome')}
+              style={styles.headerHomeBtn}
+              activeOpacity={0.8}
             >
-              {loading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.readAllText}>READ ALL</Text>
-              )}
+              <Home color="#FFFFFF" size={18} />
             </TouchableOpacity>
-          )}
-
-          <TouchableOpacity onPress={() => navigation.navigate('OwnerHome')} style={styles.homeIconButton}>
-            <Home color="#C6122E" size={wp('5%')} />
-          </TouchableOpacity>
-        </View>
-      </View>
+          </View>
+        }
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -163,8 +168,8 @@ const Notification = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#C6122E']}
-            tintColor="#C6122E"
+            colors={['#D0142C']}
+            tintColor="#D0142C"
           />
         }
       >
@@ -199,7 +204,7 @@ const Notification = () => {
                   !item.isRead ? styles.unreadIconContainer : styles.readIconContainer
                 ]}
               >
-                <Bell size={wp('5%')} color={!item.isRead ? '#C6122E' : '#D1D1D1'} />
+                <Bell size={wp('5%')} color={!item.isRead ? '#D0142C' : '#D1D1D1'} />
               </View>
 
               <View style={styles.textContainer}>
@@ -221,7 +226,7 @@ const Notification = () => {
           ))
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -230,42 +235,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F0F2F5',
   },
-  header: {
-    backgroundColor: '#C6122E',
-    height: hp('9%'),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: wp('5%'),
-  },
-  headerIconButton: {
-    padding: wp('1%'),
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: wp('4.5%'),
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   readAllButton: {
-    marginRight: wp('4%'),
-    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 16,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   readAllText: {
     color: '#FFFFFF',
-    fontSize: wp('3%'),
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '700',
   },
-  homeIconButton: {
-    backgroundColor: '#FFFFFF',
-    width: wp('9%'),
-    height: wp('9%'),
-    borderRadius: wp('4.5%'),
+  headerHomeBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -331,7 +322,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   unreadTitle: {
-    color: '#C6122E',
+    color: '#D0142C',
   },
   timeRow: {
     flexDirection: 'row',
@@ -350,7 +341,7 @@ const styles = StyleSheet.create({
     width: wp('2.5%'),
     height: wp('2.5%'),
     borderRadius: wp('1.25%'),
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   descriptionText: {
     fontSize: wp('3%'),

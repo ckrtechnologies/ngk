@@ -45,7 +45,7 @@ const LoginScreen = ({ route, navigation }) => {
           title: 'Reseller Portal',
           subtitle: 'Workshop & Trade Access',
           emailPlaceholder: 'reseller@workshop.com',
-          buttonColor: '#C6122E',
+          buttonColor: '#D0142C',
           badgeText: 'Reseller',
           badgeBg: '#FEF3C7',
           badgeColor: '#D97706',
@@ -57,10 +57,10 @@ const LoginScreen = ({ route, navigation }) => {
           title: 'Welcome Back',
           subtitle: 'Sign in to access your garage & parts catalog',
           emailPlaceholder: 'owner@example.com',
-          buttonColor: '#C6122E',
+          buttonColor: '#D0142C',
           badgeText: 'Vehicle Owner',
           badgeBg: '#FEE2E2',
-          badgeColor: '#C6122E',
+          badgeColor: '#D0142C',
           showRegister: true,
           showGoogle: false,
         };
@@ -159,7 +159,12 @@ const LoginScreen = ({ route, navigation }) => {
         </View>
       }
     >
-      <AppHeader onBack={() => navigation.goBack()} />
+      <AppHeader
+        variant="light"
+        includeTopInset={false}
+        showStatusBar={false}
+        onBack={() => navigation.goBack()}
+      />
 
       <View style={styles.body}>
         {/* Top Header & Role Badge */}

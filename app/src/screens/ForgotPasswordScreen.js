@@ -17,7 +17,7 @@ import AppButton from '../components/common/AppButton';
 
 const ForgotPasswordScreen = ({ route, navigation }) => {
   const role = route?.params?.role || 'owner';
-  const buttonColor = role === 'distributor' ? '#111827' : '#C6122E';
+  const buttonColor = role === 'distributor' ? '#111827' : '#D0142C';
 
   const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: New Password
   const [email, setEmail] = useState('');
@@ -138,7 +138,7 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
 
   return (
     <ScreenContainer
-      scrollable={false}
+      scrollable={true}
       footer={
         <View style={styles.footerContainer}>
           <TouchableOpacity
@@ -152,7 +152,12 @@ const ForgotPasswordScreen = ({ route, navigation }) => {
         </View>
       }
     >
-      <AppHeader onBack={() => (step > 1 ? setStep(step - 1) : navigation.goBack())} />
+      <AppHeader
+        variant="light"
+        includeTopInset={false}
+        showStatusBar={false}
+        onBack={() => (step > 1 ? setStep(step - 1) : navigation.goBack())}
+      />
 
       <View style={styles.content}>
         {/* Step Indicator / Icon */}

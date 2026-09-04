@@ -164,7 +164,7 @@ export function DrawerAvatar3DIcon({ size = 36, ...props }) {
       <Defs>
         <LinearGradient id="helmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <Stop offset="0%" stopColor="#EF4444" />
-          <Stop offset="60%" stopColor="#C6122E" />
+          <Stop offset="60%" stopColor="#D0142C" />
           <Stop offset="100%" stopColor="#880B1F" />
         </LinearGradient>
         <LinearGradient id="visorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -460,7 +460,7 @@ export function GenuineGuarantee3DIcon({ size = 26, ...props }) {
     <Svg width={size} height={size} viewBox="0 0 32 32" fill="none" {...props}>
       <Defs>
         <LinearGradient id="guarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor="#C6122E" />
+          <Stop offset="0%" stopColor="#D0142C" />
           <Stop offset="100%" stopColor="#880B1F" />
         </LinearGradient>
       </Defs>
@@ -494,7 +494,7 @@ export function TickerLiveRadarIcon({ size = 18, ...props }) {
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" {...props}>
       <Circle cx="12" cy="12" r="10" fill="#FEE2E2" />
       <Circle cx="12" cy="12" r="6.5" fill="#FECACA" />
-      <Circle cx="12" cy="12" r="3.5" fill="#C6122E" />
+      <Circle cx="12" cy="12" r="3.5" fill="#D0142C" />
     </Svg>
   );
 }

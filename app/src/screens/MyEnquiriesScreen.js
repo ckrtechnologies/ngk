@@ -11,6 +11,8 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -134,12 +136,10 @@ const MyEnquiriesScreen = () => {
       style={[
         styles.safeArea,
         {
-          paddingTop: insets.top,
           paddingBottom: insets.bottom,
         },
       ]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <AppHeader
         title="Technical Enquiries"
@@ -190,15 +190,15 @@ const MyEnquiriesScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#C6122E']}
-            tintColor="#C6122E"
+            colors={['#D0142C']}
+            tintColor="#D0142C"
           />
         }
       >
         {filtered.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <MessageSquare size={32} color="#C6122E" />
+              <MessageSquare size={32} color="#D0142C" />
             </View>
             <Text style={styles.emptyTitle}>No Enquiries Found</Text>
             <Text style={styles.emptySubtitle}>
@@ -266,72 +266,77 @@ const MyEnquiriesScreen = () => {
         transparent={true}
         onRequestClose={() => setSelectedTicket(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>
-                  Ticket #{selectedTicket?.id}
-                </Text>
-                <Text style={styles.modalSubtitle}>
-                  {selectedTicket?.created_at
-                    ? new Date(selectedTicket.created_at).toLocaleDateString()
-                    : 'Recent'}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => setSelectedTicket(null)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <X size={20} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Context Details */}
-              <View style={styles.detailBox}>
-                <Text style={styles.detailLabel}>REQUEST DETAILS</Text>
-                <Text style={styles.detailBody}>
-                  {selectedTicket?.enquiry_details || 'No description provided.'}
-                </Text>
-
-                {selectedTicket?.image_url && (
-                  <Image
-                    source={{ uri: selectedTicket.image_url }}
-                    style={styles.attachedImage}
-                    resizeMode="cover"
-                  />
-                )}
-              </View>
-
-              {/* Reply Box */}
-              <Text style={[styles.detailLabel, styles.replyMargin]}>
-                SEND MESSAGE / REPLY
-              </Text>
-              <View style={styles.replyRow}>
-                <TextInput
-                  style={styles.replyInput}
-                  placeholder="Type message to technical support..."
-                  placeholderTextColor="#9CA3AF"
-                  value={replyMessage}
-                  onChangeText={setReplyMessage}
-                />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>
+                    Ticket #{selectedTicket?.id}
+                  </Text>
+                  <Text style={styles.modalSubtitle}>
+                    {selectedTicket?.created_at
+                      ? new Date(selectedTicket.created_at).toLocaleDateString()
+                      : 'Recent'}
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  style={styles.sendBtn}
-                  onPress={handleSendReply}
-                  disabled={sendingReply || !replyMessage.trim()}
-                  activeOpacity={0.7}
+                  onPress={() => setSelectedTicket(null)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  {sendingReply ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Send size={16} color="#FFFFFF" />
-                  )}
+                  <X size={20} color="#6B7280" />
                 </TouchableOpacity>
               </View>
-            </ScrollView>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Context Details */}
+                <View style={styles.detailBox}>
+                  <Text style={styles.detailLabel}>REQUEST DETAILS</Text>
+                  <Text style={styles.detailBody}>
+                    {selectedTicket?.enquiry_details || 'No description provided.'}
+                  </Text>
+
+                  {selectedTicket?.image_url && (
+                    <Image
+                      source={{ uri: selectedTicket.image_url }}
+                      style={styles.attachedImage}
+                      resizeMode="cover"
+                    />
+                  )}
+                </View>
+
+                {/* Reply Box */}
+                <Text style={[styles.detailLabel, styles.replyMargin]}>
+                  SEND MESSAGE / REPLY
+                </Text>
+                <View style={styles.replyRow}>
+                  <TextInput
+                    style={styles.replyInput}
+                    placeholder="Type message to technical support..."
+                    placeholderTextColor="#9CA3AF"
+                    value={replyMessage}
+                    onChangeText={setReplyMessage}
+                  />
+                  <TouchableOpacity
+                    style={styles.sendBtn}
+                    onPress={handleSendReply}
+                    disabled={sendingReply || !replyMessage.trim()}
+                    activeOpacity={0.7}
+                  >
+                    {sendingReply ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Send size={16} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -357,7 +362,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
   tabPillSelected: {
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   tabPillText: {
     fontSize: 12,
@@ -536,22 +541,24 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     justifyContent: 'center',
     alignItems: 'center',
   },
   newTicketHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#C6122E',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
   newTicketHeaderBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   replyMargin: {

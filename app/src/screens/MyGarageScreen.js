@@ -11,6 +11,8 @@ import {
   RefreshControl,
   TextInput,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -37,6 +39,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMyselfRedux } from '../redux/getData';
 import { apiFunction } from '../apis/apiFunction';
 import {
+  addVehicleToGarageApi,
   addVehicleToWatchlistApi,
   removeFromWatchlistApi,
   serviceJsonApi,
@@ -152,7 +155,24 @@ const MyGarageScreen = () => {
     loadBrands();
   }, []);
 
-  const garageVehicles = myself?.garage || [];
+  // Resilient multi-level garage vehicle resolution (handles garage, cars, vehicleId, or watchlist vehicle summaries)
+  const garageVehicles = myself?.garage?.length
+    ? myself.garage
+    : (myself?.cars?.length
+      ? myself.cars
+      : (myself?.vehicleId?.length
+        ? myself.vehicleId
+        : (myself?.watchList?.filter(item => item.article_summary?.make || item.brand_name)?.map(item => ({
+            id: item.id,
+            make: item.article_summary?.make || item.brand_name,
+            model: item.article_summary?.model || item.part_number,
+            year: item.article_summary?.year || '',
+            engine: item.article_summary?.engine || 'Standard',
+            licensePlate: item.article_summary?.licensePlate || '',
+            vin: item.article_summary?.vin || '',
+            linkageTargetId: item.article_summary?.linkageTargetId || item.article_summary?.carId,
+            isPrimary: false,
+          })) || [])));
 
   // Reset modal form state
   const resetForm = () => {
@@ -359,7 +379,10 @@ const MyGarageScreen = () => {
     };
 
     try {
-      const res = await apiFunction(addVehicleToWatchlistApi, [], payload, 'POST', false);
+      let res = await apiFunction(addVehicleToGarageApi, [], payload, 'POST', false);
+      if (!res?.success) {
+        res = await apiFunction(addVehicleToWatchlistApi, [], payload, 'POST', false);
+      }
       setSubmitting(false);
       if (res?.success) {
         Toast.show({
@@ -476,13 +499,10 @@ const MyGarageScreen = () => {
       style={[
         styles.safeArea,
         {
-          paddingTop: insets.top,
           paddingBottom: insets.bottom,
         },
       ]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <AppHeader
         title="My Garage"
         subtitle={`${garageVehicles.length} Saved Vehicle${garageVehicles.length === 1 ? '' : 's'}`}
@@ -505,15 +525,15 @@ const MyGarageScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#C6122E']}
-            tintColor="#C6122E"
+            colors={['#D0142C']}
+            tintColor="#D0142C"
           />
         }
       >
         {garageVehicles.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
-              <Car size={36} color="#C6122E" />
+              <Car size={36} color="#D0142C" />
             </View>
             <Text style={styles.emptyTitle}>Your Garage is Empty</Text>
             <Text style={styles.emptySubtitle}>
@@ -540,7 +560,7 @@ const MyGarageScreen = () => {
                 <View key={car.id || idx} style={styles.carCard}>
                   <View style={styles.carCardTop}>
                     <View style={styles.carIconBox}>
-                      <Car size={20} color="#C6122E" />
+                      <Car size={20} color="#D0142C" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
@@ -577,7 +597,7 @@ const MyGarageScreen = () => {
                       onPress={() => handleLookupParts(car)}
                       activeOpacity={0.75}
                     >
-                      <Search size={14} color="#C6122E" />
+                      <Search size={14} color="#D0142C" />
                       <Text style={styles.findPartsText}>
                         {hasCatalogLink ? 'View 100% Compatible Parts' : 'Lookup Compatible Parts'}
                       </Text>
@@ -597,8 +617,12 @@ const MyGarageScreen = () => {
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View>
@@ -628,7 +652,7 @@ const MyGarageScreen = () => {
               >
                 <BookOpen
                   size={15}
-                  color={entryMode === 'catalog' ? '#C6122E' : '#6B7280'}
+                  color={entryMode === 'catalog' ? '#D0142C' : '#6B7280'}
                 />
                 <Text
                   style={[
@@ -650,7 +674,7 @@ const MyGarageScreen = () => {
               >
                 <Edit3
                   size={15}
-                  color={entryMode === 'manual' ? '#C6122E' : '#6B7280'}
+                  color={entryMode === 'manual' ? '#D0142C' : '#6B7280'}
                 />
                 <Text
                   style={[
@@ -690,7 +714,7 @@ const MyGarageScreen = () => {
                               }}
                               style={styles.stepResetLink}
                             >
-                              <RotateCcw size={12} color="#C6122E" />
+                              <RotateCcw size={12} color="#D0142C" />
                               <Text style={styles.stepResetText}>Change</Text>
                             </TouchableOpacity>
                           )}
@@ -752,7 +776,7 @@ const MyGarageScreen = () => {
                                 }}
                                 style={styles.stepResetLink}
                               >
-                                <RotateCcw size={12} color="#C6122E" />
+                                <RotateCcw size={12} color="#D0142C" />
                                 <Text style={styles.stepResetText}>Change</Text>
                               </TouchableOpacity>
                             )}
@@ -760,7 +784,7 @@ const MyGarageScreen = () => {
 
                           {loadingSeries ? (
                             <View style={styles.inlineLoading}>
-                              <ActivityIndicator size="small" color="#C6122E" />
+                              <ActivityIndicator size="small" color="#D0142C" />
                               <Text style={styles.inlineLoadingText}>
                                 Loading series for {selectedManu.manuName || selectedManu.name}...
                               </Text>
@@ -801,7 +825,7 @@ const MyGarageScreen = () => {
 
                           {loadingVehicles ? (
                             <View style={styles.inlineLoading}>
-                              <ActivityIndicator size="small" color="#C6122E" />
+                              <ActivityIndicator size="small" color="#D0142C" />
                               <Text style={styles.inlineLoadingText}>
                                 Loading engines & trims from TecDoc...
                               </Text>
@@ -831,7 +855,7 @@ const MyGarageScreen = () => {
                                 onPress={() => openPickerModal('trim')}
                                 activeOpacity={0.75}
                               >
-                                <Zap size={16} color="#C6122E" />
+                                <Zap size={16} color="#D0142C" />
                                 <Text style={styles.selectorDropdownText}>
                                   Choose Engine / Trim ({vehiclesList.length} options)...
                                 </Text>
@@ -867,7 +891,7 @@ const MyGarageScreen = () => {
                                           {[powerStr, yearRange, v.fuelType].filter(Boolean).join(' • ')}
                                         </Text>
                                       </View>
-                                      <ChevronRight size={16} color="#C6122E" />
+                                      <ChevronRight size={16} color="#D0142C" />
                                     </TouchableOpacity>
                                   );
                                 })}
@@ -1038,6 +1062,7 @@ const MyGarageScreen = () => {
             </ScrollView>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Secondary Searchable Picker Modal (Makes, Series, Trims) */}
@@ -1047,12 +1072,16 @@ const MyGarageScreen = () => {
         transparent={false}
         onRequestClose={() => setPickerVisible(false)}
       >
-        <View
-          style={[
-            styles.pickerSafeArea,
-            { paddingTop: insets.top, paddingBottom: insets.bottom },
-          ]}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
         >
+          <View
+            style={[
+              styles.pickerSafeArea,
+              { paddingTop: insets.top, paddingBottom: insets.bottom },
+            ]}
+          >
           <View style={styles.pickerHeader}>
             <View style={{ flex: 1 }}>
               <Text style={styles.pickerHeaderTitle}>
@@ -1095,7 +1124,7 @@ const MyGarageScreen = () => {
 
           {loadingManu && pickerType === 'manu' ? (
             <View style={styles.pickerCenterLoading}>
-              <ActivityIndicator size="large" color="#C6122E" />
+              <ActivityIndicator size="large" color="#D0142C" />
               <Text style={styles.pickerLoadingText}>Loading manufacturers...</Text>
             </View>
           ) : (
@@ -1124,7 +1153,7 @@ const MyGarageScreen = () => {
                       activeOpacity={0.7}
                     >
                       <View style={styles.pickerListIconBox}>
-                        <Car size={18} color="#C6122E" />
+                        <Car size={18} color="#D0142C" />
                       </View>
                       <Text style={styles.pickerListItemText}>{name}</Text>
                       <ChevronRight size={16} color="#D1D5DB" />
@@ -1141,7 +1170,7 @@ const MyGarageScreen = () => {
                       activeOpacity={0.7}
                     >
                       <View style={styles.pickerListIconBox}>
-                        <Layers size={18} color="#C6122E" />
+                        <Layers size={18} color="#D0142C" />
                       </View>
                       <Text style={styles.pickerListItemText}>{name}</Text>
                       <ChevronRight size={16} color="#D1D5DB" />
@@ -1170,7 +1199,7 @@ const MyGarageScreen = () => {
                     activeOpacity={0.7}
                   >
                     <View style={styles.pickerListIconBox}>
-                      <Zap size={18} color="#C6122E" />
+                      <Zap size={18} color="#D0142C" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.pickerTrimTitle}>{title}</Text>
@@ -1185,6 +1214,7 @@ const MyGarageScreen = () => {
             />
           )}
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -1196,10 +1226,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   addIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#C6122E',
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1308,7 +1340,7 @@ const styles = StyleSheet.create({
   findPartsText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
 
   /* Modal Bottom Sheet */
@@ -1379,7 +1411,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   modeSegmentTextActive: {
-    color: '#C6122E',
+    color: '#D0142C',
     fontWeight: '700',
   },
 
@@ -1403,7 +1435,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -1431,7 +1463,7 @@ const styles = StyleSheet.create({
   stepResetText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   selectedPillCard: {
     flexDirection: 'row',
@@ -1529,7 +1561,7 @@ const styles = StyleSheet.create({
   quickManualBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   quickTrimCard: {
     flexDirection: 'row',

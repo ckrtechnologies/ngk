@@ -658,13 +658,10 @@ const VerifiedPartsScreen = () => {
       style={[
         styles.safeArea,
         {
-          paddingTop: insets.top,
           paddingBottom: insets.bottom,
         },
       ]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <AppHeader
         title="Verified Parts"
         subtitle={
@@ -693,8 +690,8 @@ const VerifiedPartsScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={reloadParts}
-            colors={['#C6122E']}
-            tintColor="#C6122E"
+            colors={['#D0142C']}
+            tintColor="#D0142C"
           />
         }
       >
@@ -710,7 +707,7 @@ const VerifiedPartsScreen = () => {
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#C6122E" />
+            <ActivityIndicator size="large" color="#D0142C" />
             <Text style={styles.loadingText}>Fetching technical specifications...</Text>
           </View>
         ) : parts.length === 0 ? (
@@ -769,7 +766,7 @@ const VerifiedPartsScreen = () => {
               <View style={styles.vehicleContextCard}>
                 <View style={styles.vehicleContextLeft}>
                   <View style={styles.vehicleContextBadge}>
-                    <Car size={13} color="#C6122E" strokeWidth={2.2} />
+                    <Car size={13} color="#D0142C" strokeWidth={2.2} />
                     <Text style={styles.vehicleContextBadgeText}>
                       REGISTERED VEHICLE
                     </Text>
@@ -826,7 +823,7 @@ const VerifiedPartsScreen = () => {
                       {cat.id === 'ignition' && (
                         <Zap
                           size={13}
-                          color={isSelected ? '#FFFFFF' : '#C6122E'}
+                          color={isSelected ? '#FFFFFF' : '#D0142C'}
                           strokeWidth={2.2}
                         />
                       )}
@@ -907,7 +904,7 @@ const VerifiedPartsScreen = () => {
                 >
                   <LayoutGrid
                     size={13}
-                    color={layoutMode === 'cards' ? '#C6122E' : '#6B7280'}
+                    color={layoutMode === 'cards' ? '#D0142C' : '#6B7280'}
                   />
                   <Text
                     style={[
@@ -929,7 +926,7 @@ const VerifiedPartsScreen = () => {
                 >
                   <List
                     size={13}
-                    color={layoutMode === 'compact' ? '#C6122E' : '#6B7280'}
+                    color={layoutMode === 'compact' ? '#D0142C' : '#6B7280'}
                   />
                   <Text
                     style={[
@@ -1017,7 +1014,7 @@ const VerifiedPartsScreen = () => {
                         activeOpacity={0.7}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Eye size={13} color="#C6122E" />
+                        <Eye size={13} color="#D0142C" />
                         <Text style={styles.peekHeaderBtnText}>Peek View</Text>
                       </TouchableOpacity>
                     </View>
@@ -1037,7 +1034,7 @@ const VerifiedPartsScreen = () => {
                           />
                         ) : (
                           <View style={styles.thumbPlaceholder}>
-                            <Zap size={26} color="#C6122E" />
+                            <Zap size={26} color="#D0142C" />
                             <Text style={styles.thumbPlaceholderText}>{brand}</Text>
                           </View>
                         )}
@@ -1117,8 +1114,8 @@ const VerifiedPartsScreen = () => {
                         onPress={() => handleOpenPeek(item)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Eye size={13} color="#C6122E" />
-                        <Text style={[styles.specsBtnText, { color: '#C6122E' }]}>Peek</Text>
+                        <Eye size={13} color="#D0142C" />
+                        <Text style={[styles.specsBtnText, { color: '#D0142C' }]}>Peek</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.specsBtn}
@@ -1198,7 +1195,7 @@ const VerifiedPartsScreen = () => {
                   />
                 ) : (
                   <View style={styles.peekLargePlaceholder}>
-                    <Zap size={44} color="#C6122E" />
+                    <Zap size={44} color="#D0142C" />
                     <Text style={styles.peekPlaceholderTitle}>Genuine {peekBrand} Component</Text>
                   </View>
                 )}
@@ -1256,7 +1253,7 @@ const VerifiedPartsScreen = () => {
                 }}
                 activeOpacity={0.8}
               >
-                <RotateCw size={14} color="#C6122E" />
+                <RotateCw size={14} color="#D0142C" />
                 <Text style={styles.peek360BtnText}>360° & Specs</Text>
               </TouchableOpacity>
 
@@ -1342,7 +1339,7 @@ const VerifiedPartsScreen = () => {
               >
                 <RotateCw
                   size={13}
-                  color={modalMainTab === 'studio' ? '#C6122E' : '#64748B'}
+                  color={modalMainTab === 'studio' ? '#D0142C' : '#64748B'}
                 />
                 <Text
                   style={[
@@ -1364,7 +1361,7 @@ const VerifiedPartsScreen = () => {
               >
                 <FileText
                   size={13}
-                  color={modalMainTab === 'specs' ? '#C6122E' : '#64748B'}
+                  color={modalMainTab === 'specs' ? '#D0142C' : '#64748B'}
                 />
                 <Text
                   style={[
@@ -1474,7 +1471,7 @@ const VerifiedPartsScreen = () => {
                     }}
                     activeOpacity={0.8}
                   >
-                    <Sliders size={12} color="#C6122E" />
+                    <Sliders size={12} color="#D0142C" />
                     <Text style={styles.fullScreenSpecsBtnText}>Specs</Text>
                   </TouchableOpacity>
                 </View>
@@ -1907,7 +1904,7 @@ const VerifiedPartsScreen = () => {
                     activeOpacity={0.8}
                   >
                     <View style={styles.viewFullSpecsBannerContent}>
-                      <Sliders size={18} color="#C6122E" />
+                      <Sliders size={18} color="#D0142C" />
                       <View>
                         <Text style={styles.viewFullSpecsBannerTitle}>Complete Technical Specifications</Text>
                         <Text style={styles.viewFullSpecsBannerSub}>Dimensions, electrical criteria & OEM part references</Text>
@@ -1921,7 +1918,7 @@ const VerifiedPartsScreen = () => {
                   {/* Complete Technical Specifications Table */}
                   <View style={styles.specsCardLight}>
                     <View style={styles.specsSectionHeader}>
-                      <Sliders size={15} color="#C6122E" />
+                      <Sliders size={15} color="#D0142C" />
                       <Text style={styles.specsSectionTitleLight}>Technical Specifications</Text>
                     </View>
 
@@ -2120,7 +2117,7 @@ const styles = StyleSheet.create({
   partBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
     letterSpacing: 0.4,
   },
   kybBadge: {
@@ -2218,7 +2215,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   layoutToggleTextActive: {
-    color: '#C6122E',
+    color: '#D0142C',
     fontWeight: '700',
   },
   // Rich Visual Card Styles
@@ -2256,7 +2253,7 @@ const styles = StyleSheet.create({
   brandBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
     letterSpacing: 0.4,
   },
   verifiedMicroPill: {
@@ -2289,7 +2286,7 @@ const styles = StyleSheet.create({
   peekHeaderBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   cardMiddleRow: {
     flexDirection: 'row',
@@ -2423,7 +2420,7 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   cardEnquireBtnText: {
     fontSize: 12,
@@ -2633,7 +2630,7 @@ const styles = StyleSheet.create({
   peek360BtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   peekEnquireBtn: {
     flex: 1.4,
@@ -2643,7 +2640,7 @@ const styles = StyleSheet.create({
     gap: 6,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   peekEnquireBtnText: {
     fontSize: 13,
@@ -2680,7 +2677,7 @@ const styles = StyleSheet.create({
   modalBrandTextLight: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
     letterSpacing: 0.5,
   },
   modalPartNumberLight: {
@@ -2744,7 +2741,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   mediaToggleBtnActiveLight: {
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   mediaToggleTextLight: {
     fontSize: 11,
@@ -2873,7 +2870,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   anglePresetChipTextActive: {
-    color: '#C6122E',
+    color: '#D0142C',
   },
   thumbnailRowLight: {
     flexDirection: 'row',
@@ -2890,7 +2887,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   thumbBoxActiveLight: {
-    borderColor: '#C6122E',
+    borderColor: '#D0142C',
     borderWidth: 2,
   },
   thumbImg: {
@@ -3203,7 +3200,7 @@ const styles = StyleSheet.create({
   viewFullSpecsBannerAction: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
     marginLeft: 8,
   },
   fullScreenSpecsBtn: {
@@ -3220,7 +3217,7 @@ const styles = StyleSheet.create({
   fullScreenSpecsBtnText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   vehicleContextCard: {
     backgroundColor: '#FFFFFF',
@@ -3251,7 +3248,7 @@ const styles = StyleSheet.create({
   vehicleContextBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
     letterSpacing: 0.5,
   },
   vehicleContextTitle: {
@@ -3395,7 +3392,7 @@ const styles = StyleSheet.create({
   },
   resetCategoryBtn: {
     marginTop: 10,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,

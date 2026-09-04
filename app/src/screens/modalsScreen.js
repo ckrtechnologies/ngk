@@ -9,6 +9,8 @@ import {
     StatusBar,
     TextInput,
     Image,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
 import { ChevronLeft, Search, Car, ChevronRight, X } from 'lucide-react-native';
@@ -18,6 +20,7 @@ import { apiFunction } from '../apis/apiFunction';
 import { addVehicleToGarageApi, serviceJsonApi } from '../apis/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
+import AppHeader from '../components/common/AppHeader';
 
 const ModalsScreen = () => {
     const navigation = useNavigation();
@@ -111,7 +114,7 @@ const ModalsScreen = () => {
                     {imageUrl ? (
                         <Image source={{ uri: imageUrl }} style={styles.modelImage} resizeMode="cover" />
                     ) : (
-                        <Car color="#C6122E" size={wp('8%')} />
+                        <Car color="#D0142C" size={wp('8%')} />
                     )}
                 </View>
                 <View style={styles.textContainer}>
@@ -126,57 +129,54 @@ const ModalsScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#C6122E" />
-
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => navigation.goBack()}>
-                        <ChevronLeft size={28} color="#FFFFFF" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle} numberOfLines={1}>
-                        Models for {mfrName || 'Vehicle'}
-                    </Text>
-                </View>
-            </View>
-
-            {/* Search Bar Container */}
-            <View style={styles.searchContainer}>
-                <View style={styles.searchBox}>
-                    <Search color="#8E8E8E" size={wp('5%')} style={styles.searchIcon} />
-                    <TextInput
-                        style={styles.searchInput}
-                        placeholder="Search models..."
-                        placeholderTextColor="#8E8E8E"
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
-                        returnKeyType="done"
-                    />
-                    {searchQuery.length > 0 && (
-                        <TouchableOpacity onPress={clearSearch} style={{ padding: wp('2%') }}>
-                            <X color="#8E8E8E" size={wp('5%')} />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-
-            {/* List */}
-            <FlatList
-                data={filteredModels}
-                keyExtractor={(item, index) => item.modelId?.toString() || item.id?.toString() || index.toString()}
-                renderItem={renderModelItem}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>
-                            {loading ? "Loading models..." : "No models found."}
-                        </Text>
-                    </View>
-                }
+        <View style={styles.container}>
+            <AppHeader
+                title={`Models for ${mfrName || 'Vehicle'}`}
+                subtitle="Select vehicle series"
+                onBack={() => navigation.goBack()}
             />
-        </SafeAreaView>
+
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={{ flex: 1 }}
+            >
+                {/* Search Bar Container */}
+                <View style={styles.searchContainer}>
+                    <View style={styles.searchBox}>
+                        <Search color="#8E8E8E" size={wp('5%')} style={styles.searchIcon} />
+                        <TextInput
+                            style={styles.searchInput}
+                            placeholder="Search models..."
+                            placeholderTextColor="#8E8E8E"
+                            value={searchQuery}
+                            onChangeText={setSearchQuery}
+                            returnKeyType="done"
+                        />
+                        {searchQuery.length > 0 && (
+                            <TouchableOpacity onPress={clearSearch} style={{ padding: wp('2%') }}>
+                                <X color="#8E8E8E" size={wp('5%')} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+
+                {/* List */}
+                <FlatList
+                    data={filteredModels}
+                    keyExtractor={(item, index) => item.modelId?.toString() || item.id?.toString() || index.toString()}
+                    renderItem={renderModelItem}
+                    contentContainerStyle={styles.listContent}
+                    showsVerticalScrollIndicator={false}
+                    ListEmptyComponent={
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>
+                                {loading ? "Loading models..." : "No models found."}
+                            </Text>
+                        </View>
+                    }
+                />
+            </KeyboardAvoidingView>
+        </View>
     );
 };
 
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F6FA',
     },
     header: {
-        backgroundColor: '#C6122E',
+        backgroundColor: '#D0142C',
         height: hp('8%'),
         flexDirection: 'row',
         alignItems: 'center',
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: wp('6%'),
         paddingBottom: hp('2%'),
         paddingTop: hp('2%'),
-        backgroundColor: '#C6122E',
+        backgroundColor: '#D0142C',
         borderBottomLeftRadius: wp('6%'),
         borderBottomRightRadius: wp('6%'),
         marginBottom: hp('1%'),

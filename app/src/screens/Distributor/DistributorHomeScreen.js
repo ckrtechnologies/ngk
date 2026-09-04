@@ -73,7 +73,7 @@ const DistributorHomeScreen = () => {
       id: 'enquiries',
       title: 'Regional Tickets',
       subtitle: `${pendingCount} open technical enquiries`,
-      icon: <MessageSquare size={22} color="#C6122E" />,
+      icon: <MessageSquare size={22} color="#D0142C" />,
       bg: '#FEE2E2',
       route: 'MyEnquiries',
     },
@@ -140,8 +140,8 @@ const DistributorHomeScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#C6122E']}
-            tintColor="#C6122E"
+            colors={['#D0142C']}
+            tintColor="#D0142C"
           />
         }
       >
@@ -174,7 +174,7 @@ const DistributorHomeScreen = () => {
         <View style={styles.kpiRow}>
           <View style={styles.kpiCard}>
             <View style={styles.kpiIconWrapper}>
-              <Clock size={16} color="#C6122E" />
+              <Clock size={16} color="#D0142C" />
             </View>
             <Text style={styles.kpiValue}>{pendingCount}</Text>
             <Text style={styles.kpiLabel}>Pending Actions</Text>
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   headerLogo: {
     width: 100,

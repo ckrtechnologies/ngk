@@ -21,6 +21,8 @@ const ScreenContainer = ({
   keyboardVerticalOffset = 0,
   footer,
   paddingHorizontal = 20,
+  includeTopInset = true,
+  showStatusBar = true,
 }) => {
   const insets = useSafeAreaInsets();
   const Container = scrollable ? ScrollView : View;
@@ -31,18 +33,20 @@ const ScreenContainer = ({
         styles.safeContainer,
         {
           backgroundColor,
-          paddingTop: insets.top,
+          paddingTop: includeTopInset ? insets.top : 0,
           paddingBottom: Math.max(insets.bottom, 12),
           paddingLeft: insets.left,
           paddingRight: insets.right,
         },
       ]}
     >
-      <StatusBar
-        barStyle={statusBarStyle}
-        backgroundColor={backgroundColor}
-        translucent={Platform.OS === 'android'}
-      />
+      {showStatusBar && (
+        <StatusBar
+          barStyle={statusBarStyle}
+          backgroundColor={backgroundColor}
+          translucent={Platform.OS === 'android'}
+        />
+      )}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoid}

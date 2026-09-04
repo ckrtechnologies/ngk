@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   X,
@@ -96,10 +98,14 @@ export default function DealerFilterModal({
       transparent={true}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.backdrop}>
-          <TouchableWithoutFeedback>
-            <View style={styles.sheetContainer}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.backdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.sheetContainer}>
               {/* Top Drag Pill */}
               <View style={styles.dragPill} />
 
@@ -161,7 +167,7 @@ export default function DealerFilterModal({
                     >
                       <Sparkles
                         size={16}
-                        color={draft.role === 'all' ? '#C6122E' : '#64748B'}
+                        color={draft.role === 'all' ? '#D0142C' : '#64748B'}
                       />
                       <Text
                         style={[
@@ -172,7 +178,7 @@ export default function DealerFilterModal({
                         All Tiers
                       </Text>
                       {draft.role === 'all' && (
-                        <Check size={14} color="#C6122E" strokeWidth={3} />
+                        <Check size={14} color="#D0142C" strokeWidth={3} />
                       )}
                     </TouchableOpacity>
 
@@ -205,7 +211,7 @@ export default function DealerFilterModal({
                         <Text style={styles.tierSubtext}>Distributors</Text>
                       </View>
                       {draft.role === 'distributor' && (
-                        <Check size={14} color="#C6122E" strokeWidth={3} />
+                        <Check size={14} color="#D0142C" strokeWidth={3} />
                       )}
                     </TouchableOpacity>
 
@@ -238,7 +244,7 @@ export default function DealerFilterModal({
                         <Text style={styles.tierSubtext}>Resellers & Shops</Text>
                       </View>
                       {draft.role === 'reseller' && (
-                        <Check size={14} color="#C6122E" strokeWidth={3} />
+                        <Check size={14} color="#D0142C" strokeWidth={3} />
                       )}
                     </TouchableOpacity>
                   </View>
@@ -261,7 +267,7 @@ export default function DealerFilterModal({
                       <Compass
                         size={15}
                         color={
-                          draft.sortBy === 'nearest' ? '#C6122E' : '#64748B'
+                          draft.sortBy === 'nearest' ? '#D0142C' : '#64748B'
                         }
                       />
                       <Text
@@ -287,7 +293,7 @@ export default function DealerFilterModal({
                     >
                       <ArrowDownAZ
                         size={15}
-                        color={draft.sortBy === 'alpha' ? '#C6122E' : '#64748B'}
+                        color={draft.sortBy === 'alpha' ? '#D0142C' : '#64748B'}
                       />
                       <Text
                         style={[
@@ -329,6 +335,7 @@ export default function DealerFilterModal({
           </TouchableWithoutFeedback>
         </View>
       </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -389,7 +396,7 @@ const styles = StyleSheet.create({
   activePillBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   modalSubtitle: {
     fontSize: 12,
@@ -440,7 +447,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   tierButtonActive: {
-    borderColor: '#C6122E',
+    borderColor: '#D0142C',
     backgroundColor: '#FFF5F5',
   },
   tierButtonText: {
@@ -449,7 +456,7 @@ const styles = StyleSheet.create({
     color: '#1E293B',
   },
   tierButtonTextActive: {
-    color: '#C6122E',
+    color: '#D0142C',
   },
   tierSubtext: {
     fontSize: 11,
@@ -473,7 +480,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   sortOptionActive: {
-    borderColor: '#C6122E',
+    borderColor: '#D0142C',
     backgroundColor: '#FFF5F5',
   },
   sortOptionText: {
@@ -482,7 +489,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   sortOptionTextActive: {
-    color: '#C6122E',
+    color: '#D0142C',
     fontWeight: '700',
   },
   bottomBar: {
@@ -510,12 +517,12 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     flex: 1,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     paddingVertical: 13,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#C6122E',
+    shadowColor: '#D0142C',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.28,
     shadowRadius: 6,

@@ -41,7 +41,7 @@ const TICKER_ITEMS = [
   {
     id: 'oem_fit',
     IconComponent: TickerLiveRadarIcon,
-    themeColor: '#C6122E',
+    themeColor: '#D0142C',
     badgeBg: '#FEE2E2',
     countHighlight: '100% Genuine',
     text: 'OEM spark plugs & coils',
@@ -117,7 +117,11 @@ const OwnerHomeScreen = () => {
     }, [fetchInitialData])
   );
 
-  const activeCar = myself?.garage?.[0] || null;
+  const activeCar =
+    myself?.garage?.[0] ||
+    myself?.cars?.[0] ||
+    myself?.vehicleId?.[0] ||
+    null;
 
   // Smart Direct Parts Lookup:
   // If registered vehicle has a TecDoc linkageTargetId, navigate directly to VerifiedPartsScreen!
@@ -163,7 +167,7 @@ const OwnerHomeScreen = () => {
       subtitle: 'Spark plugs, sensors & ignition coils',
       IconComponent: FindParts3DIcon,
       bg: '#FEF2F2',
-      accentColor: '#C6122E',
+      accentColor: '#D0142C',
       tag: '50k+ Parts',
       route: 'PartsFinder',
     },
@@ -201,7 +205,7 @@ const OwnerHomeScreen = () => {
 
   return (
     <View style={[styles.rootContainer, { paddingBottom: insets.bottom }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#C6122E" />
+      <StatusBar barStyle="light-content" backgroundColor="#D0142C" />
 
       {/* Solid Branded NGK Crimson Header */}
       <View style={[styles.solidHeader, { paddingTop: insets.top + 6 }]}>
@@ -240,8 +244,8 @@ const OwnerHomeScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#C6122E']}
-            tintColor="#C6122E"
+            colors={['#D0142C']}
+            tintColor="#D0142C"
           />
         }
       >
@@ -272,7 +276,7 @@ const OwnerHomeScreen = () => {
         <View style={styles.garageCard}>
           <View style={styles.garageCardHeader}>
             <View style={styles.garageBadge}>
-              <Car size={14} color="#C6122E" strokeWidth={2.2} />
+              <Car size={14} color="#D0142C" strokeWidth={2.2} />
               <Text style={styles.garageBadgeText}>ACTIVE VEHICLE</Text>
             </View>
             <TouchableOpacity
@@ -309,7 +313,7 @@ const OwnerHomeScreen = () => {
               activeOpacity={0.7}
             >
               <View style={styles.addCarCircle}>
-                <Plus size={18} color="#C6122E" strokeWidth={2.4} />
+                <Plus size={18} color="#D0142C" strokeWidth={2.4} />
               </View>
               <View style={styles.emptyGarageTextContainer}>
                 <Text style={styles.emptyGarageTitle}>Add your vehicle to garage</Text>
@@ -405,7 +409,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   solidHeader: {
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -451,7 +455,7 @@ const styles = StyleSheet.create({
   headerBrandText: {
     fontSize: 12,
     fontWeight: '900',
-    color: '#C6122E',
+    color: '#D0142C',
     letterSpacing: 0.6,
     marginLeft: 6,
   },
@@ -464,7 +468,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#FBBF24',
     borderWidth: 1.5,
-    borderColor: '#C6122E',
+    borderColor: '#D0142C',
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -503,7 +507,7 @@ const styles = StyleSheet.create({
   verifiedDriverText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   garageCard: {
     backgroundColor: '#FFFFFF',
@@ -536,13 +540,13 @@ const styles = StyleSheet.create({
   garageBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
     letterSpacing: 0.4,
   },
   manageGarageLink: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   activeCarBody: {
     marginTop: 4,
@@ -677,7 +681,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderLeftWidth: 4,
-    borderLeftColor: '#C6122E',
+    borderLeftColor: '#D0142C',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     shadowColor: '#000000',
@@ -710,7 +714,7 @@ const styles = StyleSheet.create({
   tipBadgeText: {
     fontSize: 9.5,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   tipText: {
     fontSize: 11,

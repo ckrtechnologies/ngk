@@ -28,7 +28,7 @@ export function PortalTabIcon({ focused = false, size = 24 }) {
         {/* Tachometer Core Arch in Deep Crimson */}
         <Path
           d="M12 28v-9a4 4 0 0 1 8 0v9"
-          fill="#C6122E"
+          fill="#D0142C"
         />
         {/* Speedometer Needle */}
         <Line x1="16" y1="20" x2="18" y2="17" stroke="#EF4444" strokeWidth="1.8" strokeLinecap="round" />
@@ -73,7 +73,7 @@ export function SearchTabIcon({ focused = false, size = 24 }) {
         {/* Solid Lens Outer */}
         <Circle cx="13" cy="13" r="10" fill="url(#tabSearchGrad)" />
         {/* Inner Lens Core */}
-        <Circle cx="13" cy="13" r="7" fill="#C6122E" />
+        <Circle cx="13" cy="13" r="7" fill="#D0142C" />
         {/* Spark Star in Lens */}
         <Path
           d="M13 8.5v9M8.5 13h9"

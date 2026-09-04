@@ -201,7 +201,7 @@ export default function OwnerProfileScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#C6122E" />
+      <StatusBar barStyle="light-content" backgroundColor="#D0142C" />
 
       {/* Solid Crimson Header */}
       <View style={[styles.headerBar, { paddingTop: insets.top + 8 }]}>
@@ -263,7 +263,7 @@ export default function OwnerProfileScreen({ navigation }) {
             onPress={openEditModal}
             activeOpacity={0.75}
           >
-            <Pencil size={14} color="#C6122E" />
+            <Pencil size={14} color="#D0142C" />
             <Text style={styles.editPillText}>Edit Personal Details</Text>
           </TouchableOpacity>
         </View>
@@ -405,7 +405,7 @@ export default function OwnerProfileScreen({ navigation }) {
             activeOpacity={0.7}
           >
             <View style={styles.navIconBadgeRed}>
-              <Wrench size={16} color="#C6122E" />
+              <Wrench size={16} color="#D0142C" />
             </View>
             <View style={styles.navTextCol}>
               <Text style={styles.navTitle}>TecDoc Parts & Catalog</Text>
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerBar: {
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     paddingHorizontal: 16,
     paddingBottom: 16,
     flexDirection: 'row',
@@ -646,13 +646,13 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 18,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     borderWidth: 2,
     borderColor: '#FACC15',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
-    shadowColor: '#C6122E',
+    shadowColor: '#D0142C',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
   rolePillText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
     letterSpacing: 0.4,
   },
   verifiedRow: {
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
   editPillText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
   sectionEditLink: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   detailRow: {
     flexDirection: 'row',
@@ -1019,12 +1019,12 @@ const styles = StyleSheet.create({
   modalSaveBtn: {
     flex: 2,
     flexDirection: 'row',
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#C6122E',
+    shadowColor: '#D0142C',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 6,

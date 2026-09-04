@@ -8,8 +8,9 @@ export const addVehicleToGarage = async (req, res) => {
       return sendError(res, 'User ID is required', 400);
     }
     const vehicleData = req.body.modal || req.body.vehicle || req.body;
-    const updatedUser = await garageService.addVehicleToGarage(id, vehicleData);
-    return sendSuccess(res, { user: updatedUser }, 'Vehicle added to garage successfully');
+    await garageService.addVehicleToGarage(id, vehicleData);
+    const garage = await garageService.getGarageVehicles(id);
+    return sendSuccess(res, { garage, vehicle: vehicleData }, 'Vehicle added to garage successfully');
   } catch (error) {
     return sendError(res, error.message, 400, error);
   }
@@ -56,7 +57,8 @@ export const addVehicleToWatchlist = async (req, res) => {
     }
     
     const updatedUser = await garageService.addToWatchlist(id, item);
-    return sendSuccess(res, { user: updatedUser }, 'Added to watchlist/garage successfully');
+    const garage = await garageService.getGarageVehicles(id);
+    return sendSuccess(res, { user: updatedUser, garage }, 'Added to watchlist/garage successfully');
   } catch (error) {
     return sendError(res, error.message, 400, error);
   }

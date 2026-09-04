@@ -20,6 +20,7 @@ import Toast from 'react-native-toast-message';
 import { getMyselfRedux, setPart } from '../redux/getData';
 import { removeFromWatchlistApi } from '../apis/api';
 import { apiFunction } from '../apis/apiFunction';
+import AppHeader from '../components/common/AppHeader';
 
 const MyFavoritesScreen = () => {
   const navigation = useNavigation();
@@ -92,21 +93,21 @@ const MyFavoritesScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#C6122E" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
-          <ChevronLeft color="#FFFFFF" size={wp('7%')} />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>MY FAVORITES</Text>
-
-        <TouchableOpacity onPress={() => navigation.navigate('OwnerHome')} style={styles.homeIconButton}>
-          <Home color="#C6122E" size={wp('5%')} />
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <AppHeader
+        title="My Favorites"
+        subtitle={`${favorites.filter(item => item.isFavorite).length} Items Saved`}
+        onBack={() => navigation.goBack()}
+        rightElement={
+          <TouchableOpacity
+            onPress={() => navigation.navigate('OwnerHome')}
+            style={styles.headerHomeBtn}
+            activeOpacity={0.8}
+          >
+            <Home color="#FFFFFF" size={18} />
+          </TouchableOpacity>
+        }
+      />
 
       <View style={styles.content}>
         {/* Count and Edit Section */}
@@ -126,8 +127,8 @@ const MyFavoritesScreen = () => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={['#C6122E']}
-              tintColor="#C6122E"
+              colors={['#D0142C']}
+              tintColor="#D0142C"
             />
           }
         >
@@ -274,7 +275,7 @@ const MyFavoritesScreen = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -283,8 +284,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F0F2F5', // Light gray background
   },
+  headerHomeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     height: hp('9%'),
     flexDirection: 'row',
     alignItems: 'center',
@@ -327,7 +338,7 @@ const styles = StyleSheet.create({
   editListText: {
     fontSize: wp('3.2%'),
     fontWeight: 'bold',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   scrollContent: {
     paddingBottom: hp('5%'),
@@ -374,7 +385,7 @@ const styles = StyleSheet.create({
   partNumber: {
     fontSize: wp('3.5%'),
     fontWeight: 'bold',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   viewDetailsButton: {
     backgroundColor: '#000000',
@@ -451,7 +462,7 @@ const styles = StyleSheet.create({
   dotActive: {
     width: wp('8%'),
     height: hp('0.6%'),
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     borderRadius: 3,
     marginRight: wp('1.5%'),
   },
@@ -483,7 +494,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: wp('6%'),
     left: wp('6%'),
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     paddingHorizontal: wp('4%'),
     paddingVertical: hp('1%'),
     borderRadius: wp('3%'),
@@ -541,7 +552,7 @@ const styles = StyleSheet.create({
   },
   modalPartSubtitle: {
     fontSize: wp('4.5%'),
-    color: '#C6122E',
+    color: '#D0142C',
     fontWeight: 'bold',
     marginTop: hp('0.5%'),
     marginBottom: hp('3%'),
@@ -665,7 +676,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     height: hp('7.5%'),
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     borderRadius: wp('3%'),
     justifyContent: 'center',
     alignItems: 'center',

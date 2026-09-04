@@ -157,7 +157,7 @@ export default function DistanceSlider({
       {/* Header with Distance Badge */}
       <View style={styles.headerRow}>
         <View style={styles.titleRow}>
-          <MapPin size={16} color="#C6122E" strokeWidth={2.4} />
+          <MapPin size={16} color="#D0142C" strokeWidth={2.4} />
           <Text style={styles.titleText}>Search Radius</Text>
         </View>
 
@@ -218,7 +218,7 @@ export default function DistanceSlider({
       {/* Manual KM Input Box */}
       <View style={styles.inputCard}>
         <View style={styles.inputLeft}>
-          <Navigation size={14} color="#C6122E" />
+          <Navigation size={14} color="#D0142C" />
           <Text style={styles.inputLabel}>Enter distance in km:</Text>
         </View>
         <View style={styles.inputFieldBox}>
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   radiusBadgeText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   touchArea: {
     height: 36,
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   },
   trackFill: {
     height: '100%',
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     borderRadius: 4,
   },
   thumb: {
@@ -329,8 +329,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 3,
-    borderColor: '#C6122E',
-    shadowColor: '#C6122E',
+    borderColor: '#D0142C',
+    shadowColor: '#D0142C',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.35,
     shadowRadius: 5,
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   minMaxRow: {
     flexDirection: 'row',
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   kmBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   presetsRow: {
     flexDirection: 'row',
@@ -425,8 +425,8 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   presetChipActive: {
-    backgroundColor: '#C6122E',
-    borderColor: '#C6122E',
+    backgroundColor: '#D0142C',
+    borderColor: '#D0142C',
   },
   presetChipText: {
     fontSize: 11.5,

@@ -19,15 +19,18 @@ class UserService {
     const user = data[0];
 
     // Fetch vehicles from normalized garage_vehicles table
-    const { data: garageRows } = await supabase
+    const { data: garageRows, error: garageError } = await supabase
       .from('garage_vehicles')
       .select('*')
       .eq('user_id', id)
-      .order('is_primary', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
 
+    if (garageError) {
+      console.warn('Could not fetch garage vehicles:', garageError.message);
+    }
+
     const garageList = (garageRows && garageRows.length > 0)
-      ? garageRows.map(v => ({
+      ? garageRows.map((v, index) => ({
           id: v.id,
           make: v.make,
           model: v.model,
@@ -38,7 +41,7 @@ class UserService {
           license_plate: v.license_plate || v.raw_specs?.licensePlate || v.raw_specs?.license_plate || '',
           vin: v.vin,
           linkageTargetId: v.linkage_target_id,
-          isPrimary: v.is_primary || false,
+          isPrimary: v.is_primary || v.raw_specs?.isPrimary || v.raw_specs?.is_primary || (index === 0),
           created_at: v.created_at,
         }))
       : [];

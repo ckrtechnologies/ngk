@@ -353,7 +353,7 @@ const Product360Viewer = ({
           </View>
         ) : isLoadingPhase ? (
           <View style={styles.centerBox}>
-            <ActivityIndicator size="small" color="#C6122E" />
+            <ActivityIndicator size="small" color="#D0142C" />
             <Text style={styles.loadingText}>Loading 360° model...</Text>
           </View>
         ) : phase === Phase.IDLE && !cleanStatic ? (
@@ -409,7 +409,7 @@ const Product360Viewer = ({
       {/* Non-blocking loading pill — top-right corner during fetch */}
       {isLoadingPhase && !isStatic && (
         <View style={styles.loadingOverlay} pointerEvents="none">
-          <ActivityIndicator size="small" color="#C6122E" />
+          <ActivityIndicator size="small" color="#D0142C" />
           <Text style={styles.loadingOverlayText}>Loading 360° Studio...</Text>
         </View>
       )}

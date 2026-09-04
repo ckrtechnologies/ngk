@@ -65,7 +65,7 @@ const ResellerHomeScreen = () => {
       id: 'lookup',
       title: 'Parts Lookup',
       subtitle: 'Fast OE & cross-reference',
-      icon: <Search size={22} color="#C6122E" />,
+      icon: <Search size={22} color="#D0142C" />,
       bg: '#FEE2E2',
       route: 'PartsFinder',
     },
@@ -140,8 +140,8 @@ const ResellerHomeScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#C6122E']}
-            tintColor="#C6122E"
+            colors={['#D0142C']}
+            tintColor="#D0142C"
           />
         }
       >
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   headerLogo: {
     width: 100,

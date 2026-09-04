@@ -21,7 +21,7 @@ const NotificationsScreen = () => {
       description: 'Your enquiry ENQ-BB21 for part BKR6EIX-11 has been verified and approved.',
       time: '12M AGO',
       unread: true,
-      icon: <MessageSquare size={wp('5%')} color="#C6122E" fill="#C6122E" />,
+      icon: <MessageSquare size={wp('5%')} color="#D0142C" fill="#D0142C" />,
       iconBg: '#FFF1F3',
     },
     {
@@ -30,7 +30,7 @@ const NotificationsScreen = () => {
       description: '342 new part numbers for 2024 model year vehicles have been added to the database.',
       time: '2H AGO',
       unread: true,
-      icon: <Search size={wp('5%')} color="#C6122E" />,
+      icon: <Search size={wp('5%')} color="#D0142C" />,
       iconBg: '#FFF1F3',
     },
     {
@@ -65,7 +65,7 @@ const NotificationsScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#C6122E" />
+      <StatusBar barStyle="light-content" backgroundColor="#D0142C" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -84,7 +84,7 @@ const NotificationsScreen = () => {
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => navigation.navigate('OwnerHome')} style={styles.homeIconButton}>
-            <Home color="#C6122E" size={wp('5%')} />
+            <Home color="#D0142C" size={wp('5%')} />
           </TouchableOpacity>
         </View>
       </View>
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F2F5',
   },
   header: {
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     height: hp('9%'),
     flexDirection: 'row',
     alignItems: 'center',
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     width: wp('2.5%'),
     height: wp('2.5%'),
     borderRadius: wp('1.25%'),
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
   },
   descriptionText: {
     fontSize: wp('3%'),

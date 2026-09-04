@@ -69,9 +69,9 @@ const styles = StyleSheet.create({
     width: wp('14%'),
     height: wp('14%'),
     borderRadius: wp('7%'),
-    backgroundColor: 'rgba(198, 18, 46, 0.15)',
+    backgroundColor: 'rgba(208, 20, 44, 0.15)',
     borderWidth: 1,
-    borderColor: '#C6122E',
+    borderColor: '#D0142C',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: hp('2%'),
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   iconText: {
     fontSize: wp('7%'),
     fontWeight: '900',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   title: {
     fontSize: wp('5%'),
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     marginBottom: hp('3%'),
   },
   retryButton: {
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     paddingHorizontal: wp('8%'),
     paddingVertical: hp('1.8%'),
     borderRadius: wp('3%'),

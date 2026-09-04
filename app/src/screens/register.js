@@ -31,7 +31,7 @@ const RegisterScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const buttonColor = role === 'distributor' ? '#111827' : '#C6122E';
+  const buttonColor = role === 'distributor' ? '#111827' : '#D0142C';
 
   const validate = () => {
     const errs = {};
@@ -163,26 +163,30 @@ const RegisterScreen = ({ route, navigation }) => {
   };
 
   return (
-    <ScreenContainer
-      scrollable={true}
-      footer={
-        <View style={styles.footerContainer}>
-          <TouchableOpacity
-            style={styles.loginRow}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('Login', { role })}
-          >
-            <Text style={styles.loginPrompt}>Already have an account? </Text>
-            <Text style={[styles.loginLink, { color: buttonColor }]}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
-      }
-    >
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <AppHeader
         title="Create Account"
         subtitle={`Register as ${role === 'owner' ? 'Vehicle Owner' : role}`}
         onBack={() => navigation.goBack()}
       />
+
+      <ScreenContainer
+        scrollable={true}
+        includeTopInset={false}
+        showStatusBar={false}
+        footer={
+          <View style={styles.footerContainer}>
+            <TouchableOpacity
+              style={styles.loginRow}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('Login', { role })}
+            >
+              <Text style={styles.loginPrompt}>Already have an account? </Text>
+              <Text style={[styles.loginLink, { color: buttonColor }]}>Sign In</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      >
 
       <View style={styles.formCard}>
         <AppInput
@@ -271,6 +275,7 @@ const RegisterScreen = ({ route, navigation }) => {
         />
       </View>
     </ScreenContainer>
+    </View>
   );
 };
 

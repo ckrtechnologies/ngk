@@ -9,6 +9,8 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -147,13 +149,10 @@ const VehiclesListScreen = () => {
       style={[
         styles.safeArea,
         {
-          paddingTop: insets.top,
           paddingBottom: insets.bottom,
         },
       ]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <AppHeader
         title={`${mfrName} ${seriesName}`}
         subtitle="Select exact engine & year trim"
@@ -168,9 +167,13 @@ const VehiclesListScreen = () => {
         }}
       />
 
-      <View style={styles.container}>
-        {/* Search Filter Bar */}
-        <View style={styles.searchBar}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.container}>
+          {/* Search Filter Bar */}
+          <View style={styles.searchBar}>
           <Search size={16} color="#9CA3AF" />
           <TextInput
             style={styles.searchInput}
@@ -189,7 +192,7 @@ const VehiclesListScreen = () => {
 
         {loading ? (
           <View style={styles.centerLoading}>
-            <ActivityIndicator size="large" color="#C6122E" />
+            <ActivityIndicator size="large" color="#D0142C" />
             <Text style={styles.loadingText}>Fetching matching engines & trims...</Text>
             <Text style={styles.loadingSub}>TecDoc Pegasus 3.0 Catalog</Text>
           </View>
@@ -205,8 +208,8 @@ const VehiclesListScreen = () => {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={['#C6122E']}
-                tintColor="#C6122E"
+                colors={['#D0142C']}
+                tintColor="#D0142C"
               />
             }
             renderItem={({ item }) => {
@@ -240,7 +243,7 @@ const VehiclesListScreen = () => {
                   activeOpacity={0.75}
                 >
                   <View style={styles.iconCircle}>
-                    <Car size={20} color="#C6122E" />
+                    <Car size={20} color="#D0142C" />
                   </View>
 
                   <View style={styles.infoCol}>
@@ -291,14 +294,15 @@ const VehiclesListScreen = () => {
                   We could not find engine trims for {seriesName}. Try refreshing or choosing another model.
                 </Text>
                 <TouchableOpacity style={styles.retryBtn} onPress={fetchVehicles}>
-                  <RotateCcw size={14} color="#C6122E" />
+                  <RotateCcw size={14} color="#D0142C" />
                   <Text style={styles.retryText}>Retry Fetching</Text>
                 </TouchableOpacity>
               </View>
             }
           />
         )}
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 };
@@ -460,7 +464,7 @@ const styles = StyleSheet.create({
   retryText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
 });
 

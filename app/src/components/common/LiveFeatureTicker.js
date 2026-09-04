@@ -135,7 +135,7 @@ export default function LiveFeatureTicker({ items, onItemPress }) {
               <Text
                 style={[
                   styles.countHighlight,
-                  { color: currentItem.themeColor || '#C6122E' },
+                  { color: currentItem.themeColor || '#D0142C' },
                 ]}
               >
                 {currentItem.countHighlight}{' '}
@@ -151,14 +151,14 @@ export default function LiveFeatureTicker({ items, onItemPress }) {
                 styles.tickerHighlightBadge,
                 {
                   backgroundColor:
-                    (currentItem.themeColor || '#C6122E') + '15',
+                    (currentItem.themeColor || '#D0142C') + '15',
                 },
               ]}
             >
               <Text
                 style={[
                   styles.tickerHighlightText,
-                  { color: currentItem.themeColor || '#C6122E' },
+                  { color: currentItem.themeColor || '#D0142C' },
                 ]}
               >
                 {currentItem.highlight}
@@ -170,7 +170,7 @@ export default function LiveFeatureTicker({ items, onItemPress }) {
 
       <ChevronRight
         size={14}
-        color={currentItem.themeColor || '#C6122E'}
+        color={currentItem.themeColor || '#D0142C'}
         strokeWidth={2.4}
       />
     </TouchableOpacity>

@@ -13,6 +13,7 @@ import {
   Platform,
   PermissionsAndroid,
   ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -294,20 +295,21 @@ const DealerLocatorScreen = () => {
       style={[
         styles.safeArea,
         {
-          paddingTop: insets.top,
           paddingBottom: insets.bottom,
         },
       ]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <AppHeader
         title="Authorized Dealers"
         subtitle={`${filteredDealers.length} Official Stockists & Hubs`}
         onBack={() => navigation.goBack()}
       />
 
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <View style={styles.container}>
         {/* Search Bar + Filter Modal Button Row */}
         <View style={styles.searchBarRow}>
           <View style={styles.searchBar}>
@@ -417,7 +419,7 @@ const DealerLocatorScreen = () => {
                       setFilters((prev) => ({ ...prev, radius: 50 }))
                     }
                   >
-                    <X size={11} color="#C6122E" strokeWidth={2.4} />
+                    <X size={11} color="#D0142C" strokeWidth={2.4} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -434,7 +436,7 @@ const DealerLocatorScreen = () => {
                       setFilters((prev) => ({ ...prev, role: 'all' }))
                     }
                   >
-                    <X size={11} color="#C6122E" strokeWidth={2.4} />
+                    <X size={11} color="#D0142C" strokeWidth={2.4} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -447,7 +449,7 @@ const DealerLocatorScreen = () => {
                       setFilters((prev) => ({ ...prev, sortBy: 'nearest' }))
                     }
                   >
-                    <X size={11} color="#C6122E" strokeWidth={2.4} />
+                    <X size={11} color="#D0142C" strokeWidth={2.4} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -534,7 +536,7 @@ const DealerLocatorScreen = () => {
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#C6122E" />
+            <ActivityIndicator size="large" color="#D0142C" />
             <Text style={styles.loadingText}>
               Loading authorized stockists...
             </Text>
@@ -551,8 +553,8 @@ const DealerLocatorScreen = () => {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={['#C6122E']}
-                tintColor="#C6122E"
+                colors={['#D0142C']}
+                tintColor="#D0142C"
               />
             }
             renderItem={({ item }) => {
@@ -573,9 +575,9 @@ const DealerLocatorScreen = () => {
                   <View style={styles.cardHeader}>
                     <View style={styles.dealerIconBox}>
                       {isDistributor ? (
-                        <Building2 size={18} color="#C6122E" />
+                        <Building2 size={18} color="#D0142C" />
                       ) : (
-                        <Store size={18} color="#C6122E" />
+                        <Store size={18} color="#D0142C" />
                       )}
                     </View>
 
@@ -593,7 +595,7 @@ const DealerLocatorScreen = () => {
                         >
                           {item.distance && item.distance !== 'N/A' && (
                             <View style={styles.distanceBadge}>
-                              <NavigationIcon size={9} color="#C6122E" />
+                              <NavigationIcon size={9} color="#D0142C" />
                               <Text style={styles.distanceBadgeText}>
                                 {item.distance}
                               </Text>
@@ -706,7 +708,7 @@ const DealerLocatorScreen = () => {
                   {dealers.length > 0 && filters.radius < 1500 && (
                     <TouchableOpacity
                       onPress={() => setFilters((prev) => ({ ...prev, radius: 1500 }))}
-                      style={[styles.emptyResetBtn, { backgroundColor: '#C6122E' }]}
+                      style={[styles.emptyResetBtn, { backgroundColor: '#D0142C' }]}
                       activeOpacity={0.8}
                     >
                       <Text style={[styles.emptyResetBtnText, { color: '#FFFFFF' }]}>
@@ -742,6 +744,7 @@ const DealerLocatorScreen = () => {
           />
         )}
       </View>
+      </KeyboardAvoidingView>
 
       {/* Dealer Filter Modal */}
       <DealerFilterModal
@@ -807,8 +810,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   filterTriggerBtnActive: {
-    backgroundColor: '#C6122E',
-    borderColor: '#C6122E',
+    backgroundColor: '#D0142C',
+    borderColor: '#D0142C',
   },
   filterBadgeCircle: {
     position: 'absolute',
@@ -856,7 +859,7 @@ const styles = StyleSheet.create({
   locateBtnText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   activeChipsContainer: {
     marginBottom: 8,
@@ -888,7 +891,7 @@ const styles = StyleSheet.create({
   activeChipText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   clearAllBtn: {
     paddingHorizontal: 6,
@@ -917,8 +920,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   filterPillActive: {
-    backgroundColor: '#C6122E',
-    borderColor: '#C6122E',
+    backgroundColor: '#D0142C',
+    borderColor: '#D0142C',
   },
   filterPillText: {
     fontSize: 11,
@@ -961,7 +964,7 @@ const styles = StyleSheet.create({
   },
   emptyResetBtn: {
     marginTop: 10,
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -985,7 +988,7 @@ const styles = StyleSheet.create({
   distanceBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   dealerCard: {
     backgroundColor: '#FFFFFF',
@@ -1130,7 +1133,7 @@ const styles = StyleSheet.create({
   },
   actionBtnEnquire: {
     marginLeft: 'auto',
-    backgroundColor: '#C6122E',
+    backgroundColor: '#D0142C',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,

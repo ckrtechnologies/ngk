@@ -10,6 +10,8 @@ import {
   FlatList,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -552,23 +554,24 @@ const PartsFinderScreen = () => {
       style={[
         styles.safeArea,
         {
-          paddingTop: insets.top,
           paddingBottom: insets.bottom,
         },
       ]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
       <AppHeader
         title="Parts Finder"
         subtitle="TecDoc Pegasus 3.0 Catalog"
         onBack={() => navigation.goBack()}
       />
 
-      {/* 3-Step Journey Indicator */}
-      <JourneyStepIndicator currentStep={1} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        {/* 3-Step Journey Indicator */}
+        <JourneyStepIndicator currentStep={1} />
 
-      <View style={styles.container}>
+        <View style={styles.container}>
         {/* Segmented Mode Tabs */}
         <View style={styles.segmentContainer}>
           <TouchableOpacity
@@ -581,7 +584,7 @@ const PartsFinderScreen = () => {
           >
             <Car
               size={16}
-              color={searchMode === 'vehicle' ? '#C6122E' : '#6B7280'}
+              color={searchMode === 'vehicle' ? '#D0142C' : '#6B7280'}
             />
             <Text
               style={[
@@ -603,7 +606,7 @@ const PartsFinderScreen = () => {
           >
             <Search
               size={16}
-              color={searchMode === 'part' ? '#C6122E' : '#6B7280'}
+              color={searchMode === 'part' ? '#D0142C' : '#6B7280'}
             />
             <Text
               style={[
@@ -772,7 +775,7 @@ const PartsFinderScreen = () => {
                   </Text>
                 </View>
                 {loadingVehicles ? (
-                  <ActivityIndicator size="small" color="#C6122E" />
+                  <ActivityIndicator size="small" color="#D0142C" />
                 ) : (
                   <ChevronDown size={14} color="#9CA3AF" />
                 )}
@@ -830,7 +833,7 @@ const PartsFinderScreen = () => {
             />
 
             <View style={styles.infoHintCard}>
-              <Sparkles size={18} color="#C6122E" />
+              <Sparkles size={18} color="#D0142C" />
               <Text style={styles.infoHintText}>
                 Supports NGK Stock Numbers, Order Numbers, and OE Cross-Reference Part Numbers.
               </Text>
@@ -838,6 +841,7 @@ const PartsFinderScreen = () => {
           </View>
         )}
       </View>
+      </KeyboardAvoidingView>
 
       {/* Modern Bottom Sheet Modal Picker */}
       <Modal
@@ -846,8 +850,12 @@ const PartsFinderScreen = () => {
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalSheet}>
             {/* Top Drag Pill Handle */}
             <View style={styles.modalHandle} />
 
@@ -880,7 +888,7 @@ const PartsFinderScreen = () => {
 
             {/* Filter Search Input */}
             <View style={styles.modalSearchBox}>
-              <Search size={16} color="#C6122E" />
+              <Search size={16} color="#D0142C" />
               <TextInput
                 style={styles.modalSearchInput}
                 placeholder={
@@ -908,7 +916,7 @@ const PartsFinderScreen = () => {
             {/* List */}
             {loadingDropdown || (modalType === 'model' && loadingVehicles) ? (
               <View style={styles.modalLoading}>
-                <ActivityIndicator color="#C6122E" size="small" />
+                <ActivityIndicator color="#D0142C" size="small" />
                 <Text style={styles.modalLoadingText}>Loading automotive catalog...</Text>
               </View>
             ) : (
@@ -974,7 +982,7 @@ const PartsFinderScreen = () => {
                           </View>
                         </View>
                         {isSelected ? (
-                          <Check size={18} color="#C6122E" />
+                          <Check size={18} color="#D0142C" />
                         ) : (
                           <ChevronRight size={16} color="#9CA3AF" />
                         )}
@@ -1009,7 +1017,7 @@ const PartsFinderScreen = () => {
                           )}
                         </View>
                         {isSelected ? (
-                          <Check size={18} color="#C6122E" />
+                          <Check size={18} color="#D0142C" />
                         ) : (
                           <ChevronRight size={16} color="#9CA3AF" />
                         )}
@@ -1039,7 +1047,7 @@ const PartsFinderScreen = () => {
                         </Text>
                       </View>
                       {isSelected ? (
-                        <Check size={18} color="#C6122E" />
+                        <Check size={18} color="#D0142C" />
                       ) : (
                         <ChevronRight size={16} color="#9CA3AF" />
                       )}
@@ -1066,6 +1074,7 @@ const PartsFinderScreen = () => {
             )}
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -1158,7 +1167,7 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   brandsGrid: {
     flexDirection: 'row',
@@ -1179,8 +1188,8 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   appTypePillSelected: {
-    backgroundColor: '#C6122E',
-    borderColor: '#C6122E',
+    backgroundColor: '#D0142C',
+    borderColor: '#D0142C',
   },
   appTypePillText: {
     fontSize: 12,
@@ -1279,7 +1288,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 14,
     borderLeftWidth: 3,
-    borderLeftColor: '#C6122E',
+    borderLeftColor: '#D0142C',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     gap: 10,
@@ -1394,7 +1403,7 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   modalItemTitleSelected: {
-    color: '#C6122E',
+    color: '#D0142C',
     fontWeight: '700',
   },
   modalItemSubtitle: {
@@ -1429,7 +1438,7 @@ const styles = StyleSheet.create({
   specPillEngineText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#C6122E',
+    color: '#D0142C',
   },
   modalEmptyState: {
     paddingVertical: 48,

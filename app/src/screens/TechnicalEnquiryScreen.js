@@ -253,29 +253,33 @@ const TechnicalEnquiryScreen = () => {
   };
 
   return (
-    <ScreenContainer
-      scrollable={true}
-      footer={
-        <AppButton
-          title="Submit Technical Ticket"
-          onPress={handleSubmit}
-          loading={loading}
-          backgroundColor="#059669"
-        />
-      }
-    >
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <AppHeader
         title="Technical Enquiry"
         subtitle="Support & Verification Request"
         onBack={() => navigation.goBack()}
       />
 
+      <ScreenContainer
+        scrollable={true}
+        includeTopInset={false}
+        showStatusBar={false}
+        footer={
+          <AppButton
+            title="Submit Technical Ticket"
+            onPress={handleSubmit}
+            loading={loading}
+            backgroundColor="#059669"
+          />
+        }
+      >
+
       {/* Linked Part / Vehicle Context Chip */}
       {(part || vehicle) && (
         <View style={styles.contextCard}>
           {part && (
             <View style={styles.contextRow}>
-              <Tag size={15} color="#C6122E" />
+              <Tag size={15} color="#D0142C" />
               <Text style={styles.contextText}>
                 {part.articleName || 'Part'}:{' '}
                 <Text style={{ fontWeight: '700' }}>
@@ -434,6 +438,7 @@ const TechnicalEnquiryScreen = () => {
         )}
       </View>
     </ScreenContainer>
+    </View>
   );
 };
 

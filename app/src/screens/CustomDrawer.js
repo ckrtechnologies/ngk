@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   roleBadgeText: {
     fontSize: 9.5,
     fontWeight: '800',
-    color: '#C6122E',
+    color: '#D0142C',
     letterSpacing: 0.5,
   },
   verifiedDot: {
