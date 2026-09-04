@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -51,25 +51,28 @@ const DealerLocatorScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [locating, setLocating] = useState(false);
   const [userCoords, setUserCoords] = useState(null);
+  const [isSimulated, setIsSimulated] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter Modal & Filter State
   const [modalVisible, setModalVisible] = useState(false);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
+  // Keep a ref to apiDealersData so the fallback in fetchDealers can read the
+  // latest Redux value without making apiDealersData a dependency (which would
+  // rebuild fetchDealers → acquireGPS → trigger the mount effect repeatedly).
+  const apiDealersDataRef = useRef(apiDealersData);
+  useEffect(() => { apiDealersDataRef.current = apiDealersData; }, [apiDealersData]);
+
   const fetchDealers = useCallback(
-    async (coords = null, customRadius = null) => {
+    async (coords = null) => {
       try {
-        const activeRadius =
-          customRadius !== null ? customRadius : filters.radius;
         const queryParams =
           coords?.userLat && coords?.userLon
             ? {
                 userLat: coords.userLat,
                 userLon: coords.userLon,
-                ...(activeRadius && activeRadius < 1000
-                  ? { radius: activeRadius }
-                  : {}),
+                radius: 20000,
               }
             : {};
 
@@ -83,11 +86,12 @@ const DealerLocatorScreen = () => {
         dispatch(getDealersRedux(queryParams));
       } catch (err) {
         console.warn('Failed to load dealers:', err);
-        // Fallback to Redux data if available
+        // Fallback to Redux data — read from ref, not deps, to avoid loop
+        const fallback = apiDealersDataRef.current;
         const reduxList =
-          apiDealersData?.data?.array ||
-          (Array.isArray(apiDealersData) ? apiDealersData : []) ||
-          apiDealersData?.dealers ||
+          fallback?.data?.array ||
+          (Array.isArray(fallback) ? fallback : []) ||
+          fallback?.dealers ||
           [];
         if (reduxList.length > 0) setDealers(reduxList);
       } finally {
@@ -96,10 +100,11 @@ const DealerLocatorScreen = () => {
         setLocating(false);
       }
     },
-    [apiDealersData, dispatch, filters.radius]
+    [dispatch]
   );
 
   const acquireGPS = useCallback(async () => {
+    setIsSimulated(false);
     setLocating(true);
     try {
       if (Platform.OS === 'android') {
@@ -143,9 +148,24 @@ const DealerLocatorScreen = () => {
     }
   }, [fetchDealers]);
 
+  const simulateSandton = useCallback(() => {
+    setIsSimulated(true);
+    const sandtonCoords = { userLat: -26.1076, userLon: 28.0567 };
+    setUserCoords(sandtonCoords);
+    fetchDealers(sandtonCoords);
+  }, [fetchDealers]);
+
+  // Keep a stable ref to acquireGPS so the mount effect below can call the
+  // latest version without listing it as a dependency (which would re-fire
+  // the effect every time fetchDealers rebuilds due to filter/Redux changes).
+  const acquireGPSRef = useRef(acquireGPS);
+  useEffect(() => { acquireGPSRef.current = acquireGPS; }, [acquireGPS]);
+
+  // Run ONCE on mount — use the ref so we always call the latest acquireGPS
+  // but the effect itself never re-fires due to dependency changes.
   useEffect(() => {
-    acquireGPS();
-  }, [acquireGPS]);
+    acquireGPSRef.current();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -162,10 +182,6 @@ const DealerLocatorScreen = () => {
     if (filters.radius !== 50) c++;
     if (filters.role !== 'all') c++;
     if (filters.sortBy !== 'nearest') c++;
-    if (filters.hasWhatsApp) c++;
-    if (filters.hasPhone) c++;
-    if (filters.oemCertified) c++;
-    if (filters.province && filters.province !== 'All Provinces') c++;
     return c;
   }, [filters]);
 
@@ -176,41 +192,22 @@ const DealerLocatorScreen = () => {
       if (filters.role === 'distributor' && d.role !== 'distributor') return false;
       if (filters.role === 'reseller' && d.role !== 'reseller') return false;
 
-      // 2. Distance radius filter (if radius < 1000 and distance is available)
+      // 2. Distance radius filter
       if (
-        filters.radius < 1000 &&
+        filters.radius !== undefined &&
+        filters.radius !== null &&
         d.distanceKm !== undefined &&
         d.distanceKm !== null &&
         d.distanceKm !== 999999
       ) {
-        if (d.distanceKm > filters.radius) return false;
-      }
-
-      // 3. Capabilities & Badges
-      if (filters.hasWhatsApp && !d.phone) return false;
-      if (filters.hasPhone && !d.phone) return false;
-      if (filters.oemCertified && d.isApproved === false) return false;
-
-      // 4. Province filter
-      if (
-        filters.province &&
-        filters.province !== 'All Provinces' &&
-        filters.province !== 'all'
-      ) {
-        const prov = (d.province || '').toLowerCase();
-        const city = (d.city || '').toLowerCase();
-        const address = (d.address || d.streetAddress || '').toLowerCase();
-        const target = filters.province.toLowerCase();
-        if (
-          !prov.includes(target) &&
-          !city.includes(target) &&
-          !address.includes(target)
-        ) {
+        if (filters.radius === 1500) {
+          // All SA preset - no distance restriction
+        } else if (d.distanceKm > filters.radius) {
           return false;
         }
       }
 
-      // 5. Text search query
+      // 3. Text search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const name = (
@@ -299,10 +296,6 @@ const DealerLocatorScreen = () => {
 
   const handleApplyFilters = (newFilters) => {
     setFilters(newFilters);
-    // If distance radius changed and GPS is available, refresh server query
-    if (newFilters.radius !== filters.radius && userCoords) {
-      fetchDealers(userCoords, newFilters.radius);
-    }
   };
 
   return (
@@ -376,28 +369,71 @@ const DealerLocatorScreen = () => {
               flex: 1,
             }}
           >
-            <Locate size={14} color={userCoords ? '#059669' : '#9CA3AF'} />
+            <Locate
+              size={14}
+              color={
+                locating
+                  ? '#9CA3AF'
+                  : isSimulated
+                  ? '#D97706'
+                  : userCoords
+                  ? '#059669'
+                  : '#9CA3AF'
+              }
+            />
             <Text style={styles.locationBarText} numberOfLines={1}>
               {locating
-                ? 'Acquiring GPS location...'
+                ? 'Acquiring mobile GPS...'
+                : isSimulated
+                ? `Test SA (Sandton) • ${
+                    filters.radius === 1500
+                      ? 'All SA'
+                      : `Within ${filters.radius}km`
+                  }`
                 : userCoords
-                ? `GPS Active • ${
-                    filters.radius >= 1000
-                      ? 'All South Africa'
+                ? `Mobile GPS • ${
+                    filters.radius === 1500
+                      ? 'All SA'
                       : `Within ${filters.radius}km`
                   }`
                 : 'GPS inactive • Showing national directory'}
             </Text>
           </View>
-          <TouchableOpacity
-            onPress={acquireGPS}
-            style={styles.locateBtn}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.locateBtnText}>
-              {userCoords ? 'Refresh GPS' : 'Enable GPS'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {isSimulated ? (
+              <TouchableOpacity
+                onPress={acquireGPS}
+                style={styles.locateBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.locateBtnText}>Use Mobile GPS</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  onPress={acquireGPS}
+                  style={styles.locateBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.locateBtnText}>
+                    {userCoords ? 'Refresh' : 'Enable GPS'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={simulateSandton}
+                  style={[
+                    styles.locateBtn,
+                    { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.locateBtnText, { color: '#B45309' }]}>
+                    Test SA
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
         </View>
 
         {/* Active Filter Chips Bar (Shown when any filter is active) */}
@@ -413,7 +449,9 @@ const DealerLocatorScreen = () => {
               {filters.radius !== 50 && (
                 <View style={styles.activeChipPill}>
                   <Text style={styles.activeChipText}>
-                    {filters.radius >= 1000 ? 'All SA' : `≤ ${filters.radius}km`}
+                    {filters.radius === 1500
+                      ? 'All SA'
+                      : `≤ ${filters.radius}km`}
                   </Text>
                   <TouchableOpacity
                     onPress={() =>
@@ -442,68 +480,9 @@ const DealerLocatorScreen = () => {
                 </View>
               )}
 
-              {filters.province &&
-                filters.province !== 'All Provinces' &&
-                filters.province !== 'all' && (
-                  <View style={styles.activeChipPill}>
-                    <Text style={styles.activeChipText}>
-                      {filters.province}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          province: 'All Provinces',
-                        }))
-                      }
-                    >
-                      <X size={11} color="#C6122E" strokeWidth={2.4} />
-                    </TouchableOpacity>
-                  </View>
-                )}
-
-              {filters.hasWhatsApp && (
-                <View style={styles.activeChipPill}>
-                  <Text style={styles.activeChipText}>WhatsApp</Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      setFilters((prev) => ({ ...prev, hasWhatsApp: false }))
-                    }
-                  >
-                    <X size={11} color="#C6122E" strokeWidth={2.4} />
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {filters.hasPhone && (
-                <View style={styles.activeChipPill}>
-                  <Text style={styles.activeChipText}>Phone Direct</Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      setFilters((prev) => ({ ...prev, hasPhone: false }))
-                    }
-                  >
-                    <X size={11} color="#C6122E" strokeWidth={2.4} />
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {filters.oemCertified && (
-                <View style={styles.activeChipPill}>
-                  <Text style={styles.activeChipText}>OEM Certified</Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      setFilters((prev) => ({ ...prev, oemCertified: false }))
-                    }
-                  >
-                    <X size={11} color="#C6122E" strokeWidth={2.4} />
-                  </TouchableOpacity>
-                </View>
-              )}
-
               {filters.sortBy === 'alpha' && (
                 <View style={styles.activeChipPill}>
-                  <Text style={styles.activeChipText}>A-Z</Text>
+                  <Text style={styles.activeChipText}>A-Z Name</Text>
                   <TouchableOpacity
                     onPress={() =>
                       setFilters((prev) => ({ ...prev, sortBy: 'nearest' }))
@@ -752,26 +731,53 @@ const DealerLocatorScreen = () => {
               <View style={styles.emptyContainer}>
                 <Store size={40} color="#9CA3AF" />
                 <Text style={styles.emptyTitle}>
-                  No Authorized Stockists Found
+                  No Stockists Within Radius
                 </Text>
                 <Text style={styles.emptySubtitle}>
                   {searchQuery
                     ? `No dealers match "${searchQuery}". Try adjusting your filters or radius.`
+                    : dealers.length > 0 && dealers[0]?.distanceKm > filters.radius
+                    ? `Nearest authorized stockist is ${dealers[0]?.distance || `${dealers[0]?.distanceKm} km`} away. Expand your search radius or type a higher distance in km.`
                     : activeFilterCount > 0
                     ? 'No stockists match the active filters. Try expanding the search radius or resetting filters.'
                     : 'No stockists currently available in this category.'}
                 </Text>
-                {activeFilterCount > 0 && (
+
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginTop: 12 }}>
+                  {dealers.length > 0 && filters.radius < 1500 && (
+                    <TouchableOpacity
+                      onPress={() => setFilters((prev) => ({ ...prev, radius: 1500 }))}
+                      style={[styles.emptyResetBtn, { backgroundColor: '#C6122E' }]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.emptyResetBtnText, { color: '#FFFFFF' }]}>
+                        Show All South Africa
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
                   <TouchableOpacity
-                    onPress={() => setFilters(DEFAULT_FILTERS)}
-                    style={styles.emptyResetBtn}
+                    onPress={() => setModalVisible(true)}
+                    style={[styles.emptyResetBtn, { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' }]}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.emptyResetBtnText}>
-                      Reset All Filters
+                    <Text style={[styles.emptyResetBtnText, { color: '#334155' }]}>
+                      Adjust Radius in Filter
                     </Text>
                   </TouchableOpacity>
-                )}
+
+                  {activeFilterCount > 0 && (
+                    <TouchableOpacity
+                      onPress={() => setFilters(DEFAULT_FILTERS)}
+                      style={styles.emptyResetBtn}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.emptyResetBtnText}>
+                        Reset Filters
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             }
           />

@@ -32,7 +32,7 @@ export const apiFunction = async (api, params = [], data = {}, method = "GET", w
 
         switch (method.toUpperCase()) {
             case "GET":
-                response = await axios.get(url, { headers, timeout: 20000 });
+                response = await axios.get(url, { headers, params: data, timeout: 20000 });
                 break
             case "POST":
                 response = await axios.post(url, data, { headers, timeout: 25000 });

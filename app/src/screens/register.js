@@ -27,6 +27,7 @@ const RegisterScreen = ({ route, navigation }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [coords, setCoords] = useState(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -84,6 +85,7 @@ const RegisterScreen = ({ route, navigation }) => {
       (position) => {
         setLocationLoading(false);
         const { latitude, longitude } = position.coords;
+        setCoords({ latitude, longitude });
         setAddress(`GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         Toast.show({
           type: 'success',
@@ -114,6 +116,7 @@ const RegisterScreen = ({ route, navigation }) => {
         password,
         address: address.trim(),
         role,
+        ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
       };
 
       const response = await apiFunction(registerApi, [], payload, 'POST', false);

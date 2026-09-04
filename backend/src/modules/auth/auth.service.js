@@ -7,12 +7,14 @@ class AuthService {
   /**
    * Register a new user and generate JWT
    */
-  async register({ name, email, password, role = 'owner', address = '', phone = '' }) {
+  async register({ name, email, password, role = 'owner', address = '', phone = '', latitude = null, longitude = null }) {
     if (!email || !password || !name) {
       throw new Error('Name, email, and password are required');
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    const cleanRole = role.toLowerCase().trim();
+    const isCommercial = cleanRole === 'reseller' || cleanRole === 'distributor';
 
     // Check if user already exists
     const { data: existingUser } = await supabase
@@ -34,16 +36,48 @@ class AuthService {
         name: name.trim(),
         email: cleanEmail,
         password_hash: passwordHash,
-        role: role.toLowerCase(),
+        role: cleanRole,
         address: address.trim(),
         phone: phone.trim() || null,
+        is_approved: !isCommercial,
+        approval_status: isCommercial ? 'pending_approval' : 'approved',
       })
-      .select('id, name, email, role, address, phone, created_at')
+      .select('id, name, email, role, address, phone, is_approved, approval_status, created_at')
       .single();
 
     if (insertError) {
       console.error('Supabase user registration error:', insertError);
       throw new Error(insertError.message || 'Failed to create user account');
+    }
+
+    // If reseller or distributor, create initial dealer directory record (unapproved/pending)
+    if (isCommercial) {
+      try {
+        let lat = latitude ? parseFloat(latitude) : null;
+        let lon = longitude ? parseFloat(longitude) : null;
+        if ((!lat || !lon) && address && address.includes('GPS:')) {
+          const match = address.match(/GPS:\s*([-\d.]+),\s*([-\d.]+)/);
+          if (match) {
+            lat = parseFloat(match[1]);
+            lon = parseFloat(match[2]);
+          }
+        }
+
+        await supabase.from('dealers').insert({
+          user_id: newUser.id,
+          company_name: name.trim(),
+          street_address: address.trim() || 'Address on file',
+          city: 'Johannesburg',
+          country: 'ZA',
+          latitude: lat || -26.2041,
+          longitude: lon || 28.0473,
+          phone: phone.trim() || null,
+          contact_email: cleanEmail,
+          is_live: false,
+        });
+      } catch (dealerErr) {
+        console.warn('Auto-creating dealer row during registration:', dealerErr.message);
+      }
     }
 
     // Generate JWT token

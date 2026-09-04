@@ -9,7 +9,7 @@ export const getDealers = async (req, res) => {
       searchQuery: q || searchQuery,
       userLat: userLat || lat,
       userLon: userLon || lon,
-      radius: radius ? parseFloat(radius) : 50,
+      radius: radius !== undefined && radius !== null && radius !== '' ? parseFloat(radius) : null,
       includeUnapproved: includeUnapproved === 'true',
     });
     return sendSuccess(res, { dealers, count: dealers.length }, 'Dealers fetched successfully', 200);

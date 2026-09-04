@@ -15,35 +15,15 @@ import {
   Store,
   Compass,
   ArrowDownAZ,
-  MessageSquare,
-  Phone,
-  ShieldCheck,
   Check,
   Sparkles,
 } from 'lucide-react-native';
 import DistanceSlider from './DistanceSlider';
 
-const PROVINCES = [
-  'All Provinces',
-  'Gauteng',
-  'Western Cape',
-  'KwaZulu-Natal',
-  'Eastern Cape',
-  'Free State',
-  'Limpopo',
-  'Mpumalanga',
-  'North West',
-  'Northern Cape',
-];
-
 export const DEFAULT_FILTERS = {
   radius: 50,
   role: 'all', // 'all' | 'distributor' | 'reseller'
   sortBy: 'nearest', // 'nearest' | 'alpha'
-  hasWhatsApp: false,
-  hasPhone: false,
-  oemCertified: false,
-  province: 'All Provinces',
 };
 
 export default function DealerFilterModal({
@@ -71,30 +51,19 @@ export default function DealerFilterModal({
       if (draft.role === 'distributor' && d.role !== 'distributor') return false;
       if (draft.role === 'reseller' && d.role !== 'reseller') return false;
 
-      // Distance / radius filter (if distanceKm is known and radius < 1000)
+      // Distance / radius filter
       if (
-        draft.radius < 1000 &&
+        draft.radius !== undefined &&
+        draft.radius !== null &&
         d.distanceKm !== undefined &&
         d.distanceKm !== null &&
         d.distanceKm !== 999999
       ) {
-        if (d.distanceKm > draft.radius) return false;
-      }
-
-      // Capabilities
-      if (draft.hasWhatsApp && !d.phone) return false;
-      if (draft.hasPhone && !d.phone) return false;
-      if (draft.oemCertified && d.isApproved === false) return false;
-
-      // Province filter
-      if (
-        draft.province &&
-        draft.province !== 'All Provinces' &&
-        draft.province !== 'all'
-      ) {
-        const prov = (d.province || '').toLowerCase();
-        const target = draft.province.toLowerCase();
-        if (!prov.includes(target)) return false;
+        if (draft.radius === 1500) {
+          // All SA preset - show all dealers
+        } else if (d.distanceKm > draft.radius) {
+          return false;
+        }
       }
 
       return true;
@@ -107,10 +76,6 @@ export default function DealerFilterModal({
     if (draft.radius !== 50) count++;
     if (draft.role !== 'all') count++;
     if (draft.sortBy !== 'nearest') count++;
-    if (draft.hasWhatsApp) count++;
-    if (draft.hasPhone) count++;
-    if (draft.oemCertified) count++;
-    if (draft.province && draft.province !== 'All Provinces') count++;
     return count;
   }, [draft]);
 
@@ -337,170 +302,6 @@ export default function DealerFilterModal({
                   </View>
                 </View>
 
-                {/* 4. Capabilities & Direct Contact */}
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionLabel}>
-                    CAPABILITIES & VERIFICATION
-                  </Text>
-                  <View style={styles.capabilitiesList}>
-                    <TouchableOpacity
-                      activeOpacity={0.75}
-                      onPress={() =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          hasWhatsApp: !prev.hasWhatsApp,
-                        }))
-                      }
-                      style={[
-                        styles.capRow,
-                        draft.hasWhatsApp && styles.capRowActive,
-                      ]}
-                    >
-                      <View style={styles.capLeft}>
-                        <View
-                          style={[
-                            styles.capIconBox,
-                            { backgroundColor: '#DCFCE7' },
-                          ]}
-                        >
-                          <MessageSquare size={15} color="#15803D" />
-                        </View>
-                        <View>
-                          <Text style={styles.capTitle}>WhatsApp Ready</Text>
-                          <Text style={styles.capDesc}>
-                            Direct instant parts inquiry
-                          </Text>
-                        </View>
-                      </View>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          draft.hasWhatsApp && styles.checkboxActive,
-                        ]}
-                      >
-                        {draft.hasWhatsApp && (
-                          <Check size={12} color="#FFFFFF" strokeWidth={3} />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      activeOpacity={0.75}
-                      onPress={() =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          hasPhone: !prev.hasPhone,
-                        }))
-                      }
-                      style={[
-                        styles.capRow,
-                        draft.hasPhone && styles.capRowActive,
-                      ]}
-                    >
-                      <View style={styles.capLeft}>
-                        <View
-                          style={[
-                            styles.capIconBox,
-                            { backgroundColor: '#EFF6FF' },
-                          ]}
-                        >
-                          <Phone size={15} color="#2563EB" />
-                        </View>
-                        <View>
-                          <Text style={styles.capTitle}>Direct Phone Line</Text>
-                          <Text style={styles.capDesc}>
-                            Verified voice telephone contact
-                          </Text>
-                        </View>
-                      </View>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          draft.hasPhone && styles.checkboxActive,
-                        ]}
-                      >
-                        {draft.hasPhone && (
-                          <Check size={12} color="#FFFFFF" strokeWidth={3} />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      activeOpacity={0.75}
-                      onPress={() =>
-                        setDraft((prev) => ({
-                          ...prev,
-                          oemCertified: !prev.oemCertified,
-                        }))
-                      }
-                      style={[
-                        styles.capRow,
-                        draft.oemCertified && styles.capRowActive,
-                      ]}
-                    >
-                      <View style={styles.capLeft}>
-                        <View
-                          style={[
-                            styles.capIconBox,
-                            { backgroundColor: '#FEE2E2' },
-                          ]}
-                        >
-                          <ShieldCheck size={15} color="#C6122E" />
-                        </View>
-                        <View>
-                          <Text style={styles.capTitle}>
-                            100% Genuine NGK Certified
-                          </Text>
-                          <Text style={styles.capDesc}>
-                            Head office authorized guarantee
-                          </Text>
-                        </View>
-                      </View>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          draft.oemCertified && styles.checkboxActive,
-                        ]}
-                      >
-                        {draft.oemCertified && (
-                          <Check size={12} color="#FFFFFF" strokeWidth={3} />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* 5. South African Province */}
-                <View style={styles.sectionCard}>
-                  <Text style={styles.sectionLabel}>PROVINCE</Text>
-                  <View style={styles.provinceWrap}>
-                    {PROVINCES.map((prov) => {
-                      const isSelected = draft.province === prov;
-                      return (
-                        <TouchableOpacity
-                          key={prov}
-                          activeOpacity={0.75}
-                          onPress={() =>
-                            setDraft((prev) => ({ ...prev, province: prov }))
-                          }
-                          style={[
-                            styles.provChip,
-                            isSelected && styles.provChipActive,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.provChipText,
-                              isSelected && styles.provChipTextActive,
-                            ]}
-                          >
-                            {prov}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
               </ScrollView>
 
               {/* Action Bottom Bar */}
@@ -682,86 +483,6 @@ const styles = StyleSheet.create({
   },
   sortOptionTextActive: {
     color: '#C6122E',
-    fontWeight: '700',
-  },
-  capabilitiesList: {
-    gap: 8,
-  },
-  capRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  capRowActive: {
-    borderColor: '#C6122E',
-    backgroundColor: '#FFFBFB',
-  },
-  capLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  capIconBox: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  capTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  capDesc: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#94A3B8',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1.8,
-    borderColor: '#CBD5E1',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxActive: {
-    backgroundColor: '#C6122E',
-    borderColor: '#C6122E',
-  },
-  provinceWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
-  },
-  provChip: {
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  provChipActive: {
-    backgroundColor: '#C6122E',
-    borderColor: '#C6122E',
-  },
-  provChipText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  provChipTextActive: {
-    color: '#FFFFFF',
     fontWeight: '700',
   },
   bottomBar: {

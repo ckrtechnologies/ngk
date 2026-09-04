@@ -206,10 +206,39 @@ class UserService {
     // Synchronize dealers table is_live with user is_approved
     if (payload.is_approved !== undefined) {
       try {
-        await supabase
+        const { data: updatedDealers } = await supabase
           .from('dealers')
           .update({ is_live: payload.is_approved })
-          .eq('user_id', id);
+          .eq('user_id', id)
+          .select('id');
+
+        // If no existing dealer row was updated and user is a reseller/distributor, auto-create one
+        if ((!updatedDealers || updatedDealers.length === 0) && payload.is_approved) {
+          const { data: userRecord } = await supabase.from('users').select('*').eq('id', id).single();
+          if (userRecord && (userRecord.role === 'reseller' || userRecord.role === 'distributor')) {
+            let lat = -26.2041;
+            let lon = 28.0473;
+            if (userRecord.address && userRecord.address.includes('GPS:')) {
+              const match = userRecord.address.match(/GPS:\s*([-\d.]+),\s*([-\d.]+)/);
+              if (match) {
+                lat = parseFloat(match[1]);
+                lon = parseFloat(match[2]);
+              }
+            }
+            await supabase.from('dealers').insert({
+              user_id: id,
+              company_name: userRecord.name,
+              street_address: userRecord.address || 'Address on file',
+              city: 'Johannesburg',
+              country: 'ZA',
+              latitude: lat,
+              longitude: lon,
+              phone: userRecord.phone,
+              contact_email: userRecord.email,
+              is_live: true,
+            });
+          }
+        }
 
         // Send push/in-app notification to the user
         const notifMsg = payload.is_approved
@@ -229,7 +258,6 @@ class UserService {
 
     // Return full hydrated user object with garage, watchlist, notifications
     const fullUser = await this.getUserById(id);
-    return fullUser;
     return fullUser;
   }
 

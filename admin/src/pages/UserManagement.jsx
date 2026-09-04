@@ -66,6 +66,10 @@ const UserManagement = () => {
     const list = users || [];
     return {
       total: list.length,
+      pending: list.filter((u) => {
+        const r = (u.role || '').toLowerCase();
+        return (r === 'reseller' || r === 'distributor') && !u.is_approved && u.approval_status !== 'approved';
+      }).length,
       owner: list.filter((u) => (u.role || '').toLowerCase() === 'owner').length,
       reseller: list.filter((u) => (u.role || '').toLowerCase() === 'reseller').length,
       distributor: list.filter((u) => (u.role || '').toLowerCase() === 'distributor').length,
@@ -76,6 +80,7 @@ const UserManagement = () => {
   // Facet configuration with live counts
   const facets = [
     { id: 'ALL', label: 'All Accounts', count: metrics.total },
+    { id: 'PENDING', label: 'Pending Approval', count: metrics.pending },
     { id: 'OWNER', label: 'Vehicle Owners', count: metrics.owner },
     { id: 'RESELLER', label: 'Resellers', count: metrics.reseller },
     { id: 'DISTRIBUTOR', label: 'Distributors', count: metrics.distributor },
@@ -93,8 +98,15 @@ const UserManagement = () => {
         (u.address && u.address.toLowerCase().includes(q)) ||
         (u.phone && u.phone.toLowerCase().includes(q));
 
+      const isCommercial = (u.role || '').toLowerCase() === 'reseller' || (u.role || '').toLowerCase() === 'distributor';
+      const isPending = isCommercial && !u.is_approved && u.approval_status !== 'approved';
+
       const matchesRole =
-        selectedRole === 'ALL' || (u.role || '').toLowerCase() === selectedRole.toLowerCase();
+        selectedRole === 'ALL'
+          ? true
+          : selectedRole === 'PENDING'
+          ? isPending
+          : (u.role || '').toLowerCase() === selectedRole.toLowerCase();
 
       return matchesSearch && matchesRole;
     });
@@ -390,6 +402,20 @@ const UserManagement = () => {
 
         {/* Quick KPI Chips */}
         <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
+          {metrics.pending > 0 && (
+            <button
+              onClick={() => setSelectedRole('PENDING')}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-2 cursor-pointer transition-colors ${
+                selectedRole === 'PENDING'
+                  ? 'bg-amber-600 text-white shadow-2xs font-extrabold'
+                  : 'bg-amber-50 border border-amber-300 text-amber-900 hover:bg-amber-100 font-bold'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+              <span className="text-[10px] uppercase tracking-wider">Pending Review</span>
+              <span className="text-xs font-black">{metrics.pending}</span>
+            </button>
+          )}
           <div className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center gap-2">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
             <span className="text-xs font-black text-slate-900">{metrics.total}</span>

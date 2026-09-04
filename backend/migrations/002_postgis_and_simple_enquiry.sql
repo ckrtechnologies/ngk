@@ -98,7 +98,7 @@ AS $$
         u.is_approved = TRUE
         AND d.is_live = TRUE
         AND (target_role IS NULL OR u.role = target_role)
-        -- ST_DWithin leverages the GiST spatial index for blazing-fast bounding-box + radius search
-        AND ST_DWithin(d.location, ST_SetSRID(ST_MakePoint(user_lon, user_lat), 4326)::geography, radius_km * 1000.0)
+        -- If radius_km >= 1500 (All SA preset), do not restrict by bounding box
+        AND (radius_km >= 1500.0 OR ST_DWithin(d.location, ST_SetSRID(ST_MakePoint(user_lon, user_lat), 4326)::geography, radius_km * 1000.0))
     ORDER BY distance_km ASC;
 $$;

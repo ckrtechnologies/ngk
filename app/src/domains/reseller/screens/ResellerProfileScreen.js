@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Wrench,
   CheckCircle2,
+  Clock,
   Pencil,
   Phone,
   User,
@@ -224,10 +225,17 @@ export default function ResellerProfileScreen({ navigation }) {
                 <View style={styles.rolePill}>
                   <Text style={styles.rolePillText}>RESELLER & WORKSHOP</Text>
                 </View>
-                <View style={styles.verifiedRow}>
-                  <CheckCircle2 size={13} color="#10B981" />
-                  <Text style={styles.verifiedLabel}>Verified Trade</Text>
-                </View>
+                {myself?.is_approved !== false && myself?.approval_status !== 'pending_approval' ? (
+                  <View style={styles.verifiedRow}>
+                    <CheckCircle2 size={13} color="#10B981" />
+                    <Text style={styles.verifiedLabel}>Live & Approved</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.verifiedRow, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
+                    <Clock size={13} color="#D97706" />
+                    <Text style={[styles.verifiedLabel, { color: '#B45309' }]}>Pending Approval</Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -242,6 +250,21 @@ export default function ResellerProfileScreen({ navigation }) {
             <Text style={styles.editPillText}>Edit Workshop Details</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Pending Review Informational Banner */}
+        {(myself?.is_approved === false || myself?.approval_status === 'pending_approval') && (
+          <View style={styles.pendingNoticeCard}>
+            <View style={styles.pendingNoticeIconBox}>
+              <Clock size={18} color="#B45309" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pendingNoticeTitle}>Awaiting Admin Approval</Text>
+              <Text style={styles.pendingNoticeBody}>
+                Your reseller account is currently being vetted by NGK administration. Once verified, your workshop will automatically be activated on the live Authorized Stockists directory.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Account Details Section (Includes Workshop Location) */}
         <View style={styles.sectionCard}>
@@ -919,5 +942,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  pendingNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    gap: 12,
+  },
+  pendingNoticeIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  pendingNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 3,
+  },
+  pendingNoticeBody: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#B45309',
+    lineHeight: 16,
   },
 });

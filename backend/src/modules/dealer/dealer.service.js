@@ -11,7 +11,7 @@ class DealerService {
     searchQuery = null,
     userLat = null,
     userLon = null,
-    radius = 50,
+    radius = null,
     includeUnapproved = false,
   }) {
     const hasCoords =
@@ -28,7 +28,12 @@ class DealerService {
           {
             user_lat: parseFloat(userLat),
             user_lon: parseFloat(userLon),
-            radius_km: parseFloat(radius || 50),
+            radius_km:
+              radius !== null &&
+              radius !== undefined &&
+              parseFloat(radius) !== 1500
+                ? parseFloat(radius)
+                : 20000,
             target_role: role || null,
           }
         );
@@ -170,9 +175,12 @@ class DealerService {
       );
     }
 
-    // Distance radius filter if user coordinates were provided
-    if (hasCoords && radius && parseFloat(radius) < 1000) {
-      list = list.filter((d) => d.distanceKm <= parseFloat(radius));
+    // Distance radius filter if user coordinates and explicit radius were provided
+    if (hasCoords && radius !== null && radius !== undefined && !isNaN(parseFloat(radius))) {
+      const maxRadius = parseFloat(radius);
+      if (maxRadius !== 1500) {
+        list = list.filter((d) => d.distanceKm <= maxRadius);
+      }
     }
 
     // Sort by distance if user coordinates were provided

@@ -358,7 +358,8 @@ const VerifiedPartsScreen = () => {
     setZoomScale(1);
     setIsAutoSpinning(has360);
     setModalMainTab('studio');
-    setIsStudioFullscreen(true);
+    // Open inline first — cache loads here. Fullscreen button available for user.
+    setIsStudioFullscreen(false);
     setSpecsModalVisible(true);
   };
 
@@ -991,7 +992,7 @@ const VerifiedPartsScreen = () => {
         animationType="slide"
         presentationStyle="fullScreen"
         statusBarTranslucent={true}
-        onRequestClose={() => setSpecsModalVisible(false)}
+        onRequestClose={() => { setIsStudioFullscreen(false); setSpecsModalVisible(false); }}
       >
         <View
           style={[
@@ -1028,7 +1029,7 @@ const VerifiedPartsScreen = () => {
               </View>
               <TouchableOpacity
                 style={styles.modalCloseBtnLight}
-                onPress={() => setSpecsModalVisible(false)}
+                onPress={() => { setIsStudioFullscreen(false); setSpecsModalVisible(false); }}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               >
                 <X size={20} color="#374151" />
@@ -1046,7 +1047,6 @@ const VerifiedPartsScreen = () => {
                 ]}
                 onPress={() => {
                   setModalMainTab('studio');
-                  setIsStudioFullscreen(true);
                 }}
                 activeOpacity={0.8}
               >
@@ -1095,7 +1095,7 @@ const VerifiedPartsScreen = () => {
                 <View style={styles.fullScreenStudioTopLeft}>
                   <TouchableOpacity
                     style={styles.fullScreenExitBtn}
-                    onPress={() => setSpecsModalVisible(false)}
+                    onPress={() => { setIsStudioFullscreen(false); setSpecsModalVisible(false); }}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   >
                     <X size={18} color="#1E293B" />
@@ -1190,15 +1190,20 @@ const VerifiedPartsScreen = () => {
                 </View>
               </View>
 
+              {/* Shared viewer viewport — same instance as the inline studio below */}
               <View style={styles.fullScreenStudioViewport}>
                 <Product360Viewer
                   isStatic={activeMediaTab === 'photo' || !gif360}
-                  gifUrl={activeMediaTab === '3d' && gif360 ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200 : null}
+                  gifUrl={
+                    activeMediaTab === '3d' && gif360
+                      ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200
+                      : null
+                  }
                   staticImageUrl={verifiedStaticPhoto}
                   height={undefined}
                   containerStyle={{ flex: 1, borderRadius: 0, backgroundColor: '#F8FAFC' }}
                   angle={activeMediaTab === '3d' ? rotationY : 0}
-                  isAutoSpinning={activeMediaTab === '3d' && gif360 && isAutoSpinning}
+                  isAutoSpinning={activeMediaTab === '3d' && !!gif360 && isAutoSpinning}
                   zoomScale={zoomScale}
                   onAngleChange={(deg) => setRotationY(deg)}
                   onAutoSpinChange={(spinning) => setIsAutoSpinning(spinning)}
@@ -1208,6 +1213,7 @@ const VerifiedPartsScreen = () => {
 
               <View style={styles.fullScreenStudioBottomBar}>
                 {/* Drag hint */}
+
                 <View style={[styles.dragHintBox, { paddingVertical: 3 }]}>
                   <Text style={[styles.dragHintText, { fontSize: 10 }]}>
                     👆 Swipe to rotate 360° • Pinch or double-tap to zoom • Drag to pan
@@ -1400,15 +1406,21 @@ const VerifiedPartsScreen = () => {
                     <View style={styles.viewportCenterLight}>
                       <Product360Viewer
                         isStatic={activeMediaTab === 'photo' || !gif360}
-                        gifUrl={activeMediaTab === '3d' && gif360 ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200 : null}
+                        gifUrl={
+                          activeMediaTab === '3d' && gif360
+                            ? gif360.imageURL400 || gif360.imageURL800 || gif360.imageURL200
+                            : null
+                        }
                         staticImageUrl={verifiedStaticPhoto}
                         height={340}
                         angle={activeMediaTab === '3d' ? rotationY : 0}
-                        isAutoSpinning={activeMediaTab === '3d' && gif360 && isAutoSpinning}
+                        isAutoSpinning={activeMediaTab === '3d' && !!gif360 && isAutoSpinning}
                         zoomScale={zoomScale}
                         onAngleChange={(deg) => setRotationY(deg)}
                         onAutoSpinChange={(spinning) => setIsAutoSpinning(spinning)}
                         onScaleChange={(scale) => setZoomScale(scale)}
+                        onPressImage={() => setIsStudioFullscreen(true)}
+                        showTapHint={activeMediaTab === '3d' && !!gif360}
                       />
                     </View>
 
@@ -1725,6 +1737,13 @@ const VerifiedPartsScreen = () => {
               />
             </View>
           )}
+
+          {/*
+           * The two Product360Viewer instances above share the same global frame cache
+           * (globalFramesCache keyed by gifUrl). The second instance (fullscreen) mounts
+           * with frames already in cache → seedFrames is populated → loading=false and
+           * spinReady fires after a single rAF → zero remount flicker.
+           */}
         </View>
       </Modal>
     </View>

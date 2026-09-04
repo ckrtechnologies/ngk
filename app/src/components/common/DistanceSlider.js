@@ -2,12 +2,13 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   PanResponder,
   TouchableOpacity,
   Animated,
 } from 'react-native';
-import { MapPin } from 'lucide-react-native';
+import { MapPin, Navigation } from 'lucide-react-native';
 
 const PRESET_DISTANCES = [
   { label: '10 km', value: 10 },
@@ -28,18 +29,19 @@ export default function DistanceSlider({
 }) {
   const [trackWidth, setTrackWidth] = useState(280);
   const [internalKm, setInternalKm] = useState(value);
+  const [textVal, setTextVal] = useState(
+    value >= ALL_SA_VAL ? '1500' : String(value)
+  );
   const animatedProgress = useRef(new Animated.Value(0)).current;
 
   // Convert km value to 0..1 ratio
   const kmToRatio = useCallback((km) => {
     if (km >= ALL_SA_VAL) return 1.0;
     const clamped = Math.max(MIN_KM, Math.min(MAX_KM, km));
-    // Use slightly nonlinear/log curve or piecewise so 5-50km has generous precision
+    // Piecewise mapping: generous precision for 5-100km
     if (clamped <= 100) {
-      // 0 to 100km maps to 0 to 0.6 of track
       return (clamped / 100) * 0.6;
     } else {
-      // 100 to 500km maps to 0.6 to 0.9 of track
       return 0.6 + ((clamped - 100) / 400) * 0.3;
     }
   }, []);
@@ -50,7 +52,6 @@ export default function DistanceSlider({
     if (clampedRatio >= 0.92) return ALL_SA_VAL;
     if (clampedRatio <= 0.6) {
       const km = Math.round((clampedRatio / 0.6) * 100);
-      // Snap to increments of 5 below 50km, increments of 10 up to 100km
       if (km <= 20) return Math.max(MIN_KM, Math.round(km / 5) * 5);
       return Math.round(km / 5) * 5;
     } else {
@@ -62,6 +63,7 @@ export default function DistanceSlider({
   // Synchronize internal state when prop changes
   useEffect(() => {
     setInternalKm(value);
+    setTextVal(value >= ALL_SA_VAL ? '1500' : String(value));
     const targetRatio = kmToRatio(value);
     Animated.spring(animatedProgress, {
       toValue: targetRatio,
@@ -80,6 +82,7 @@ export default function DistanceSlider({
       const ratio = relativeX / width;
       const km = ratioToKm(ratio);
       setInternalKm(km);
+      setTextVal(km >= ALL_SA_VAL ? '1500' : String(km));
       animatedProgress.setValue(ratio);
       if (onValueChange) onValueChange(km);
     });
@@ -105,6 +108,7 @@ export default function DistanceSlider({
 
   const handleSelectPreset = (presetKm) => {
     setInternalKm(presetKm);
+    setTextVal(presetKm >= ALL_SA_VAL ? '1500' : String(presetKm));
     const targetRatio = kmToRatio(presetKm);
     Animated.spring(animatedProgress, {
       toValue: targetRatio,
@@ -113,6 +117,34 @@ export default function DistanceSlider({
       tension: 70,
     }).start();
     if (onValueChange) onValueChange(presetKm);
+  };
+
+  // Handler for direct text entry
+  const handleTextChange = (text) => {
+    // Only allow positive integers
+    const clean = text.replace(/[^0-9]/g, '');
+    setTextVal(clean);
+    if (clean.length > 0) {
+      const parsed = parseInt(clean, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        setInternalKm(parsed);
+        const targetRatio = kmToRatio(parsed);
+        Animated.spring(animatedProgress, {
+          toValue: targetRatio,
+          useNativeDriver: false,
+          friction: 8,
+          tension: 70,
+        }).start();
+        if (onValueChange) onValueChange(parsed);
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    if (!textVal || parseInt(textVal, 10) <= 0) {
+      const fallback = internalKm >= ALL_SA_VAL ? '1500' : String(internalKm);
+      setTextVal(fallback);
+    }
   };
 
   const formattedLabel =
@@ -181,6 +213,31 @@ export default function DistanceSlider({
         <Text style={styles.minMaxText}>50 km</Text>
         <Text style={styles.minMaxText}>150 km</Text>
         <Text style={styles.minMaxText}>All SA</Text>
+      </View>
+
+      {/* Manual KM Input Box */}
+      <View style={styles.inputCard}>
+        <View style={styles.inputLeft}>
+          <Navigation size={14} color="#C6122E" />
+          <Text style={styles.inputLabel}>Enter distance in km:</Text>
+        </View>
+        <View style={styles.inputFieldBox}>
+          <TextInput
+            style={styles.textInput}
+            value={textVal}
+            onChangeText={handleTextChange}
+            onBlur={handleBlur}
+            keyboardType="numeric"
+            placeholder="50"
+            placeholderTextColor="#94A3B8"
+            maxLength={6}
+            returnKeyType="done"
+            selectTextOnFocus
+          />
+          <View style={styles.kmBadge}>
+            <Text style={styles.kmBadgeText}>KM</Text>
+          </View>
+        </View>
       </View>
 
       {/* Quick Preset Chips */}
@@ -298,6 +355,61 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: '#94A3B8',
+  },
+  inputCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  inputLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  inputFieldBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 105,
+    justifyContent: 'flex-end',
+  },
+  textInput: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    textAlign: 'right',
+    minWidth: 50,
+  },
+  kmBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 4,
+  },
+  kmBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#C6122E',
   },
   presetsRow: {
     flexDirection: 'row',

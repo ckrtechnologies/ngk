@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,10 +7,29 @@ import {
   Image,
   PanResponder,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
+import { Maximize2 } from 'lucide-react-native';
 import { articles360FramesApi } from '../../apis/api';
 import { apiFunction } from '../../apis/apiFunction';
 
+// ---------------------------------------------------------------------------
+// Global in-memory frame cache – survives component unmount/remount cycles.
+// Key: gifUrl string  →  Value: string[] (already prefetched to disk cache)
+// ---------------------------------------------------------------------------
+export const globalFramesCache = new Map();
+
+// Loading pipeline phases
+const Phase = {
+  IDLE:        'idle',        // isStatic or no gifUrl
+  FETCHING:    'fetching',    // requesting frame URL list from backend
+  PREFETCHING: 'prefetching', // Image.prefetch() downloading all frames
+  READY:       'ready',       // all frames on disk — safe to display & spin
+};
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 const Product360Viewer = ({
   isStatic = false,
   gifUrl,
@@ -23,241 +42,304 @@ const Product360Viewer = ({
   onAngleChange,
   onAutoSpinChange,
   onScaleChange,
+  onPressImage,
+  onFramesReady,
+  showTapHint = false,
 }) => {
-  const [frames, setFrames] = useState([]);
-  const [loading, setLoading] = useState(!isStatic && !!gifUrl);
-  const [currentFrame, setCurrentFrame] = useState(0);
+  // Seed from global cache (prefetched in a previous mount) — instant READY
+  const seedFrames = (!isStatic && gifUrl && globalFramesCache.get(gifUrl)) || null;
 
-  // Pan & Zoom animated values
-  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const panOffset = useRef({ x: 0, y: 0 });
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [frames, setFrames]               = useState(seedFrames || []);
+  const [phase, setPhase]                 = useState(
+    seedFrames        ? Phase.READY
+    : isStatic || !gifUrl ? Phase.IDLE
+    : Phase.FETCHING
+  );
+  const [prefetchProgress, setPrefetchProgress] = useState(0);
+  const [currentFrame, setCurrentFrame]   = useState(0);
 
-  // Track gesture state
-  const lastTapRef = useRef(0);
-  const startXRef = useRef(0);
-  const currentFrameRef = useRef(0);
-  const isAutoSpinningRef = useRef(isAutoSpinning);
-  const zoomScaleRef = useRef(zoomScale);
-  const framesCountRef = useRef(1);
-  const pinchStartDistanceRef = useRef(0);
-  const pinchStartScaleRef = useRef(1);
+  // Pan & zoom animated values
+  const pan        = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const panOffset  = useRef({ x: 0, y: 0 });
+  const scaleAnim  = useRef(new Animated.Value(zoomScale)).current;
 
-  currentFrameRef.current = currentFrame;
+  // Gesture-state refs (no re-renders)
+  const lastTapRef           = useRef(0);
+  const startXRef            = useRef(0);
+  const currentFrameRef      = useRef(0);
+  const isAutoSpinningRef    = useRef(isAutoSpinning);
+  const zoomScaleRef         = useRef(zoomScale);
+  const framesCountRef       = useRef(1);
+  const pinchStartDistRef    = useRef(0);
+  const pinchStartScaleRef   = useRef(1);
+  const touchStartTimeRef    = useRef(0);
+
+  currentFrameRef.current   = currentFrame;
   isAutoSpinningRef.current = isAutoSpinning;
-  zoomScaleRef.current = zoomScale;
-  framesCountRef.current = isStatic ? 1 : frames.length || 1;
+  zoomScaleRef.current      = zoomScale;
+  framesCountRef.current    = isStatic ? 1 : frames.length || 1;
 
-  // Sync zoomScale prop to scaleAnim
+  // ── Sync zoomScale prop → scaleAnim ────────────────────────────────────
   useEffect(() => {
     Animated.spring(scaleAnim, {
       toValue: zoomScale,
       useNativeDriver: true,
       friction: 7,
+      tension: 40,
     }).start();
-
     if (zoomScale <= 1.05) {
       panOffset.current = { x: 0, y: 0 };
       Animated.spring(pan, {
         toValue: { x: 0, y: 0 },
         useNativeDriver: true,
+        friction: 7,
       }).start();
     }
-  }, [zoomScale]);
+  }, [zoomScale, scaleAnim, pan]);
 
-  // Fetch 360 frames from backend in the background
+  // ── Main loading pipeline ───────────────────────────────────────────────
   useEffect(() => {
-    let isMounted = true;
+    let alive = true;
+
     if (isStatic || !gifUrl) {
-      setLoading(false);
+      setPhase(Phase.IDLE);
       return;
     }
 
-    const fetchFrames = async () => {
-      setLoading(true);
+    // Cache hit → already prefetched, use instantly
+    if (globalFramesCache.has(gifUrl)) {
+      const cached = globalFramesCache.get(gifUrl);
+      if (cached && cached.length > 0) {
+        setFrames(cached);
+        setCurrentFrame(0);
+        setPhase(Phase.READY);
+        requestAnimationFrame(() => { if (alive) onFramesReady?.(); });
+        return;
+      }
+    }
+
+    const run = async () => {
+      // Step 1 ─ fetch frame URL list from backend
+      setPhase(Phase.FETCHING);
+      setPrefetchProgress(0);
+
+      let list = null;
       try {
         const endpoint = `${articles360FramesApi}?gifUrl=${encodeURIComponent(gifUrl)}`;
         const res = await apiFunction(endpoint, [], {}, 'GET');
-        const framesList = res?.frames || res?.data?.frames || res?.data?.data?.frames;
-        if (isMounted && Array.isArray(framesList) && framesList.length > 0) {
-          // Pre-cache first 4 frames so there is ZERO flicker when switching to frames
-          Promise.all(
-            framesList.slice(0, 4).map((f) => Image.prefetch(f).catch(() => {}))
-          ).finally(() => {
-            if (isMounted) {
-              setFrames(framesList);
-              setCurrentFrame(0);
-              setLoading(false);
-            }
-          });
-          // Background prefetch the rest of the frames
-          setTimeout(() => {
-            framesList.slice(4).forEach((f) => Image.prefetch(f).catch(() => {}));
-          }, 250);
-          return;
-        }
-      } catch (err) {
-        console.warn('Backend 360 frames fetch error:', err);
+        list = res?.frames || res?.data?.frames || res?.data?.data?.frames;
+      } catch (e) {
+        console.warn('360 frames fetch error:', e);
       }
 
-      if (isMounted) {
-        setLoading(false);
+      if (!alive) return;
+      if (!Array.isArray(list) || list.length === 0) {
+        setPhase(Phase.IDLE);
+        return;
       }
+
+      // Step 2 ─ prefetch ALL frame URLs to device disk cache in parallel
+      setPhase(Phase.PREFETCHING);
+      const total = list.length;
+      let done = 0;
+
+      await Promise.all(
+        list.map(async (url) => {
+          try { await Image.prefetch(url); } catch (_) { /* non-fatal */ }
+          done += 1;
+          if (alive) setPrefetchProgress(Math.round((done / total) * 100));
+        })
+      );
+
+      if (!alive) return;
+
+      // Step 3 ─ commit frames to state; auto-spin effect fires on next render
+      globalFramesCache.set(gifUrl, list);
+      setFrames(list);
+      setCurrentFrame(0);
+      setPhase(Phase.READY);
+      // One rAF so the first frame paints before notifying parent
+      requestAnimationFrame(() => { if (alive) onFramesReady?.(); });
     };
 
-    fetchFrames();
-    return () => {
-      isMounted = false;
-    };
+    run();
+    return () => { alive = false; };
+  }, [gifUrl, isStatic]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset when source is cleared
+  useEffect(() => {
+    if (!gifUrl || isStatic) setPhase(isStatic || !gifUrl ? Phase.IDLE : Phase.FETCHING);
   }, [gifUrl, isStatic]);
 
-  // Handle angle prop change in 360 mode
+  // ── Manual angle → frame sync ───────────────────────────────────────────
   useEffect(() => {
-    if (isStatic || isAutoSpinning) return;
+    if (isStatic || isAutoSpinning || frames.length <= 1) return;
     const total = frames.length;
-    if (total > 1) {
-      const normalized = ((Math.round(angle) % 360) + 360) % 360;
-      const targetFrame = Math.round((normalized / 360) * total) % total;
-      setCurrentFrame(targetFrame);
-    }
+    const norm  = ((Math.round(angle) % 360) + 360) % 360;
+    setCurrentFrame(Math.round((norm / 360) * total) % total);
   }, [angle, isAutoSpinning, isStatic, frames.length]);
 
-  // Auto-Spin animation loop (only for 360 mode)
-  // Runs smoothly at 90ms intervals once frames are ready
+  // ── Auto-spin — ONLY fires after all frames are downloaded (READY) ───────
   useEffect(() => {
-    let timer = null;
-    if (!isStatic && isAutoSpinning && !loading && frames.length > 1) {
-      timer = setInterval(() => {
-        setCurrentFrame((prev) => (prev + 1) % frames.length);
-      }, 90);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isAutoSpinning, isStatic, loading, frames.length]);
+    if (isStatic || !isAutoSpinning || phase !== Phase.READY || frames.length <= 1) return;
+    const t = setInterval(() => setCurrentFrame(p => (p + 1) % frames.length), 95);
+    return () => clearInterval(t);
+  }, [isAutoSpinning, isStatic, phase, frames.length]);
 
-  // Helper: calculate distance between two touches for pinch-to-zoom
-  const getTouchDistance = (touches) => {
+  // ── Helpers ─────────────────────────────────────────────────────────────
+  const getTouchDist = useCallback((touches) => {
     const dx = touches[0].pageX - touches[1].pageX;
     const dy = touches[0].pageY - touches[1].pageY;
     return Math.sqrt(dx * dx + dy * dy);
-  };
+  }, []);
 
-  // Native touch & gesture responder
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: (evt, gestureState) => {
-          // If 2 touches: multi-touch pinch zoom
-          if (evt.nativeEvent.touches && evt.nativeEvent.touches.length === 2) {
-            return true;
-          }
-          // When zoomed in: capture all 2D pan gestures (horizontal and vertical)
-          if (zoomScaleRef.current > 1.08) {
-            return Math.abs(gestureState.dx) > 1 || Math.abs(gestureState.dy) > 1;
-          }
-          // Normal 1.0x scale in 360 mode: ONLY capture horizontal swipe
-          if (!isStatic && framesCountRef.current > 1) {
-            return (
-              Math.abs(gestureState.dx) > Math.abs(gestureState.dy) &&
-              Math.abs(gestureState.dx) > 6
-            );
-          }
-          // Static photo at 1.0x: let parent ScrollView handle vertical scrolling
-          return false;
-        },
-        onPanResponderGrant: (evt) => {
-          // Pause auto-spin if active
-          if (!isStatic && isAutoSpinningRef.current && onAutoSpinChange) {
-            onAutoSpinChange(false);
-          }
+  // ── PanResponder ─────────────────────────────────────────────────────────
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
 
-          const touches = evt.nativeEvent.touches;
-          if (touches && touches.length === 2) {
-            pinchStartDistanceRef.current = getTouchDistance(touches);
-            pinchStartScaleRef.current = zoomScaleRef.current;
-            return;
-          }
+    onMoveShouldSetPanResponder: (evt, gs) => {
+      // Always claim 2-finger pinch
+      if (evt.nativeEvent.touches?.length === 2) return true;
+      // When zoomed: claim ALL directions (horizontal + vertical pan)
+      if (zoomScaleRef.current > 1.08) {
+        return Math.abs(gs.dx) > 2 || Math.abs(gs.dy) > 2;
+      }
+      // At normal scale in 360 mode: only horizontal scrub
+      if (!isStatic && framesCountRef.current > 1) {
+        return Math.abs(gs.dx) > Math.abs(gs.dy) && Math.abs(gs.dx) > 4;
+      }
+      return false;
+    },
 
-          startXRef.current = currentFrameRef.current;
+    // ─── KEY FIX: when zoomed, block parent ScrollView from stealing gesture ───
+    // Default is () => true (allow termination). Returning false prevents the
+    // parent ScrollView from re-claiming the responder during a vertical drag.
+    onPanResponderTerminationRequest: () => zoomScaleRef.current <= 1.08,
 
-          // Double tap to toggle zoom between 1.0x and 2.0x
-          const now = Date.now();
-          if (now - lastTapRef.current < 280) {
-            const nextScale = zoomScaleRef.current > 1.2 ? 1.0 : 2.0;
-            if (onScaleChange) onScaleChange(nextScale);
-            lastTapRef.current = 0;
-            return;
-          }
-          lastTapRef.current = now;
-        },
-        onPanResponderMove: (evt, gestureState) => {
-          const touches = evt.nativeEvent.touches;
+    onPanResponderGrant: (evt) => {
+      touchStartTimeRef.current = Date.now();
+      // Pause auto-spin on touch
+      if (!isStatic && isAutoSpinningRef.current) onAutoSpinChange?.(false);
 
-          // 2-Finger Pinch Zoom
-          if (touches && touches.length === 2) {
-            const currentDist = getTouchDistance(touches);
-            if (pinchStartDistanceRef.current > 0) {
-              const factor = currentDist / pinchStartDistanceRef.current;
-              const newScale = Math.max(0.7, Math.min(3.5, pinchStartScaleRef.current * factor));
-              if (onScaleChange) onScaleChange(newScale);
-            }
-            return;
-          }
+      const t = evt.nativeEvent.touches;
+      if (t?.length === 2) {
+        pinchStartDistRef.current  = getTouchDist(t);
+        pinchStartScaleRef.current = zoomScaleRef.current;
+        return;
+      }
 
-          // 1-Finger Pan when zoomed in: allows both horizontal and vertical panning
-          if (zoomScaleRef.current > 1.08) {
-            const newX = panOffset.current.x + gestureState.dx;
-            const newY = panOffset.current.y + gestureState.dy;
-            pan.setValue({ x: newX, y: newY });
-            return;
-          }
+      startXRef.current = currentFrameRef.current;
 
-          // 1-Finger 360 scrubbing (only when not static)
-          if (!isStatic && framesCountRef.current > 1) {
-            const total = framesCountRef.current;
-            const frameDiff = Math.round(gestureState.dx / 8);
-            let nextIndex = (startXRef.current - frameDiff) % total;
-            if (nextIndex < 0) nextIndex += total;
-            setCurrentFrame(nextIndex);
+      // Double-tap → toggle zoom between 1.0x ↔ 2.5x
+      const now = Date.now();
+      if (now - lastTapRef.current < 280) {
+        onScaleChange?.(zoomScaleRef.current > 1.2 ? 1.0 : 2.5);
+        lastTapRef.current = 0;
+        return;
+      }
+      lastTapRef.current = now;
+    },
 
-            const calculatedAngle = Math.round((nextIndex / total) * 360) % 360;
-            if (onAngleChange) onAngleChange(calculatedAngle);
-          }
-        },
-        onPanResponderRelease: (evt, gestureState) => {
-          if (zoomScaleRef.current > 1.08) {
-            panOffset.current.x += gestureState.dx;
-            panOffset.current.y += gestureState.dy;
-          }
-          pinchStartDistanceRef.current = 0;
-        },
-      }),
-    [frames.length, isStatic]
-  );
+    onPanResponderMove: (evt, gs) => {
+      const t = evt.nativeEvent.touches;
 
-  // When in 360 mode and frames are still loading from backend, NEVER render the raw animated GIF directly,
-  // because remote animated GIFs flicker and stutter on Android Fresco while streaming.
-  // Instead, show the crystal-clear static photo until frames are decoded and ready!
-  const placeholderUri = staticImageUrl || null;
-  const displayUri = isStatic
-    ? staticImageUrl || gifUrl
-    : frames.length > 0 && frames[currentFrame]
-    ? frames[currentFrame]
-    : placeholderUri || gifUrl;
+      // 2-finger pinch zoom
+      if (t?.length === 2) {
+        const dist = getTouchDist(t);
+        if (pinchStartDistRef.current > 0) {
+          const newScale = Math.max(
+            0.7,
+            Math.min(3.5, pinchStartScaleRef.current * (dist / pinchStartDistRef.current))
+          );
+          onScaleChange?.(newScale);
+        }
+        return;
+      }
 
-  const fallbackUri = placeholderUri || staticImageUrl || gifUrl;
+      // 1-finger pan when zoomed (both X and Y)
+      if (zoomScaleRef.current > 1.08) {
+        pan.setValue({
+          x: panOffset.current.x + gs.dx,
+          y: panOffset.current.y + gs.dy,
+        });
+        return;
+      }
 
+      // 1-finger 360 horizontal scrub
+      if (!isStatic && framesCountRef.current > 1) {
+        const total = framesCountRef.current;
+        let next = (startXRef.current - Math.round(gs.dx / 8)) % total;
+        if (next < 0) next += total;
+        setCurrentFrame(next);
+        onAngleChange?.(Math.round((next / total) * 360) % 360);
+      }
+    },
+
+    onPanResponderRelease: (evt, gs) => {
+      if (zoomScaleRef.current > 1.08) {
+        panOffset.current.x += gs.dx;
+        panOffset.current.y += gs.dy;
+      }
+      pinchStartDistRef.current = 0;
+      // Single clean tap → trigger onPressImage
+      const dur  = Date.now() - touchStartTimeRef.current;
+      const dist = Math.hypot(gs.dx, gs.dy);
+      if (dur < 280 && dist < 8 && onPressImage) onPressImage();
+    },
+  }), [isStatic, getTouchDist]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── URI selection ────────────────────────────────────────────────────────
+  const isGif       = (url) => typeof url === 'string' && url.toLowerCase().includes('.gif');
+  const cleanStatic = staticImageUrl && !isGif(staticImageUrl) ? staticImageUrl : null;
+
+  // Loading state labels
+  const isLoadingPhase = phase === Phase.FETCHING || phase === Phase.PREFETCHING;
+  const loadingLabel   = phase === Phase.FETCHING
+    ? 'Analyzing 360° model...'
+    : `Downloading frames... ${prefetchProgress}%`;
+
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <View
       style={[styles.container, height ? { height } : null, containerStyle]}
       {...panResponder.panHandlers}
     >
-      {fallbackUri || displayUri ? (
+      {/*
+       * LAYER 1 — Static image underlayer (always visible).
+       * This prevents any "white flash" during the loading phase and serves
+       * as a stable background under the 360 frame layer.
+       * Never a .gif to avoid streaming flicker.
+       */}
+      {cleanStatic ? (
+        <Image
+          source={{ uri: cleanStatic }}
+          style={[StyleSheet.absoluteFill, styles.underlayImage]}
+          resizeMode="contain"
+          fadeDuration={0}
+        />
+      ) : isLoadingPhase ? (
+        <View style={styles.centerBox}>
+          <ActivityIndicator size="small" color="#C6122E" />
+          <Text style={styles.loadingText}>Loading 360° model...</Text>
+        </View>
+      ) : phase === Phase.IDLE && !cleanStatic ? (
+        <View style={styles.centerBox}>
+          <Text style={styles.loadingText}>No Image Available</Text>
+        </View>
+      ) : null}
+
+      {/*
+       * LAYER 2 — 360 frame (or static zoom/pan) layer.
+       * Only rendered when phase === READY (all frames confirmed on disk).
+       * NO opacity animation — appears instantly on top of the underlayer.
+       * This eliminates the crossfade flicker completely.
+       * fadeDuration={0} kills Android's built-in image crossfade.
+       */}
+      {phase === Phase.READY || isStatic ? (
         <Animated.View
           style={[
-            styles.imageWrap,
+            StyleSheet.absoluteFill,
+            styles.frameLayer,
             {
               transform: [
                 { scale: scaleAnim },
@@ -267,36 +349,44 @@ const Product360Viewer = ({
             },
           ]}
         >
-          {/* Underlayer: persistent cached fallback so stage NEVER flashes blank white */}
-          {fallbackUri && fallbackUri !== displayUri ? (
+          {isStatic ? (
+            // Static mode: show clean static image with zoom/pan support
             <Image
-              source={{ uri: fallbackUri }}
-              style={[styles.productImage, styles.baseImageUnderlay]}
+              source={{ uri: cleanStatic || gifUrl }}
+              style={styles.frameImage}
               resizeMode="contain"
+              fadeDuration={0}
             />
-          ) : null}
-
-          {/* Active display frame */}
-          {displayUri ? (
+          ) : frames.length > 0 ? (
+            // 360 mode: show current prefetched frame
             <Image
-              source={{ uri: displayUri }}
-              style={styles.productImage}
+              source={{ uri: frames[currentFrame] }}
+              style={styles.frameImage}
               resizeMode="contain"
+              fadeDuration={0}
             />
           ) : null}
         </Animated.View>
-      ) : (
-        <View style={styles.centerBox}>
-          <Text style={styles.loadingText}>No Image Available</Text>
+      ) : null}
+
+      {/* Non-blocking loading pill — top-right corner during fetch/prefetch */}
+      {isLoadingPhase && !isStatic && (
+        <View style={styles.loadingOverlay} pointerEvents="none">
+          <ActivityIndicator size="small" color="#C6122E" />
+          <Text style={styles.loadingOverlayText}>{loadingLabel}</Text>
         </View>
       )}
 
-      {/* Subtle non-blocking spinner overlay while frames load in background */}
-      {loading && !isStatic && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color="#C6122E" />
-          <Text style={styles.loadingOverlayText}>Preparing 360° Studio...</Text>
-        </View>
+      {/* Tap-to-fullscreen hint badge — only shown when READY */}
+      {showTapHint && onPressImage && phase === Phase.READY && (
+        <TouchableOpacity
+          style={styles.tapToExpandBadge}
+          onPress={onPressImage}
+          activeOpacity={0.75}
+        >
+          <Maximize2 size={11} color="#334155" />
+          <Text style={styles.tapToExpandText}>Tap image for fullscreen studio</Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -312,6 +402,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+  },
+  underlayImage: {
+    // Covers entire container — stable background during loading
+    width: undefined,
+    height: undefined,
+  },
+  frameLayer: {
+    // Absolutely fills container; receives pan+zoom transforms
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  frameImage: {
+    width: '90%',
+    height: '90%',
   },
   centerBox: {
     justifyContent: 'center',
@@ -330,35 +434,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowRadius: 4,
+    elevation: 4,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    zIndex: 10,
   },
   loadingOverlayText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#334155',
   },
-  imageWrap: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  productImage: {
-    width: '90%',
-    height: '90%',
-  },
-  baseImageUnderlay: {
+  tapToExpandBadge: {
     position: 'absolute',
+    bottom: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+    zIndex: 10,
+  },
+  tapToExpandText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
   },
 });
 
