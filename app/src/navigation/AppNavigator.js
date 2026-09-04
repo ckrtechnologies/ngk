@@ -32,6 +32,7 @@ import VehiclesListScreen from '../screens/vehiclesListScreen';
 import ModalsScreen from '../screens/modalsScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import Notification from "../screens/Notification";
+import ProfileScreen from '../screens/ProfileScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -128,6 +129,7 @@ const AppNavigator = () => {
       <Stack.Screen name="ModalsScreen" component={ModalsScreen} />
       <Stack.Screen name="CatalogSearch" component={PartsFinderScreen} />
       <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
     </Stack.Navigator>
 
   );

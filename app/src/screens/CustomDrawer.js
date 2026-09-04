@@ -19,7 +19,7 @@ import {
   MyGarage3DIcon,
   TechEnquiry3DIcon,
   DealerLocator3DIcon,
-  DrawerAvatar3DIcon,
+  Profile3DIcon,
   DrawerSignOut3DIcon,
 } from '../components/icons/HomeIcons';
 
@@ -65,6 +65,15 @@ export default function CustomDrawer({ navigation }) {
             : 'OwnerHome';
         navigation.navigate(homeRoute);
       },
+    },
+    {
+      id: 'profile',
+      label: 'My Profile',
+      subtitle: 'Account info & credentials',
+      Icon: Profile3DIcon,
+      bgColor: '#EEF2FF',
+      borderColor: '#C7D2FE',
+      action: () => navigation.navigate('Profile'),
     },
     {
       id: 'parts',
@@ -116,16 +125,20 @@ export default function CustomDrawer({ navigation }) {
     >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* Drawer Header */}
+      {/* Drawer Header (No Avatar Image CDN required) */}
       <View style={styles.header}>
-        <View style={styles.profileRow}>
-          <View style={styles.avatarWrapper}>
-            <DrawerAvatar3DIcon size={44} />
-          </View>
+        <TouchableOpacity
+          style={styles.profileRow}
+          onPress={() => navigation.navigate('Profile')}
+          activeOpacity={0.7}
+        >
           <View style={styles.profileTextCol}>
-            <Text style={styles.userName} numberOfLines={1}>
-              {myself?.name || 'Chandan Mallik'}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.userName} numberOfLines={1}>
+                {myself?.name || 'Chandan Mallik'}
+              </Text>
+              <ChevronRight size={16} color="#9CA3AF" />
+            </View>
             <View style={styles.badgeRow}>
               <View style={styles.roleBadge}>
                 <Text style={styles.roleBadgeText}>
@@ -133,10 +146,10 @@ export default function CustomDrawer({ navigation }) {
                 </Text>
               </View>
               <View style={styles.verifiedDot} />
-              <Text style={styles.verifiedText}>Verified User</Text>
+              <Text style={styles.verifiedText}>View Profile</Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.closeBtn}
@@ -230,20 +243,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     marginRight: 10,
-  },
-  avatarWrapper: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
   profileTextCol: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   userName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#111827',
     letterSpacing: -0.2,

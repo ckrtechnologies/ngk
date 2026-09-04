@@ -100,7 +100,64 @@ export function HomeDashboard3DIcon({ size = 32, ...props }) {
   );
 }
 
-// 0.1 USER PROFILE / TECHNICIAN AVATAR 3D ICON
+// 0.1 PROFILE CREDENTIALS 3D ICON - Digital Smart ID & Security Chip
+export function Profile3DIcon({ size = 32, ...props }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none" {...props}>
+      <Defs>
+        <LinearGradient id="idCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#6366F1" />
+          <Stop offset="50%" stopColor="#4F46E5" />
+          <Stop offset="100%" stopColor="#3730A3" />
+        </LinearGradient>
+        <LinearGradient id="chipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="#FDE68A" />
+          <Stop offset="100%" stopColor="#D97706" />
+        </LinearGradient>
+      </Defs>
+
+      {/* Card Drop Shadow Base */}
+      <Rect x="7" y="10" width="34" height="28" rx="6" fill="#1E1B4B" opacity="0.3" />
+
+      {/* Main 3D ID Card Body */}
+      <Rect
+        x="6"
+        y="8"
+        width="36"
+        height="30"
+        rx="5"
+        fill="url(#idCardGrad)"
+        stroke="#818CF8"
+        strokeWidth="1.2"
+      />
+
+      {/* Top Lanyard Slot */}
+      <Rect x="18" y="10" width="12" height="2" rx="1" fill="#312E81" />
+
+      {/* Metallic Gold Smart Security Chip */}
+      <Rect x="10" y="15" width="8" height="7" rx="1.5" fill="url(#chipGrad)" />
+      <Line x1="14" y1="15" x2="14" y2="22" stroke="#B45309" strokeWidth="0.8" />
+      <Line x1="10" y1="18.5" x2="18" y2="18.5" stroke="#B45309" strokeWidth="0.8" />
+
+      {/* Verified User Silhouette */}
+      <Circle cx="30" cy="18" r="4.5" fill="#FFFFFF" />
+      <Path
+        d="M23 31c0-3.5 3-5.5 7-5.5s7 2 7 5.5"
+        fill="#FFFFFF"
+      />
+
+      {/* Hologram / Biometric Waves */}
+      <Line x1="10" y1="26" x2="19" y2="26" stroke="#C7D2FE" strokeWidth="1.8" strokeLinecap="round" opacity="0.8" />
+      <Line x1="10" y1="30" x2="16" y2="30" stroke="#C7D2FE" strokeWidth="1.8" strokeLinecap="round" opacity="0.6" />
+
+      {/* Verified Green Shield Dot */}
+      <Circle cx="38" cy="12" r="3" fill="#10B981" />
+      <Circle cx="38" cy="12" r="1.2" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+// 0.15 LEGACY TECHNICIAN HELMET ICON
 export function DrawerAvatar3DIcon({ size = 36, ...props }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none" {...props}>
