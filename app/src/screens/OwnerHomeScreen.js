@@ -113,7 +113,7 @@ const OwnerHomeScreen = () => {
       countHighlight: 'Direct Support',
       text: 'Instant technical quotes',
       highlight: 'Quotes',
-      route: 'TechnicalEnquiry',
+      route: 'MyEnquiries',
     },
   ];
 
@@ -142,12 +142,12 @@ const OwnerHomeScreen = () => {
     {
       id: 'enquiry',
       title: 'Tech Enquiry',
-      subtitle: 'Photo upload & expert advice',
+      subtitle: 'Track tickets & expert advice',
       IconComponent: TechEnquiry3DIcon,
       bg: '#ECFDF5',
       accentColor: '#059669',
-      tag: 'Fast Quote',
-      route: 'TechnicalEnquiry',
+      tag: 'Tickets',
+      route: 'MyEnquiries',
     },
     {
       id: 'dealers',

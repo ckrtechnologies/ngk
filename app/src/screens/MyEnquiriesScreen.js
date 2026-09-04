@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,22 +8,18 @@ import {
   StatusBar,
   Modal,
   TextInput,
-  ActivityIndicator,
   Image,
+  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   MessageSquare,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
   ChevronRight,
   Send,
   X,
   Store,
-  Tag,
-  Car,
+  Plus,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -46,10 +42,10 @@ const MyEnquiriesScreen = () => {
   const [sendingReply, setSendingReply] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const refreshEnquiries = async () => {
+  const refreshEnquiries = useCallback(async () => {
     const userId = await AsyncStorage.getItem('userId');
     if (userId) dispatch(getEnquiryRedux(userId));
-  };
+  }, [dispatch]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -59,7 +55,7 @@ const MyEnquiriesScreen = () => {
 
   useEffect(() => {
     refreshEnquiries();
-  }, [dispatch]);
+  }, [refreshEnquiries]);
 
   const filterTabs = ['ALL', 'PENDING', 'IN PROGRESS', 'RESOLVED'];
 
@@ -146,9 +142,19 @@ const MyEnquiriesScreen = () => {
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <AppHeader
-        title="Technical Tickets"
+        title="Technical Enquiries"
         subtitle={`${enquiry?.length || 0} Total Requests`}
         onBack={() => navigation.goBack()}
+        rightElement={
+          <TouchableOpacity
+            style={styles.newTicketHeaderBtn}
+            onPress={() => navigation.navigate('TechnicalEnquiry')}
+            activeOpacity={0.8}
+          >
+            <Plus size={15} color="#FFFFFF" strokeWidth={2.4} />
+            <Text style={styles.newTicketHeaderBtnText}>New</Text>
+          </TouchableOpacity>
+        }
       />
 
       {/* Filter Tabs */}
@@ -299,7 +305,7 @@ const MyEnquiriesScreen = () => {
               </View>
 
               {/* Reply Box */}
-              <Text style={[styles.detailLabel, { marginTop: 14 }]}>
+              <Text style={[styles.detailLabel, styles.replyMargin]}>
                 SEND MESSAGE / REPLY
               </Text>
               <View style={styles.replyRow}>
@@ -533,6 +539,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#C6122E',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  newTicketHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#C6122E',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  newTicketHeaderBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  replyMargin: {
+    marginTop: 14,
   },
 });
 
